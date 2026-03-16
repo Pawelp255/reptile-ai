@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="180" height="180" viewBox="0 0 180 180" fill="none">
+  <!-- Background with rounded corners for iOS -->
+  <rect width="180" height="180" rx="36" fill="#2a9d8f"/>
+  
+  <!-- Stylized reptile/snake head silhouette -->
+  <path d="M45 90c0-24.9 20.1-45 45-45 15 0 28.3 7.3 36.6 18.6l14-9.4C129 38 111.3 27.5 90 27.5c-35.2 0-63.8 28.5-63.8 63.8s28.5 63.8 63.8 63.8c21.3 0 40.5-10.5 52-26.3l-14-9.4c-8.3 11.3-21.6 18.6-36.6 18.6-24.9 0-45-20.1-45-45z" fill="#fff" fill-opacity="0.9"/>
+  
+  <!-- Eye -->
+  <circle cx="103" cy="75" r="9.4" fill="#fff"/>
+  <circle cx="105" cy="73" r="4.7" fill="#1a5f58"/>
+  
+  <!-- Tongue -->
+  <path d="M122 90h18.8l7.5-5.6M140 90l7.5 5.6" stroke="#e63946" stroke-width="3.8" stroke-linecap="round"/>
+  
+  <!-- Scale pattern -->
+  <circle cx="75" cy="66" r="3.8" fill="#fff" fill-opacity="0.3"/>
+  <circle cx="66" cy="80" r="3.8" fill="#fff" fill-opacity="0.3"/>
+  <circle cx="70" cy="94" r="3.8" fill="#fff" fill-opacity="0.3"/>
+  <circle cx="80" cy="105" r="3.8" fill="#fff" fill-opacity="0.3"/>
+</svg>

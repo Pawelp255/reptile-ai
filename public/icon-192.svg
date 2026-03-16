@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192" fill="none">
+  <!-- Background circle -->
+  <circle cx="96" cy="96" r="96" fill="#2a9d8f"/>
+  
+  <!-- Stylized reptile/snake head silhouette -->
+  <path d="M48 96c0-26.5 21.5-48 48-48 16 0 30.2 7.8 39 19.8l15-10c-12.5-17.3-32.8-28.8-54-28.8-37.6 0-68 30.4-68 68s30.4 68 68 68c21.2 0 40.5-11.5 54-28.8l-15-10c-8.8 12-23 19.8-39 19.8-26.5 0-48-21.5-48-48z" fill="#fff" fill-opacity="0.9"/>
+  
+  <!-- Eye -->
+  <circle cx="110" cy="80" r="10" fill="#fff"/>
+  <circle cx="112" cy="78" r="5" fill="#1a5f58"/>
+  
+  <!-- Tongue -->
+  <path d="M130 96h20l8-6M150 96l8 6" stroke="#e63946" stroke-width="4" stroke-linecap="round"/>
+  
+  <!-- Scale pattern suggestion -->
+  <circle cx="80" cy="70" r="4" fill="#fff" fill-opacity="0.3"/>
+  <circle cx="70" cy="85" r="4" fill="#fff" fill-opacity="0.3"/>
+  <circle cx="75" cy="100" r="4" fill="#fff" fill-opacity="0.3"/>
+  <circle cx="85" cy="112" r="4" fill="#fff" fill-opacity="0.3"/>
+</svg>

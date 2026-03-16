@@ -1,0 +1,720 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Reptile AI — Nature-inspired, premium mobile design */
+/* Premium glass UI system: variables in :root/.dark, classes in @layer components */
+
+@layer base {
+  :root {
+    /* Core — calm, elegant light surfaces */
+    --background: 150 20% 98.5%;
+    --foreground: 150 20% 14%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 150 20% 14%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 150 20% 14%;
+
+    /* Primary — refined teal, restrained */
+    --primary: 166 40% 36%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Secondary — soft sage */
+    --secondary: 150 16% 95%;
+    --secondary-foreground: 150 20% 26%;
+
+    /* Muted — premium secondary text */
+    --muted: 150 10% 94%;
+    --muted-foreground: 150 6% 44%;
+
+    /* Accent — warm but restrained */
+    --accent: 35 75% 52%;
+    --accent-foreground: 35 80% 18%;
+
+    /* Status colors */
+    --destructive: 0 65% 48%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 142 55% 42%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 38 82% 48%;
+    --warning-foreground: 38 85% 15%;
+
+    --overdue: 0 65% 48%;
+    --overdue-foreground: 0 0% 100%;
+
+    /* Borders and inputs — soft, elegant */
+    --border: 150 12% 91%;
+    --input: 150 12% 91%;
+    --ring: 166 42% 38%;
+
+    /* Radius — premium, consistent */
+    --radius: 0.625rem;
+    --radius-lg: 0.75rem;
+    --radius-xl: 1rem;
+
+    /* Shadows — very soft depth */
+    --shadow-card: 0 1px 2px 0 rgb(0 0 0 / 0.02);
+    --shadow-elevated: 0 2px 8px -2px rgb(0 0 0 / 0.03), 0 1px 3px -1px rgb(0 0 0 / 0.02);
+
+    --space-page: 1rem;
+    --space-section: 1.5rem;
+    --space-card: 1.125rem;
+
+    /* Typography scale — clear hierarchy */
+    --text-page-title: 1.0625rem;
+    --text-section-title: 0.6875rem;
+    --text-card-title: 0.9375rem;
+    --text-body: 0.875rem;
+    --text-secondary: 0.8125rem;
+    --text-caption: 0.6875rem;
+    --leading-tight: 1.25;
+    --leading-snug: 1.375;
+    --leading-relaxed: 1.5;
+
+    /* Nav — iPhone-like tab bar */
+    --nav-background: 0 0% 100%;
+    --nav-border: 150 10% 93%;
+    --nav-active: 166 40% 36%;
+    --nav-inactive: 150 6% 48%;
+
+    /* Liquid glass — premium shell and panels, richer depth */
+    --glass-bg: 0 0% 100%;
+    --glass-bg-opacity: 0.82;
+    --glass-border: 150 14% 88%;
+    --glass-border-opacity: 0.7;
+    --glass-blur: 32px;
+    --glass-saturate: 185%;
+    --glass-highlight: 0 1px 0 0 rgb(255 255 255 / 0.92);
+    --glass-highlight-soft: 0 1px 1px 0 rgb(255 255 255 / 0.4);
+    --glass-shadow: 0 6px 28px -6px rgb(0 0 0 / 0.07), 0 2px 10px -2px rgb(0 0 0 / 0.04);
+    /* Premium surface (cards, panels) — layered depth */
+    --surface-highlight: 0 1px 0 0 rgb(255 255 255 / 0.78);
+    --surface-highlight-soft: 0 1px 0 0 rgb(255 255 255 / 0.35);
+    --surface-shadow: 0 3px 12px -3px rgb(0 0 0 / 0.06), 0 1px 4px -1px rgb(0 0 0 / 0.04);
+    --surface-shadow-deep: 0 8px 24px -6px rgb(0 0 0 / 0.06), 0 2px 8px -2px rgb(0 0 0 / 0.03);
+
+    /* Motion — fast, smooth, premium */
+    --motion-duration-fast: 150ms;
+    --motion-duration-normal: 220ms;
+    --motion-ease: cubic-bezier(0.25, 0.1, 0.25, 1);
+
+    /* Sidebar (unused but keeping for compatibility) */
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 150 25% 25%;
+    --sidebar-primary: 166 45% 40%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 150 20% 94%;
+    --sidebar-accent-foreground: 150 25% 25%;
+    --sidebar-border: 150 15% 88%;
+    --sidebar-ring: 166 45% 40%;
+  }
+
+  .dark {
+    --glass-bg: 150 18% 11%;
+    --glass-bg-opacity: 0.9;
+    --glass-border: 150 14% 16%;
+    --glass-border-opacity: 0.75;
+    --glass-highlight: 0 1px 0 0 rgb(255 255 255 / 0.1);
+    --glass-highlight-soft: 0 1px 0 0 rgb(255 255 255 / 0.04);
+    --glass-shadow: 0 6px 28px -6px rgb(0 0 0 / 0.28), 0 2px 10px -2px rgb(0 0 0 / 0.12);
+    --surface-highlight: 0 1px 0 0 rgb(255 255 255 / 0.08);
+    --surface-highlight-soft: 0 1px 0 0 rgb(255 255 255 / 0.03);
+    --surface-shadow: 0 3px 12px -3px rgb(0 0 0 / 0.22), 0 1px 4px -1px rgb(0 0 0 / 0.1);
+    --surface-shadow-deep: 0 8px 24px -6px rgb(0 0 0 / 0.3), 0 2px 8px -2px rgb(0 0 0 / 0.12);
+    /* Same typography scale and spacing as light */
+    --shadow-card: 0 1px 2px 0 rgb(0 0 0 / 0.12);
+    --shadow-elevated: 0 2px 8px -2px rgb(0 0 0 / 0.15), 0 1px 3px -1px rgb(0 0 0 / 0.08);
+    --background: 150 20% 8%;
+    --foreground: 150 10% 95%;
+
+    --card: 150 20% 12%;
+    --card-foreground: 150 10% 95%;
+
+    --popover: 150 20% 12%;
+    --popover-foreground: 150 10% 95%;
+
+    --primary: 166 50% 50%;
+    --primary-foreground: 150 25% 10%;
+
+    --secondary: 150 20% 18%;
+    --secondary-foreground: 150 10% 90%;
+
+    --muted: 150 15% 20%;
+    --muted-foreground: 150 10% 60%;
+
+    --accent: 35 85% 55%;
+    --accent-foreground: 35 90% 10%;
+
+    --destructive: 0 62% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 142 60% 50%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 38 85% 55%;
+    --warning-foreground: 38 90% 10%;
+
+    --overdue: 0 62% 50%;
+    --overdue-foreground: 0 0% 100%;
+
+    --border: 150 15% 22%;
+    --input: 150 15% 22%;
+    --ring: 166 50% 50%;
+
+    --nav-background: 150 20% 10%;
+    --nav-border: 150 15% 18%;
+    --nav-active: 166 50% 50%;
+    --nav-inactive: 150 10% 50%;
+
+    --sidebar-background: 150 20% 10%;
+    --sidebar-foreground: 150 10% 90%;
+    --sidebar-primary: 166 50% 50%;
+    --sidebar-primary-foreground: 150 25% 10%;
+    --sidebar-accent: 150 20% 18%;
+    --sidebar-accent-foreground: 150 10% 90%;
+    --sidebar-border: 150 15% 22%;
+    --sidebar-ring: 166 50% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    /* Prevent overscroll bounce on iOS, native-like scroll */
+    overscroll-behavior: none;
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply text-foreground antialiased;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    touch-action: manipulation;
+    overscroll-behavior-y: contain;
+    padding-top: env(safe-area-inset-top);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+    /* Premium atmospheric background — rich layered green/teal, calm terrarium depth */
+    background-color: hsl(var(--background));
+    background-image:
+      radial-gradient(ellipse 160% 120% at 50% -35%, hsl(166 36% 93% / 0.62), transparent 48%),
+      radial-gradient(ellipse 110% 75% at 88% 15%, hsl(154 26% 94% / 0.32), transparent 45%),
+      radial-gradient(ellipse 85% 55% at 8% 65%, hsl(148 22% 93% / 0.24), transparent 42%),
+      radial-gradient(ellipse 65% 45% at 98% 88%, hsl(160 24% 92% / 0.18), transparent 40%),
+      radial-gradient(ellipse 50% 35% at 50% 100%, hsl(152 20% 91% / 0.12), transparent 38%);
+  }
+
+  .dark body {
+    background-image:
+      radial-gradient(ellipse 130% 90% at 50% -25%, hsl(166 26% 13% / 0.5), transparent 48%),
+      radial-gradient(ellipse 95% 55% at 92% 35%, hsl(150 16% 10% / 0.28), transparent 44%),
+      radial-gradient(ellipse 75% 50% at 5% 72%, hsl(152 18% 9% / 0.2), transparent 42%),
+      radial-gradient(ellipse 55% 40% at 50% 105%, hsl(158 20% 8% / 0.12), transparent 40%);
+  }
+
+  /* Prevent text selection on touch hold for app-like feel */
+  button, a, [role="button"] {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+
+  /* Allow text selection in inputs and content areas */
+  input, textarea, [contenteditable], p, span, h1, h2, h3, h4, h5, h6 {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+
+  /* Consistent focus ring — accessibility, subtle */
+  button:focus-visible,
+  a:focus-visible,
+  [role="button"]:focus-visible,
+  input:focus-visible,
+  textarea:focus-visible,
+  select:focus-visible,
+  [data-state="open"]:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px hsl(var(--background)), 0 0 0 4px hsl(var(--ring) / 0.5);
+  }
+}
+
+@layer utilities {
+  .ease-premium {
+    transition-timing-function: cubic-bezier(0.25, 0.1, 0.25, 1);
+  }
+
+  /* Safe area utilities */
+  .safe-top {
+    padding-top: max(1rem, env(safe-area-inset-top));
+  }
+
+  .safe-bottom {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+
+  .safe-left {
+    padding-left: max(0px, env(safe-area-inset-left));
+  }
+
+  .safe-right {
+    padding-right: max(0px, env(safe-area-inset-right));
+  }
+
+  .safe-x {
+    padding-left: max(0px, env(safe-area-inset-left));
+    padding-right: max(0px, env(safe-area-inset-right));
+  }
+
+  .safe-y {
+    padding-top: max(0px, env(safe-area-inset-top));
+    padding-bottom: max(0px, env(safe-area-inset-bottom));
+  }
+
+  .safe-all {
+    padding-top: max(0px, env(safe-area-inset-top));
+    padding-right: max(0px, env(safe-area-inset-right));
+    padding-bottom: max(0px, env(safe-area-inset-bottom));
+    padding-left: max(0px, env(safe-area-inset-left));
+  }
+
+  /* Motion — entry and reveal */
+  .animate-in-fade {
+    animation: motion-fade-in var(--motion-duration-normal) var(--motion-ease) forwards;
+  }
+
+  .animate-in-slide-up {
+    animation: motion-slide-up var(--motion-duration-normal) var(--motion-ease) forwards;
+  }
+
+  /* Stagger children — start hidden so entrance is clean */
+  .stagger-children > * {
+    opacity: 0;
+    animation: motion-slide-up var(--motion-duration-normal) var(--motion-ease) forwards;
+  }
+
+  .stagger-children > *:nth-child(1) { animation-delay: 0ms; }
+  .stagger-children > *:nth-child(2) { animation-delay: 40ms; }
+  .stagger-children > *:nth-child(3) { animation-delay: 80ms; }
+  .stagger-children > *:nth-child(4) { animation-delay: 120ms; }
+  .stagger-children > *:nth-child(5) { animation-delay: 160ms; }
+  .stagger-children > *:nth-child(6) { animation-delay: 200ms; }
+
+  /* Stagger delay utilities for manual sequence (e.g. Overview panels) */
+  .motion-delay-1 { animation-delay: 80ms; }
+  .motion-delay-2 { animation-delay: 160ms; }
+  .motion-delay-3 { animation-delay: 240ms; }
+}
+
+@keyframes motion-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes motion-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Respect user preference for reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .animate-in-fade,
+  .animate-in-slide-up {
+    animation: none;
+    opacity: 1;
+  }
+  .stagger-children > *,
+  .motion-delay-1,
+  .motion-delay-2,
+  .motion-delay-3 {
+    animation: none;
+    opacity: 1;
+  }
+}
+
+@layer components {
+  /* Task card — premium surface, layered depth */
+  .task-card {
+    @apply flex items-center gap-4;
+    padding: var(--space-card);
+    border-radius: var(--radius-xl);
+    background: hsl(var(--card) / 0.93);
+    backdrop-filter: saturate(150%) blur(12px);
+    -webkit-backdrop-filter: saturate(150%) blur(12px);
+    border: 0.5px solid hsl(var(--border) / 0.5);
+    box-shadow: var(--surface-highlight), var(--surface-highlight-soft), var(--surface-shadow);
+    transition: transform var(--motion-duration-fast) var(--motion-ease), box-shadow var(--motion-duration-normal) var(--motion-ease);
+  }
+
+  .task-card:active {
+    transform: scale(0.98);
+  }
+
+  .task-card-overdue {
+    @apply border-l-[3px] border-l-overdue;
+    box-shadow: var(--surface-highlight), var(--surface-highlight-soft), var(--surface-shadow), 0 0 0 1px hsl(var(--overdue) / 0.1);
+  }
+
+  .task-card-due {
+    @apply border-l-[3px] border-l-primary;
+  }
+
+  .dark .task-card {
+    background: hsl(var(--card) / 0.88);
+    box-shadow: var(--surface-highlight), var(--surface-shadow);
+  }
+
+  @supports not (backdrop-filter: blur(1px)) {
+    .task-card {
+      background: hsl(var(--card));
+    }
+    .dark .task-card {
+      background: hsl(var(--card));
+    }
+  }
+
+  /* Reptile card — premium liquid-glass surface */
+  .reptile-card {
+    @apply flex items-center gap-4;
+    padding: var(--space-card);
+    border-radius: var(--radius-xl);
+    background: hsl(var(--card) / 0.93);
+    backdrop-filter: saturate(150%) blur(12px);
+    -webkit-backdrop-filter: saturate(150%) blur(12px);
+    border: 0.5px solid hsl(var(--border) / 0.5);
+    box-shadow: var(--surface-highlight), var(--surface-highlight-soft), var(--surface-shadow);
+    transition: transform var(--motion-duration-fast) var(--motion-ease), box-shadow var(--motion-duration-normal) var(--motion-ease);
+  }
+
+  .reptile-card:active {
+    transform: scale(0.98);
+  }
+
+  @media (hover: hover) {
+    .reptile-card:hover {
+      box-shadow: var(--surface-highlight), var(--surface-highlight-soft), var(--surface-shadow-deep);
+    }
+    .dark .reptile-card:hover {
+      box-shadow: var(--surface-highlight), var(--surface-shadow-deep);
+    }
+  }
+
+  .dark .reptile-card {
+    background: hsl(var(--card) / 0.88);
+    box-shadow: var(--surface-highlight), var(--surface-shadow);
+  }
+
+  @supports not (backdrop-filter: blur(1px)) {
+    .reptile-card {
+      background: hsl(var(--card));
+    }
+    .dark .reptile-card {
+      background: hsl(var(--card));
+    }
+  }
+
+  /* Event timeline */
+  .event-item {
+    @apply relative pl-5 pb-5 border-l border-border/50 last:border-l-0;
+  }
+
+  .event-dot {
+    @apply absolute left-[-5px] top-1.5 w-2 h-2 rounded-full bg-primary/90;
+  }
+
+  /* Bottom nav — premium floating tab bar, rich glass depth */
+  .bottom-nav {
+    @apply fixed bottom-0 left-0 right-0 z-50;
+    background: hsl(var(--glass-bg) / var(--glass-bg-opacity));
+    backdrop-filter: saturate(var(--glass-saturate)) blur(var(--glass-blur));
+    -webkit-backdrop-filter: saturate(var(--glass-saturate)) blur(var(--glass-blur));
+    border-top: 0.5px solid hsl(var(--glass-border) / var(--glass-border-opacity));
+    box-shadow: var(--glass-highlight), 0 -1px 0 0 hsl(var(--glass-border) / 0.55), 0 -10px 40px -8px rgb(0 0 0 / 0.1), 0 -2px 8px -2px rgb(0 0 0 / 0.04);
+    padding-top: 0.5rem;
+    padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+    padding-left: max(0.5rem, env(safe-area-inset-left));
+    padding-right: max(0.5rem, env(safe-area-inset-right));
+    min-height: calc(3.5rem + env(safe-area-inset-bottom, 0px));
+    transition: background var(--motion-duration-normal) var(--motion-ease), box-shadow var(--motion-duration-normal) var(--motion-ease);
+  }
+
+  .dark .bottom-nav {
+    box-shadow: var(--glass-highlight), 0 -1px 0 0 hsl(var(--glass-border) / 0.65), 0 -10px 40px -8px rgb(0 0 0 / 0.4), 0 -2px 8px -2px rgb(0 0 0 / 0.15);
+  }
+
+  .bottom-nav-item {
+    @apply flex flex-col items-center justify-center text-nav-inactive;
+    gap: 0.25rem;
+    min-height: 2.5rem;
+    min-width: 3.25rem;
+    padding: 0.25rem 0.25rem;
+    transition: color var(--motion-duration-fast) var(--motion-ease), transform var(--motion-duration-fast) var(--motion-ease), background var(--motion-duration-fast) var(--motion-ease), box-shadow var(--motion-duration-fast) var(--motion-ease);
+  }
+
+  .bottom-nav-item:active {
+    transform: scale(0.97);
+  }
+
+  .bottom-nav-item.active {
+    @apply text-nav-active font-medium;
+  }
+
+  /* Selected tab — premium pill with glass */
+  .bottom-nav-item .bottom-nav-icon-wrap {
+    @apply flex items-center justify-center w-8 h-8 rounded-full transition-all duration-200;
+  }
+
+  .bottom-nav-item.active .bottom-nav-icon-wrap {
+    background: hsl(var(--primary) / 0.12);
+    border: 0.5px solid hsl(var(--primary) / 0.18);
+    box-shadow: 0 1px 0 0 rgb(255 255 255 / 0.5), 0 2px 6px -2px rgb(0 0 0 / 0.06);
+  }
+
+  .dark .bottom-nav-item.active .bottom-nav-icon-wrap {
+    background: hsl(var(--primary) / 0.22);
+    border: 0.5px solid hsl(var(--primary) / 0.3);
+    box-shadow: 0 1px 0 0 rgb(255 255 255 / 0.08), 0 2px 8px -2px rgb(0 0 0 / 0.25);
+  }
+
+  /* ========== PREMIUM GLASS UI SYSTEM — reusable classes ========== */
+  .glass-shell {
+    background: hsl(var(--glass-bg) / var(--glass-bg-opacity));
+    backdrop-filter: saturate(var(--glass-saturate)) blur(var(--glass-blur));
+    -webkit-backdrop-filter: saturate(var(--glass-saturate)) blur(var(--glass-blur));
+    border: 0.5px solid hsl(var(--glass-border) / var(--glass-border-opacity));
+    box-shadow: var(--glass-highlight), var(--glass-highlight-soft), var(--glass-shadow);
+    transition: background var(--motion-duration-normal) var(--motion-ease), box-shadow var(--motion-duration-normal) var(--motion-ease);
+  }
+
+  .glass-panel {
+    background: hsl(var(--glass-bg) / 0.84);
+    backdrop-filter: saturate(170%) blur(26px);
+    -webkit-backdrop-filter: saturate(170%) blur(26px);
+    border: 0.5px solid hsl(var(--glass-border) / 0.65);
+    box-shadow: var(--glass-highlight), var(--surface-shadow);
+  }
+
+  .dark .glass-panel {
+    background: hsl(var(--glass-bg) / 0.86);
+    box-shadow: var(--glass-highlight), var(--surface-shadow);
+  }
+
+  .glass-highlight {
+    box-shadow: var(--glass-highlight);
+  }
+
+  .premium-surface {
+    background: hsl(var(--card) / 0.92);
+    backdrop-filter: saturate(150%) blur(14px);
+    -webkit-backdrop-filter: saturate(150%) blur(14px);
+    border: 0.5px solid hsl(var(--border) / 0.55);
+    box-shadow: var(--surface-highlight), var(--surface-highlight-soft), var(--surface-shadow);
+  }
+
+  .dark .premium-surface {
+    background: hsl(var(--card) / 0.88);
+    box-shadow: var(--surface-highlight), var(--surface-shadow);
+  }
+
+  /* Elevated premium surface — for hero panels (e.g. Care Card) */
+  .premium-surface-elevated {
+    background: hsl(var(--card) / 0.94);
+    backdrop-filter: saturate(155%) blur(16px);
+    -webkit-backdrop-filter: saturate(155%) blur(16px);
+    border: 0.5px solid hsl(var(--border) / 0.5);
+    box-shadow: var(--surface-highlight), var(--surface-highlight-soft), var(--surface-shadow-deep);
+  }
+
+  .dark .premium-surface-elevated {
+    background: hsl(var(--card) / 0.86);
+    box-shadow: var(--surface-highlight), var(--surface-shadow-deep);
+  }
+
+  @supports not (backdrop-filter: blur(1px)) {
+    .glass-shell, .page-header-glass {
+      background: hsl(var(--background) / 0.96);
+    }
+    .glass-panel {
+      background: hsl(var(--card) / 0.98);
+    }
+    .premium-surface, .premium-surface-elevated {
+      background: hsl(var(--card));
+    }
+  }
+
+  /* Page header — premium liquid glass, clear separation from content */
+  .page-header-glass {
+    background: hsl(var(--glass-bg) / var(--glass-bg-opacity));
+    backdrop-filter: saturate(var(--glass-saturate)) blur(var(--glass-blur));
+    -webkit-backdrop-filter: saturate(var(--glass-saturate)) blur(var(--glass-blur));
+    border-bottom: 0.5px solid hsl(var(--glass-border) / var(--glass-border-opacity));
+    box-shadow: var(--glass-highlight), 0 4px 20px -6px rgb(0 0 0 / 0.06), 0 1px 0 0 hsl(var(--glass-border) / 0.25);
+    transition: background var(--motion-duration-normal) var(--motion-ease), box-shadow var(--motion-duration-normal) var(--motion-ease);
+  }
+
+  .dark .page-header-glass {
+    box-shadow: var(--glass-highlight), 0 4px 20px -6px rgb(0 0 0 / 0.25), 0 1px 0 0 hsl(var(--glass-border) / 0.4);
+  }
+
+  /* Page container — nav + safe area; subtle entry */
+  .page-container {
+    @apply min-h-screen overflow-x-hidden;
+    padding-bottom: calc(3.75rem + env(safe-area-inset-bottom, 0px));
+    animation: motion-fade-in var(--motion-duration-normal) var(--motion-ease);
+  }
+
+  /* Page content — horizontal rhythm */
+  .page-content {
+    padding-left: max(var(--space-page), env(safe-area-inset-left));
+    padding-right: max(var(--space-page), env(safe-area-inset-right));
+  }
+
+  /* First block below header */
+  .page-content-top {
+    padding-top: 1rem;
+  }
+
+  /* Sticky bottom action bar — premium glass, safe-area aware */
+  .sticky-bottom-actions {
+    background: hsl(var(--glass-bg) / var(--glass-bg-opacity));
+    backdrop-filter: saturate(var(--glass-saturate)) blur(var(--glass-blur));
+    -webkit-backdrop-filter: saturate(var(--glass-saturate)) blur(var(--glass-blur));
+    border-top: 0.5px solid hsl(var(--glass-border) / var(--glass-border-opacity));
+    box-shadow: var(--glass-highlight), 0 -1px 0 0 hsl(var(--glass-border) / 0.55), 0 -8px 32px -6px rgb(0 0 0 / 0.08);
+    padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+    padding-left: max(var(--space-page), env(safe-area-inset-left));
+    padding-right: max(var(--space-page), env(safe-area-inset-right));
+    padding-top: 0.75rem;
+    @apply sticky bottom-0 left-0 right-0 z-40;
+  }
+
+
+  /* Typography — semantic levels, premium readability */
+  .text-page-title {
+    font-size: var(--text-page-title);
+    line-height: var(--leading-tight);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: hsl(var(--foreground));
+  }
+
+  .text-section-title {
+    font-size: var(--text-section-title);
+    font-weight: 500;
+    letter-spacing: 0.045em;
+    text-transform: uppercase;
+    color: hsl(var(--muted-foreground) / 0.95);
+  }
+
+  .text-card-title {
+    font-size: var(--text-card-title);
+    line-height: var(--leading-tight);
+    font-weight: 600;
+  }
+
+  .text-body {
+    font-size: var(--text-body);
+    line-height: var(--leading-relaxed);
+  }
+
+  .text-secondary {
+    font-size: var(--text-secondary);
+    line-height: var(--leading-snug);
+    color: hsl(var(--muted-foreground) / 0.92);
+  }
+
+  .text-caption {
+    font-size: var(--text-caption);
+    line-height: var(--leading-snug);
+    color: hsl(var(--muted-foreground) / 0.88);
+  }
+
+  /* Section header — clean hierarchy, calm rhythm */
+  .section-header {
+    font-size: var(--text-section-title);
+    font-weight: 500;
+    color: hsl(var(--muted-foreground) / 0.95);
+    text-transform: uppercase;
+    letter-spacing: 0.045em;
+    margin-bottom: 0.5rem;
+    margin-top: var(--space-section);
+  }
+
+  .section-header:first-child {
+    margin-top: 0;
+  }
+
+  /* Empty state — calm, premium */
+  .empty-state {
+    @apply flex flex-col items-center justify-center text-center;
+    padding: 2.75rem 1.25rem 3.25rem;
+    min-height: 12rem;
+  }
+
+  /* Touch-friendly tap target (44px minimum for mobile) */
+  .touch-button {
+    @apply flex items-center justify-center;
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Settings / form row — iPhone-style grouped list row (use with divide-y) */
+  .settings-row {
+    min-height: 44px;
+  }
+
+  /* Modal/dialog scroll safety for small screens */
+  .modal-content {
+    max-height: calc(100vh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 2rem);
+    max-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 2rem);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Scrollable container that respects safe areas */
+  .scroll-container {
+    @apply overflow-y-auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
+  /* Fix for iOS momentum scrolling in fixed containers */
+  .ios-scroll-fix {
+    -webkit-overflow-scrolling: touch;
+    transform: translateZ(0);
+  }
+
+  /* Minimum height for loading/skeleton areas — reduces layout jump, premium rhythm */
+  .loading-min-height {
+    min-height: 18rem;
+  }
+}
+
+/* PWA install prompt styling */
+@media (display-mode: standalone) {
+  /* Styles when running as installed PWA */
+  body {
+    /* Additional PWA-specific overrides if needed */
+  }
+}
+
+/* Prevent zoom on input focus (iOS) */
+@supports (-webkit-touch-callout: none) {
+  input, textarea, select {
+    font-size: 16px !important;
+  }
+}
