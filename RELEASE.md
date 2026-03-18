@@ -16,7 +16,7 @@ Concise notes for building and packaging the app for web, PWA, and native (iOS/A
 
 ## App icons
 
-- **Location:** `public/icon-192.svg`, `public/icon-512.svg`, `public/apple-touch-icon.svg`
+- **Location:** `public/logo.svg`, `public/favicon.svg`
 - **PWA manifest:** Icons are referenced in `vite.config.ts` (VitePWA plugin). 192 and 512 are used for install and splash.
 - **iOS/Android:** After `cap sync`, add platform-specific icons:
   - **iOS:** Replace assets in `ios/App/App/Assets.xcassets/AppIcon.appiconset/` (use Xcode or provide 1024×1024 and let Xcode generate sizes).
@@ -45,7 +45,7 @@ Concise notes for building and packaging the app for web, PWA, and native (iOS/A
 ## Capacitor production build
 
 - **Production:** Do **not** set `CAPACITOR_DEV_SERVE`. Run `npm run build` then `npx cap sync`. The app loads from `webDir` (`dist/`).
-- **Optional dev with remote URL:** Set `CAPACITOR_DEV_SERVE=true` before `cap sync` / `cap run` if you need to point at a remote dev server (e.g. Lovable preview).
+- **Optional dev with remote URL:** Set `CAPACITOR_DEV_SERVE=true` and `CAPACITOR_DEV_SERVE_URL=...` if you need to point at a remote dev server.
 - **App identity:** In `capacitor.config.ts`, `appId` is `com.reptileai.app` and `appName` is `Reptile AI`. Change `appId` if you need a different bundle identifier (e.g. for an existing app).
 
 ---

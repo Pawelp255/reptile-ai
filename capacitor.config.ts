@@ -8,7 +8,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
  * - Then: npx cap sync
  * - Do NOT set CAPACITOR_DEV_SERVE — app will load from webDir (dist).
  *
- * OPTIONAL — Development with remote host (e.g. Lovable preview):
+ * OPTIONAL — Development with remote host:
  * - Set env: CAPACITOR_DEV_SERVE=true before cap run/sync to load from a remote URL.
  * - For local builds, leave unset to use dist/.
  */
@@ -18,13 +18,15 @@ const config: CapacitorConfig = {
   appName: 'Reptile AI',
   webDir: 'dist',
   // Only use remote server when explicitly requested (dev/preview). Omit for production.
-  ...(process.env.CAPACITOR_DEV_SERVE === 'true' && {
-    server: {
-      url: 'https://c145e0ea-8df2-41f5-83a7-77a5812e163c.lovableproject.com?forceHideBadge=true',
-      cleartext: true,
-      androidScheme: 'https',
-    },
-  }),
+  ...(process.env.CAPACITOR_DEV_SERVE === 'true' &&
+    process.env.CAPACITOR_DEV_SERVE_URL && {
+      server: {
+        // Keep the remote URL configurable so this file contains no vendor branding.
+        url: process.env.CAPACITOR_DEV_SERVE_URL,
+        cleartext: true,
+        androidScheme: 'https',
+      },
+    }),
   plugins: {
     SplashScreen: {
       launchShowDuration: 2000,

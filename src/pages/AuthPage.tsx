@@ -6,7 +6,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { supabase } from '@/integrations/supabase/client';
-import { lovable } from '@/integrations/lovable';
 import { toast } from 'sonner';
 
 export default function AuthPage() {
@@ -59,10 +58,14 @@ export default function AuthPage() {
   const handleSocialLogin = async (provider: 'google' | 'apple') => {
     setSocialLoading(provider);
     try {
-      const result = await lovable.auth.signInWithOAuth(provider);
-      if (result?.error) {
-        toast.error(`Sign in with ${provider} failed`);
-      }
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo: window.location.origin + "/auth/callback",
+        },
+      });
+
+      if (error) toast.error(`Sign in with ${provider} failed`);
     } catch (err: any) {
       toast.error(err.message || `Sign in with ${provider} failed`);
     } finally {

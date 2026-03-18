@@ -21,6 +21,7 @@ import EditReptilePage from "./pages/EditReptilePage";
 import AddEventPage from "./pages/AddEventPage";
 import JournalPage from "./pages/JournalPage";
 import SettingsPage from "./pages/SettingsPage";
+import AuthCallbackPage from "./pages/AuthCallbackPage";
 import CreatePairingPage from "./pages/CreatePairingPage";
 import PairingDetailPage from "./pages/PairingDetailPage";
 import ClutchDetailPage from "./pages/ClutchDetailPage";
@@ -43,6 +44,7 @@ function AppContent() {
       <Suspense fallback={<RouteFallback />}>
         <Routes>
           <Route path="/auth" element={<AuthPage />} />
+          <Route path="/auth/callback" element={<AuthCallbackPage />} />
           <Route path="/" element={<TodayPage />} />
           <Route path="/reptiles" element={<ReptilesPage />} />
           <Route path="/reptiles/new" element={<NewReptilePage />} />

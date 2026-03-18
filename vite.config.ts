@@ -1,7 +1,6 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
-import { componentTagger } from "lovable-tagger";
 import { VitePWA } from "vite-plugin-pwa";
 
 // https://vitejs.dev/config/
@@ -15,14 +14,13 @@ export default defineConfig(({ mode }) => ({
   },
   plugins: [
     react(),
-    mode === "development" && componentTagger(),
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["favicon.ico", "icon-192.svg", "icon-512.svg", "apple-touch-icon.svg"],
+      includeAssets: ["favicon.svg", "logo.svg"],
       manifest: {
         name: "Reptilita",
         short_name: "Reptilita",
-        description: "Premium reptile & amphibian care companion with breeding management and genetics calculator",
+        description: "AI-powered reptile care assistant",
         start_url: "/",
         display: "standalone",
         background_color: "#f7faf9",
@@ -31,25 +29,25 @@ export default defineConfig(({ mode }) => ({
         categories: ["lifestyle", "utilities"],
         icons: [
           {
-            src: "/icon-192.svg",
+            src: "/favicon.svg",
             sizes: "192x192",
             type: "image/svg+xml",
             purpose: "any"
           },
           {
-            src: "/icon-512.svg",
+            src: "/favicon.svg",
             sizes: "512x512",
             type: "image/svg+xml",
             purpose: "any"
           },
           {
-            src: "/icon-512.svg",
+            src: "/favicon.svg",
             sizes: "512x512",
             type: "image/svg+xml",
             purpose: "maskable"
           },
           {
-            src: "/apple-touch-icon.svg",
+            src: "/logo.svg",
             sizes: "180x180",
             type: "image/svg+xml",
             purpose: "apple touch icon"
@@ -58,7 +56,6 @@ export default defineConfig(({ mode }) => ({
       },
       workbox: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff,woff2}"],
-        navigateFallbackDenylist: [/^\/~oauth/],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
