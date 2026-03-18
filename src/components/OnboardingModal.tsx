@@ -69,7 +69,7 @@ export function OnboardingModal() {
     <Dialog open={open} onOpenChange={(v) => { if (!v) handleClose(); }}>
       <DialogContent className="max-w-sm p-0 gap-0 overflow-hidden">
         <DialogHeader className="px-5 pt-5 pb-2">
-          <DialogTitle className="text-page-title">Welcome to Reptile AI</DialogTitle>
+          <DialogTitle className="text-page-title">Welcome to Reptilita</DialogTitle>
         </DialogHeader>
 
         <div className="px-5 pb-6 space-y-6">

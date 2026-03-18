@@ -268,7 +268,7 @@ export default function CareCardPage() {
             <div className="glass-panel rounded-[var(--radius-xl)] p-4 flex items-center justify-between gap-4">
               <div className="min-w-0">
                 <p className="text-xs font-medium text-muted-foreground">Scan to view this care card</p>
-                <p className="text-[10px] text-muted-foreground/80 mt-0.5">Powered by Reptile AI</p>
+                <p className="text-[10px] text-muted-foreground/80 mt-0.5">Powered by Reptilita</p>
               </div>
               {qrDataUrl && (
                 <img src={qrDataUrl} alt="Care card QR code" className="w-24 h-24 shrink-0 rounded-xl border border-border/50 shadow-[var(--shadow-card)]" />

@@ -78,7 +78,7 @@ export default function AuthPage() {
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10">
             <Dna className="w-8 h-8 text-primary" />
           </div>
-          <h1 className="text-2xl font-bold text-foreground">Reptile AI</h1>
+          <h1 className="text-2xl font-bold text-foreground">Reptilita</h1>
           <p className="text-sm text-muted-foreground">
             {isSignUp ? 'Create your account' : 'Welcome back'}
           </p>

@@ -20,9 +20,9 @@ export default defineConfig(({ mode }) => ({
       registerType: "autoUpdate",
       includeAssets: ["favicon.ico", "icon-192.svg", "icon-512.svg", "apple-touch-icon.svg"],
       manifest: {
-        name: "Reptile AI",
-        short_name: "Reptile AI",
-        description: "Mobile-first reptile husbandry tracker with breeding management and genetics calculator",
+        name: "Reptilita",
+        short_name: "Reptilita",
+        description: "Premium reptile & amphibian care companion with breeding management and genetics calculator",
         start_url: "/",
         display: "standalone",
         background_color: "#f7faf9",

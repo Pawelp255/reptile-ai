@@ -14,7 +14,7 @@ function formatICSDate(dateStr: string): string {
 }
 
 function generateUID(): string {
-  return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}@reptile-ai`;
+  return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}@reptilita.com`;
 }
 
 function escapeICS(text: string): string {
@@ -28,10 +28,10 @@ export function generateICS(scheduleItems: ScheduleItem[], reptiles: Reptile[]):
   const lines: string[] = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
-    'PRODID:-//Reptile AI//Care Schedule//EN',
+    'PRODID:-//Reptilita//Care Schedule//EN',
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
-    'X-WR-CALNAME:Reptile Care Schedule',
+    'X-WR-CALNAME:Reptilita Care Schedule',
   ];
 
   // Generate events for next 30 days

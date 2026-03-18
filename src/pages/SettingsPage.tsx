@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Download, FileText, Calendar, Database, Info, Trash2, Calculator, Key, Eye, EyeOff, Bot, Share2, Sparkles, Globe, User, LogOut } from 'lucide-react';
+import { Download, FileText, Calendar, Database, Info, Trash2, Calculator, Key, Eye, EyeOff, Bot, Share2, Sparkles, Globe, User, LogOut, Palette } from 'lucide-react';
+import { useTheme } from 'next-themes';
 import { PageHeader } from '@/components/PageHeader';
 import { PageMotion } from '@/components/motion/PageMotion';
 import { DemoBadge } from '@/components/DemoBadge';
@@ -9,6 +10,13 @@ import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -40,8 +48,17 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import type { AppSettings } from '@/types';
 
+type ThemeValue = 'light' | 'dark' | 'system';
+
+const THEME_OPTIONS: { value: ThemeValue; label: string }[] = [
+  { value: 'light', label: 'Light' },
+  { value: 'dark', label: 'Dark' },
+  { value: 'system', label: 'System' },
+];
+
 export default function SettingsPage() {
   const navigate = useNavigate();
+  const { theme, setTheme } = useTheme();
   const [settings, setSettings] = useState<AppSettings>({
     feedingReminders: true,
     overdueReminders: true,
@@ -200,7 +217,7 @@ export default function SettingsPage() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'reptile-schedule.ics';
+      a.download = 'reptilita-care-schedule.ics';
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -349,6 +366,39 @@ export default function SettingsPage() {
                 </Link>
               </div>
             )}
+            </div>
+          </div>
+        </section>
+
+        {/* Appearance */}
+        <section>
+          <h2 className="section-header mb-2.5">Appearance</h2>
+          <div className="premium-surface rounded-[var(--radius-xl)] overflow-hidden">
+            <div className="flex items-center justify-between gap-4 min-h-[56px] px-4 sm:px-5 py-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10">
+                  <Palette className="w-4 h-4 text-primary shrink-0" />
+                </div>
+                <div>
+                  <span className="text-card-title text-foreground block">Theme</span>
+                  <span className="text-secondary text-[13px]">Light, dark, or follow system</span>
+                </div>
+              </div>
+              <Select
+                value={theme ?? 'system'}
+                onValueChange={(value: ThemeValue) => setTheme(value)}
+              >
+                <SelectTrigger className="w-[120px] shrink-0">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {THEME_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </section>
@@ -646,8 +696,13 @@ export default function SettingsPage() {
             <div className="flex items-center gap-3">
               <Info className="w-4 h-4 text-primary shrink-0" />
               <div>
-                <span className="font-medium block">Reptile AI</span>
-                <p className="text-sm text-muted-foreground mt-0.5">Version 2.1.0 · Care planner for reptile keepers</p>
+                <span className="font-medium block">Reptilita</span>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  Version 2.1.0 · Premium reptile &amp; amphibian care companion
+                </p>
+                <p className="text-xs text-muted-foreground/90 mt-1.5">
+                  For keepers, breeders, rescue teams, and enthusiasts.
+                </p>
               </div>
             </div>
           </div>

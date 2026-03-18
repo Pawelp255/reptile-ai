@@ -19,7 +19,7 @@ export async function generatePromoCard(appUrl?: string): Promise<Blob> {
   doc.setFontSize(22);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(42, 157, 143);
-  doc.text('🦎 Reptile AI', w / 2, 28, { align: 'center' });
+  doc.text('🦎 Reptilita', w / 2, 28, { align: 'center' });
 
   // Tagline
   doc.setFontSize(10);
@@ -76,7 +76,7 @@ export async function downloadPromoCard(appUrl?: string): Promise<void> {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = 'reptile-ai-promo.pdf';
+  a.download = 'reptilita-promo.pdf';
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
