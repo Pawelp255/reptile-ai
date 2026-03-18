@@ -14,19 +14,29 @@ export default function AuthCallbackPage() {
       try {
         setStatus("Finalizing session…");
 
-        // Supabase will parse the current URL (code/state) when no args are provided.
-        const { error } = await supabase.auth.exchangeCodeForSession();
+        // Supabase will parse the current URL (code/state) from the redirect.
+        const { error: exchangeError } = await supabase.auth.exchangeCodeForSession();
 
-        if (error) {
-          // If there's nothing to exchange (or exchange failed), still try to read session.
-          await supabase.auth.getSession();
+        if (exchangeError) {
+          setStatus("Could not finalize sign-in. Checking session…");
         }
+
+        const { data: sessionData } = await supabase.auth.getSession();
+        const session = sessionData.session;
 
         // Optional: allow callers to specify a post-login redirect.
         const params = new URLSearchParams(location.search);
-        const next = params.get("redirectTo") || params.get("next") || "/";
+        const nextRaw = params.get("redirectTo") || params.get("next") || "/";
+        const next = nextRaw.startsWith("/") ? nextRaw : "/";
 
-        navigate(next, { replace: true });
+        if (session) {
+          setStatus("Sign-in complete.");
+          navigate(next, { replace: true });
+          return;
+        }
+
+        toast.error("Sign-in failed. Please try again.");
+        navigate("/auth", { replace: true });
       } catch (e) {
         const message = e instanceof Error ? e.message : "Sign-in failed";
         toast.error(message);

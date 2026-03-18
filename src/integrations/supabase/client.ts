@@ -5,6 +5,18 @@ import type { Database } from './types';
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
+const missingEnv: string[] = [];
+if (!SUPABASE_URL) missingEnv.push("VITE_SUPABASE_URL");
+if (!SUPABASE_PUBLISHABLE_KEY) missingEnv.push("VITE_SUPABASE_PUBLISHABLE_KEY");
+
+if (missingEnv.length > 0) {
+  throw new Error(
+    `Missing Supabase environment variables: ${missingEnv.join(
+      ", "
+    )}. Configure them for this build (VITE_ prefix) so auth can work.`
+  );
+}
+
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
