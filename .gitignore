@@ -19,9 +19,25 @@ dist-ssr
 .vscode/*
 !.vscode/extensions.json
 .idea
+.cursor/
 .DS_Store
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+
+# Bun (optional; ignore if using npm)
+bun.lock
+bun.lockb
+bunfig.toml
+.bun/
+
+# Vite / build / output folders
+build
+out
+
+# Coverage / caches
+coverage
+.cache/
+.vite/
