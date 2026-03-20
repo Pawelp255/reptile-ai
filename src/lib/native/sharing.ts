@@ -5,6 +5,16 @@ export function isNative(): boolean {
   return Capacitor.isNativePlatform();
 }
 
+/** True when `navigator.share` exists (typically HTTPS or localhost). */
+export function canUseNavigatorShare(): boolean {
+  return typeof navigator !== "undefined" && typeof navigator.share === "function";
+}
+
+/** Native app or Web Share API — system share sheet may accept a URL. */
+export function canUseSystemShareLink(): boolean {
+  return isNative() || canUseNavigatorShare();
+}
+
 /**
  * Copy text to clipboard with Capacitor fallback.
  * Returns true on success, false if all methods fail.

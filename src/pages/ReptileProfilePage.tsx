@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Trash2, Edit, Calendar, Utensils, RefreshCw, Pencil, Scale, Ruler, Heart, Plus, FileText, Bot, Share2, QrCode } from 'lucide-react';
+import { ArrowLeft, Trash2, Edit, Calendar, Utensils, RefreshCw, Pencil, Scale, Ruler, Heart, Plus, FileText, Bot, Share2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { PageHeader } from '@/components/PageHeader';
 import { PageMotion } from '@/components/motion/PageMotion';
@@ -40,6 +40,7 @@ import {
 import { toast } from 'sonner';
 import { downloadVetPdf } from '@/lib/export/vetPdf';
 import { ProfileSkeleton } from '@/components/system/SkeletonLoaders';
+import { PetProfileShareDialog } from '@/components/PetProfileShareDialog';
 import type { Reptile, ScheduleItem, CareEvent, TaskType, EventType, Pairing } from '@/types';
 import { getDisplayEmoji } from '@/lib/animals/taxonomy';
 
@@ -117,6 +118,7 @@ export default function ReptileProfilePage() {
   const [selectedEvent, setSelectedEvent] = useState<CareEvent | null>(null);
   const [deleteEventOpen, setDeleteEventOpen] = useState(false);
   const [deletingEvent, setDeletingEvent] = useState(false);
+  const [shareProfileOpen, setShareProfileOpen] = useState(false);
 
   const loadData = async () => {
     if (!id) return;
@@ -265,6 +267,12 @@ export default function ReptileProfilePage() {
             </Button>
           </div>
         }
+      />
+
+      <PetProfileShareDialog
+        open={shareProfileOpen}
+        onOpenChange={setShareProfileOpen}
+        reptile={reptile}
       />
 
       <div className="page-content pt-4 pb-0 animate-in-slide-up">
@@ -427,20 +435,17 @@ export default function ReptileProfilePage() {
             </div>
           </div>
 
-          {/* Action Buttons — share profile, care card, Vet PDF / AI (staggered) */}
+          {/* Action Buttons — share panel, Vet PDF / AI (staggered) */}
           <div className="space-y-2 animate-in-slide-up motion-delay-2">
-            <Link to={`/share-profile/${id}`} className="block">
-              <Button className="w-full min-h-[48px]" size="lg">
-                <Share2 className="w-4 h-4 mr-2" />
-                Share Profile
-              </Button>
-            </Link>
-            <Link to={`/care-card/${id}`} className="block">
-              <Button variant="outline" className="w-full min-h-[48px]" size="lg">
-                <QrCode className="w-4 h-4 mr-2" />
-                Share Care Card
-              </Button>
-            </Link>
+            <Button
+              type="button"
+              className="w-full min-h-[48px]"
+              size="lg"
+              onClick={() => setShareProfileOpen(true)}
+            >
+              <Share2 className="w-4 h-4 mr-2" />
+              Share profile
+            </Button>
             <div className="grid grid-cols-2 gap-2">
               <Button
                 variant="outline"

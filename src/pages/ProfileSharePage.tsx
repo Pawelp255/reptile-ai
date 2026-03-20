@@ -20,7 +20,13 @@ import {
   getLastEventByType,
   getSettings,
 } from "@/lib/storage";
-import { copyToClipboard, shareImage, shareLink } from "@/lib/native/sharing";
+import {
+  copyToClipboard,
+  shareImage,
+  shareLink,
+  canUseSystemShareLink,
+  isNative,
+} from "@/lib/native/sharing";
 import { buildProfileShareUrl } from "@/lib/share/shareUrls";
 import { getDisplayEmoji } from "@/lib/animals/taxonomy";
 import { ContentSkeleton } from "@/components/system/SkeletonLoaders";
@@ -122,7 +128,7 @@ export default function ProfileSharePage() {
       if (result === "unavailable") {
         const copied = await copyToClipboard(shareUrl);
         if (copied) {
-          toast.success("Sharing unavailable — link copied instead");
+          toast.success("Share menu unavailable — profile link copied instead");
         } else {
           toast.error("Sharing not available on this device");
           setFallbackUrl(shareUrl);
@@ -152,7 +158,7 @@ export default function ProfileSharePage() {
       const fileName = `Profile_${safeName}_${dateStr}.png`;
 
       await shareImage(dataUrl, fileName, `${reptile.name} — Reptilita`);
-      toast.success("Profile image saved");
+      toast.success(isNative() ? "Image ready to share" : "Image download started");
       setSavedJustNow(true);
       setTimeout(() => setSavedJustNow(false), 1500);
     } catch (error) {
@@ -167,6 +173,15 @@ export default function ProfileSharePage() {
   const emoji = reptile
     ? getDisplayEmoji(reptile.animalCategory, reptile.species)
     : "";
+
+  const showSystemShare = canUseSystemShareLink();
+  const imageActionLabel = savingImage
+    ? "Working…"
+    : savedJustNow
+      ? "Done"
+      : isNative()
+        ? "Share image"
+        : "Download share image";
 
   if (loading || !reptile) {
     return (
@@ -188,7 +203,7 @@ export default function ProfileSharePage() {
           <ArrowLeft className="w-4 h-4 mr-1" />
           Back
         </Button>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-col sm:flex-row flex-wrap gap-2 w-full sm:w-auto sm:max-w-none">
           <Button
             variant="outline"
             size="sm"
@@ -196,18 +211,20 @@ export default function ProfileSharePage() {
             className="min-h-[44px] transition-all duration-200 ease-out active:scale-[0.98] shadow-[var(--shadow-card)]"
           >
             <Copy className="w-4 h-4 mr-1" />
-            Copy Link
+            Copy profile link
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleShareLink}
-            disabled={sharingLink}
-            className="min-h-[44px] transition-all duration-200 ease-out active:scale-[0.98] shadow-[var(--shadow-card)]"
-          >
-            <Share2 className="w-4 h-4 mr-1" />
-            {sharingLink ? "…" : "Share"}
-          </Button>
+          {showSystemShare && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleShareLink}
+              disabled={sharingLink}
+              className="min-h-[44px] transition-all duration-200 ease-out active:scale-[0.98] shadow-[var(--shadow-card)]"
+            >
+              <Share2 className="w-4 h-4 mr-1" />
+              {sharingLink ? "Opening…" : "Share profile link"}
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"
@@ -220,10 +237,21 @@ export default function ProfileSharePage() {
             ) : (
               <ImageIcon className="w-4 h-4 mr-1" />
             )}
-            {savingImage ? "Saving…" : savedJustNow ? "Saved" : "Save Image"}
+            {imageActionLabel}
           </Button>
         </div>
       </div>
+
+      <p className="text-sm text-muted-foreground max-w-md mx-auto mb-4 px-0.5 leading-relaxed">
+        This card is what you share as an <strong>image</strong> (e.g. Instagram or Facebook). The{" "}
+        <strong>profile link</strong> opens Reptilita on a device that already has your data. Reptilita never posts to
+        social networks for you.
+      </p>
+      {!showSystemShare && (
+        <p className="text-xs text-muted-foreground max-w-md mx-auto mb-4 px-0.5">
+          No share menu in this browser — use <strong>Copy profile link</strong> or <strong>Download share image</strong>.
+        </p>
+      )}
 
       <div
         ref={cardRef}
@@ -322,7 +350,7 @@ export default function ProfileSharePage() {
             transition={{ delay: 0.08, duration: 0.2 }}
           >
             <p className="text-center text-xs text-muted-foreground">
-              Reptilita · share link opens in the app when available
+              Reptilita · profile link opens in the app where this animal is saved
             </p>
           </motion.div>
         </div>
@@ -331,10 +359,10 @@ export default function ProfileSharePage() {
       <Dialog open={fallbackDialogOpen} onOpenChange={setFallbackDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Copy Link Manually</DialogTitle>
+            <DialogTitle>Copy profile link manually</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground mb-3">
-            Automatic copy failed. Select and copy the URL below:
+            Automatic copy failed. Select and copy the profile URL below:
           </p>
           <div className="bg-muted rounded-lg p-3">
             <p className="text-sm break-all font-mono select-all">{fallbackUrl}</p>
