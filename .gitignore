@@ -1,3 +1,7 @@
+# --- Bundles / review exports ---
+# When creating a zip for code review, exclude: .git/, node_modules/, dist/, build/, .env*, and OS junk.
+# (Those paths are already ignored below where applicable.)
+
 # Logs
 logs
 *.log
@@ -41,3 +45,10 @@ out
 coverage
 .cache/
 .vite/
+
+# TypeScript incremental
+*.tsbuildinfo
+
+# OS / local junk
+Thumbs.db
+Desktop.ini

@@ -141,10 +141,10 @@ export default function ProfileSharePage() {
 
   useEffect(() => {
     if (!instagramHintRequested || loading || !reptile) return;
-    toast("Save image for Instagram", {
+    toast("Instagram uses a photo, not a link", {
       description:
-        "Use Share image or Download share image below, then create a new post in Instagram and pick that saved photo. Profile links are for other apps — Instagram works best with the image.",
-      duration: 6500,
+        "Reptilita does not upload to Instagram. Use Share image or Download share image below to save the card, then in Instagram start a new post and choose that photo from your library.",
+      duration: 7000,
     });
     requestAnimationFrame(() => {
       document.getElementById("profile-share-export-actions")?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -305,9 +305,9 @@ export default function ProfileSharePage() {
       </div>
 
       <p className="text-sm text-muted-foreground max-w-md mx-auto mb-4 px-0.5 leading-relaxed">
-        This card is what you share as an <strong>image</strong> (e.g. Instagram or Facebook). The{" "}
-        <strong>profile link</strong> opens Reptilita on a device that already has your data. Reptilita never posts to
-        social networks for you.
+        This card is what you share as an <strong>image</strong> (e.g. save it for Instagram — there is no direct
+        Instagram link post from here). The <strong>profile link</strong> opens Reptilita on a device that already has
+        your data. Reptilita never posts to social networks for you.
       </p>
       {!showSystemShare && (
         <p className="text-xs text-muted-foreground max-w-md mx-auto mb-4 px-0.5">

@@ -129,7 +129,7 @@ export function PetProfileShareDialog({ open, onOpenChange, reptile }: PetProfil
       if (result === "unavailable") {
         const ok = await copyToClipboard(shareUrl);
         if (ok) {
-          toast.success("Share sheet not available — profile link copied");
+          toast.success("Share sheet unavailable — profile link copied");
         } else {
           setManualCopyOpen(true);
         }
@@ -156,56 +156,56 @@ export function PetProfileShareDialog({ open, onOpenChange, reptile }: PetProfil
           <DialogHeader className="px-5 pt-5 pb-3 text-left space-y-1.5 shrink-0">
             <DialogTitle className="text-lg">Share {reptile.name}&apos;s profile</DialogTitle>
             <DialogDescription className="text-xs sm:text-sm leading-relaxed">
-              Most options below share your <strong>public profile link</strong>.{" "}
-              <strong>Share image</strong> exports the card (best for Instagram).{" "}
-              <strong>More sharing options</strong> opens your device share sheet with the link when available.
+              <strong>Link</strong> — Facebook, X, WhatsApp, Telegram, Copy link, and More use your public profile URL
+              (you finish the post or send in each app). <strong>Image</strong> — Instagram and Share image use a
+              picture of the card you save or share yourself. Reptilita does not post to social networks for you.
             </DialogDescription>
           </DialogHeader>
 
           <div className="flex-1 min-h-0 overflow-y-auto px-3 sm:px-4 pb-1 space-y-1.5">
             <ShareActionRow
               icon={<FacebookIcon />}
-              title="Share to Facebook"
-              subtitle="Opens Facebook with your profile link"
+              title="Facebook"
+              subtitle="Public profile link — opens the Facebook share box; you complete the post there"
               disabled={!shareUrl}
               onClick={() => openExternal(buildFacebookSharerUrl(shareUrl))}
               iconWrapClassName="bg-[#1877F2]/15 text-[#1877F2]"
             />
             <ShareActionRow
               icon={<InstagramIcon />}
-              title="Save image for Instagram"
-              subtitle="Opens the share card — save or share the image, then post in Instagram"
+              title="Instagram"
+              subtitle="Image only — export the card as a photo, then add it in Instagram (no link post, no auto-post)"
               onClick={() => goToSharePage("?instagram=1")}
               iconWrapClassName="bg-gradient-to-br from-fuchsia-500/15 to-orange-400/15 text-fuchsia-700 dark:text-fuchsia-400"
             />
             <ShareActionRow
               icon={<XIcon />}
-              title="Share to X"
-              subtitle="Opens X with a short message and your profile link"
+              title="X"
+              subtitle="Public profile link and short text — opens the X post composer for you to send"
               disabled={!shareUrl}
               onClick={() => openExternal(buildXIntentUrl(shareUrl, shareText))}
               iconWrapClassName="bg-foreground/10 text-foreground"
             />
             <ShareActionRow
               icon={<WhatsAppIcon />}
-              title="Send via WhatsApp"
-              subtitle="Opens WhatsApp with message text and your profile link"
+              title="WhatsApp"
+              subtitle="Message with your profile link — opens WhatsApp; you tap send"
               disabled={!shareUrl}
               onClick={() => openExternal(buildWhatsAppShareUrl(shareText, shareUrl))}
               iconWrapClassName="bg-[#25D366]/15 text-emerald-700 dark:text-emerald-400"
             />
             <ShareActionRow
               icon={<TelegramIcon />}
-              title="Share via Telegram"
-              subtitle="Opens Telegram with your profile link"
+              title="Telegram"
+              subtitle="Share URL with caption — opens Telegram; you confirm the chat and send"
               disabled={!shareUrl}
               onClick={() => openExternal(buildTelegramShareUrl(shareUrl, shareText))}
               iconWrapClassName="bg-sky-500/15 text-sky-700 dark:text-sky-400"
             />
             <ShareActionRow
               icon={<Copy className="h-5 w-5" />}
-              title="Copy profile link"
-              subtitle="Copy the public profile URL to paste anywhere"
+              title="Copy link"
+              subtitle="Copies the public profile URL — paste it in any app"
               disabled={!shareUrl}
               onClick={() => void handleCopyProfileLink()}
               iconWrapClassName="bg-muted text-foreground"
@@ -213,17 +213,17 @@ export function PetProfileShareDialog({ open, onOpenChange, reptile }: PetProfil
             <ShareActionRow
               icon={<ImageIcon className="h-5 w-5" />}
               title="Share image"
-              subtitle="Export the share card — share sheet or download"
+              subtitle="PNG of this card — device share sheet on the phone, or download in the browser"
               onClick={() => goToSharePage("?autoExport=1")}
               iconWrapClassName="bg-primary/12 text-primary"
             />
             <ShareActionRow
               icon={<MoreHorizontal className="h-5 w-5" />}
-              title="More sharing options"
+              title="More…"
               subtitle={
                 systemShare
-                  ? "Opens the system share sheet with your profile link"
-                  : "Copies your profile link if the device share sheet is not available"
+                  ? "System share sheet with your profile link — pick any app that accepts links"
+                  : "No share sheet here — we copy your profile link instead"
               }
               disabled={!shareUrl || sharing}
               onClick={() => void handleMoreSharingOptions()}
@@ -232,8 +232,8 @@ export function PetProfileShareDialog({ open, onOpenChange, reptile }: PetProfil
 
             {!systemShare && (
               <p className="text-[11px] text-muted-foreground px-1 pt-0.5 pb-1 leading-snug">
-                No system share menu in this browser — <strong>More sharing options</strong> will copy your link, or use{" "}
-                <strong>Copy profile link</strong>.
+                This browser has no share menu — tap <strong>More…</strong> to copy your link, or use{" "}
+                <strong>Copy link</strong>.
               </p>
             )}
           </div>
@@ -248,7 +248,7 @@ export function PetProfileShareDialog({ open, onOpenChange, reptile }: PetProfil
               <span className="flex flex-col items-start gap-0.5">
                 <span className="text-sm font-medium leading-none">Open share card</span>
                 <span className="text-xs font-normal text-muted-foreground leading-snug">
-                  Full preview, copy link, and export
+                  Full-screen preview — copy link, share link, or export image
                 </span>
               </span>
             </Button>
@@ -270,10 +270,10 @@ export function PetProfileShareDialog({ open, onOpenChange, reptile }: PetProfil
       <Dialog open={manualCopyOpen} onOpenChange={setManualCopyOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Copy profile link manually</DialogTitle>
+            <DialogTitle>Copy link manually</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground mb-3">
-            Automatic copy failed. Select and copy the URL below:
+            Automatic copy failed. Select and copy the profile URL below:
           </p>
           <div className="bg-muted rounded-lg p-3">
             <p className="text-sm break-all font-mono select-all">{shareUrl}</p>
