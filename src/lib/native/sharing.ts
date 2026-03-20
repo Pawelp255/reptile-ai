@@ -90,3 +90,56 @@ export async function shareImage(
   link.click();
   document.body.removeChild(link);
 }
+
+export type ShareLinkResult = "shared" | "cancelled" | "unavailable";
+
+function isUserCancelledShareError(e: unknown): boolean {
+  const err = e as { name?: string; message?: string };
+  if (err?.name === "AbortError") return true;
+  const msg = String(err?.message ?? e ?? "").toLowerCase();
+  return (
+    msg.includes("cancel") || msg.includes("abort") || msg.includes("dismiss") || msg.includes("user did not share")
+  );
+}
+
+/**
+ * Open the system share sheet (native Capacitor or Web Share API) with a URL.
+ */
+export async function shareLink(options: {
+  url: string;
+  title?: string;
+  text?: string;
+}): Promise<ShareLinkResult> {
+  const { url, title, text } = options;
+
+  if (isNative()) {
+    try {
+      const { Share } = await import("@capacitor/share");
+      await Share.share({
+        title: title || "Reptilita",
+        text: text || "",
+        url,
+      });
+      return "shared";
+    } catch (e) {
+      if (isUserCancelledShareError(e)) return "cancelled";
+      return "unavailable";
+    }
+  }
+
+  if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
+    try {
+      await navigator.share({
+        title: title || "Reptilita",
+        text: text || "",
+        url,
+      });
+      return "shared";
+    } catch (e) {
+      if (isUserCancelledShareError(e)) return "cancelled";
+      return "unavailable";
+    }
+  }
+
+  return "unavailable";
+}

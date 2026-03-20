@@ -80,6 +80,7 @@ export async function createReptile(data: ReptileFormData): Promise<Reptile> {
     isVenomous: data.isVenomous,
     isDangerous: data.isDangerous,
     isAmphibian: data.isAmphibian,
+    photoUrl: data.photoUrl?.trim() || undefined,
     createdAt: now,
     updatedAt: now,
   };

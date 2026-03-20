@@ -31,6 +31,7 @@ import NotFound from "./pages/NotFound";
 const GeneticsCalculatorPage = lazy(() => import("./pages/GeneticsCalculatorPage"));
 const AIAssistantPage = lazy(() => import("./pages/AIAssistantPage"));
 const CareCardPage = lazy(() => import("./pages/CareCardPage"));
+const ProfileSharePage = lazy(() => import("./pages/ProfileSharePage"));
 const GrowthPage = lazy(() => import("./pages/GrowthPage"));
 const HealthCheckPage = lazy(() => import("./pages/HealthCheckPage"));
 
@@ -59,6 +60,7 @@ function AppContent() {
           <Route path="/genetics" element={<GeneticsCalculatorPage />} />
           <Route path="/ai" element={<AIAssistantPage />} />
           <Route path="/care-card/:reptileId" element={<CareCardPage />} />
+          <Route path="/share-profile/:reptileId" element={<ProfileSharePage />} />
           <Route path="/growth" element={<GrowthPage />} />
           <Route path="/health-check" element={<HealthCheckPage />} />
           <Route path="*" element={<NotFound />} />

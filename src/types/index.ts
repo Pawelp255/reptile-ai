@@ -51,6 +51,7 @@ export interface Reptile {
   hets?: string[]; // List of recessive het traits (legacy/basic)
   // Phase 3: Advanced genetics
   genes?: GeneticGene[]; // Structured gene data
+  photoUrl?: string;
   createdAt: string; // ISO datetime
   updatedAt: string; // ISO datetime
 }
@@ -158,6 +159,7 @@ export interface ReptileFormData {
   geneticsNotes?: string;
   hets?: string[];
   genes?: GeneticGene[];
+  photoUrl?: string;
 }
 
 export interface CareEventFormData {

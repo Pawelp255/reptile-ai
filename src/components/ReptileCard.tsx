@@ -16,8 +16,16 @@ export function ReptileCard({ reptile, nextFeedingDate }: ReptileCardProps) {
   return (
     <Link to={`/reptiles/${reptile.id}`} className="block min-h-[44px]">
       <div className="reptile-card premium-surface">
-        <div className="flex items-center justify-center w-12 h-12 rounded-[var(--radius-xl)] bg-secondary/80 text-2xl shrink-0">
-          {emoji}
+        <div className="flex items-center justify-center w-12 h-12 rounded-[var(--radius-xl)] bg-secondary/80 text-2xl shrink-0 overflow-hidden border border-border/40">
+          {reptile.photoUrl ? (
+            <img
+              src={reptile.photoUrl}
+              alt=""
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            emoji
+          )}
         </div>
         <div className="flex-1 min-w-0">
           <h3 className="text-[15px] font-semibold text-foreground truncate leading-tight">{reptile.name}</h3>

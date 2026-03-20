@@ -65,7 +65,7 @@ export default function AuthPage() {
         },
       });
 
-      if (error) toast.error(`Sign in with ${provider} failed`);
+      if (error) toast.error(error.message || `Sign in with ${provider} failed`);
     } catch (err: any) {
       toast.error(err.message || `Sign in with ${provider} failed`);
     } finally {

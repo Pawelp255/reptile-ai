@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Trash2, Edit, Calendar, Utensils, RefreshCw, Pencil, Scale, Ruler, Heart, Plus, FileText, Bot, Share2 } from 'lucide-react';
+import { ArrowLeft, Trash2, Edit, Calendar, Utensils, RefreshCw, Pencil, Scale, Ruler, Heart, Plus, FileText, Bot, Share2, QrCode } from 'lucide-react';
 import { format } from 'date-fns';
 import { PageHeader } from '@/components/PageHeader';
 import { PageMotion } from '@/components/motion/PageMotion';
@@ -41,6 +41,7 @@ import { toast } from 'sonner';
 import { downloadVetPdf } from '@/lib/export/vetPdf';
 import { ProfileSkeleton } from '@/components/system/SkeletonLoaders';
 import type { Reptile, ScheduleItem, CareEvent, TaskType, EventType, Pairing } from '@/types';
+import { getDisplayEmoji } from '@/lib/animals/taxonomy';
 
 const taskLabels: Record<TaskType, string> = {
   feed: 'Feeding',
@@ -266,6 +267,24 @@ export default function ReptileProfilePage() {
         }
       />
 
+      <div className="page-content pt-4 pb-0 animate-in-slide-up">
+        <div className="mx-auto w-full max-w-[280px]">
+          <div className="aspect-square rounded-[var(--radius-xl)] overflow-hidden border border-border/70 shadow-[var(--shadow-card)] bg-secondary/40">
+            {reptile.photoUrl ? (
+              <img
+                src={reptile.photoUrl}
+                alt={reptile.name}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-7xl bg-gradient-to-br from-secondary/60 to-secondary/30">
+                {getDisplayEmoji(reptile.animalCategory, reptile.species)}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
       {/* Hero area — breeding badge */}
       {reptile.breedingStatus && (
         <div className="page-content pt-1 pb-0 animate-in-slide-up">
@@ -408,11 +427,17 @@ export default function ReptileProfilePage() {
             </div>
           </div>
 
-          {/* Action Buttons — primary Share Care Card, secondary Vet PDF / AI (staggered) */}
+          {/* Action Buttons — share profile, care card, Vet PDF / AI (staggered) */}
           <div className="space-y-2 animate-in-slide-up motion-delay-2">
-            <Link to={`/care-card/${id}`} className="block">
+            <Link to={`/share-profile/${id}`} className="block">
               <Button className="w-full min-h-[48px]" size="lg">
                 <Share2 className="w-4 h-4 mr-2" />
+                Share Profile
+              </Button>
+            </Link>
+            <Link to={`/care-card/${id}`} className="block">
+              <Button variant="outline" className="w-full min-h-[48px]" size="lg">
+                <QrCode className="w-4 h-4 mr-2" />
                 Share Care Card
               </Button>
             </Link>

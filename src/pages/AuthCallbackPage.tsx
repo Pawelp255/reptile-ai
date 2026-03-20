@@ -1,12 +1,11 @@
 import { useEffect, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
 
 export default function AuthCallbackPage() {
   const navigate = useNavigate();
-  const location = useLocation();
   const [status, setStatus] = useState("Completing sign-in…");
 
   useEffect(() => {
@@ -14,7 +13,7 @@ export default function AuthCallbackPage() {
       try {
         setStatus("Finalizing session…");
 
-        // Supabase will parse the current URL (code/state) from the redirect.
+        // Supabase reads the OAuth PKCE code from the current URL.
         const { error: exchangeError } = await supabase.auth.exchangeCodeForSession();
 
         if (exchangeError) {
@@ -24,14 +23,9 @@ export default function AuthCallbackPage() {
         const { data: sessionData } = await supabase.auth.getSession();
         const session = sessionData.session;
 
-        // Optional: allow callers to specify a post-login redirect.
-        const params = new URLSearchParams(location.search);
-        const nextRaw = params.get("redirectTo") || params.get("next") || "/";
-        const next = nextRaw.startsWith("/") ? nextRaw : "/";
-
         if (session) {
           setStatus("Sign-in complete.");
-          navigate(next, { replace: true });
+          navigate("/", { replace: true });
           return;
         }
 
@@ -45,7 +39,7 @@ export default function AuthCallbackPage() {
     };
 
     run();
-  }, [location.search, navigate]);
+  }, [navigate]);
 
   return (
     <div className="page-container">

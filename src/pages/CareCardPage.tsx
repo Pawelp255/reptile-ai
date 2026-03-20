@@ -22,6 +22,7 @@ import {
   getSettings,
 } from '@/lib/storage';
 import { copyToClipboard, shareImage } from '@/lib/native/sharing';
+import { buildCareCardShareUrl } from '@/lib/share/shareUrls';
 import { ContentSkeleton } from '@/components/system/SkeletonLoaders';
 import type { Reptile, ScheduleItem, CareEvent, TaskType } from '@/types';
 
@@ -46,13 +47,6 @@ const DIET_LABELS: Record<string, string> = {
   pellets: 'Pellets / Prepared',
   mixed: 'Mixed',
 };
-
-function buildShareUrl(reptileId: string, publicBaseUrl?: string): string {
-  const base = publicBaseUrl
-    ? publicBaseUrl.replace(/\/$/, '')
-    : window.location.origin;
-  return `${base}/care-card/${reptileId}`;
-}
 
 export default function CareCardPage() {
   const { reptileId } = useParams<{ reptileId: string }>();
@@ -92,7 +86,7 @@ export default function CareCardPage() {
         setLastFeeding(feeding || null);
 
         // Build share URL using publicBaseUrl if set
-        const url = buildShareUrl(reptileId, settings.publicBaseUrl);
+        const url = buildCareCardShareUrl(reptileId, settings.publicBaseUrl);
         setShareUrl(url);
 
         // Generate QR code

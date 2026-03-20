@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { GeneEditor } from '@/components/GeneEditor';
+import { PetPhotoPicker } from '@/components/PetPhotoPicker';
 import { getReptileById, updateReptile } from '@/lib/storage';
 import type { ReptileFormData, Sex, DietType, BreedingStatus } from '@/types';
 import { BREEDING_STATUS_OPTIONS as breedingStatusOptions } from '@/types';
@@ -127,6 +128,7 @@ export default function EditReptilePage() {
           hetsInput: reptile.hets?.join(', ') || '',
           geneticsNotes: reptile.geneticsNotes || '',
           genes: reptile.genes || [],
+          photoUrl: reptile.photoUrl,
         });
       } catch (error) {
         console.error('Failed to load reptile:', error);
@@ -182,6 +184,7 @@ export default function EditReptilePage() {
         hets: hets.length > 0 ? hets : undefined,
         geneticsNotes: formData.geneticsNotes?.trim() || undefined,
         genes: formData.genes.length > 0 ? formData.genes : undefined,
+        photoUrl: formData.photoUrl,
       });
       navigate(`/reptiles/${id}`);
     } catch (error) {
@@ -322,6 +325,12 @@ export default function EditReptilePage() {
         {/* Optional fields */}
         <div className="space-y-4">
           <h3 className="section-header">Optional Details</h3>
+
+          <PetPhotoPicker
+            inputId="edit-pet-photo"
+            value={formData.photoUrl}
+            onChange={(photoUrl) => setFormData((prev) => ({ ...prev, photoUrl }))}
+          />
 
           <div>
             <Label htmlFor="morph">Morph</Label>
