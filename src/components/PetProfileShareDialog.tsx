@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Copy, QrCode, Send, Share2 } from "lucide-react";
+import { Copy, Image as ImageIcon, MoreHorizontal, QrCode, Share2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -17,13 +17,71 @@ import {
   canUseSystemShareLink,
 } from "@/lib/native/sharing";
 import { buildProfileShareUrl } from "@/lib/share/shareUrls";
+import {
+  buildFacebookSharerUrl,
+  buildTelegramShareUrl,
+  buildWhatsAppShareUrl,
+  buildXIntentUrl,
+  openUrlInNewTab,
+} from "@/lib/share/socialShareLinks";
+import {
+  FacebookIcon,
+  InstagramIcon,
+  TelegramIcon,
+  WhatsAppIcon,
+  XIcon,
+} from "@/components/share/SocialSharePlatformIcons";
+import { cn } from "@/lib/utils";
 import type { Reptile } from "@/types";
+import type { ReactNode } from "react";
 
 type PetProfileShareDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   reptile: Reptile;
 };
+
+function ShareActionRow({
+  icon,
+  title,
+  subtitle,
+  onClick,
+  disabled,
+  iconWrapClassName,
+}: {
+  icon: ReactNode;
+  title: string;
+  subtitle: string;
+  onClick: () => void;
+  disabled?: boolean;
+  iconWrapClassName?: string;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className={cn(
+        "flex w-full items-center gap-3 rounded-xl border border-border/70 bg-card/40 px-3 py-2.5 text-left transition-colors",
+        "hover:bg-muted/60 active:scale-[0.99] disabled:pointer-events-none disabled:opacity-45",
+        "min-h-[56px] shadow-sm",
+      )}
+    >
+      <span
+        className={cn(
+          "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg [&_svg]:h-5 [&_svg]:w-5",
+          iconWrapClassName,
+        )}
+      >
+        {icon}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-semibold leading-tight">{title}</span>
+        <span className="mt-0.5 block text-xs text-muted-foreground leading-snug">{subtitle}</span>
+      </span>
+    </button>
+  );
+}
 
 export function PetProfileShareDialog({ open, onOpenChange, reptile }: PetProfileShareDialogProps) {
   const navigate = useNavigate();
@@ -44,27 +102,9 @@ export function PetProfileShareDialog({ open, onOpenChange, reptile }: PetProfil
     };
   }, [open, reptile.id]);
 
-  const handleShareProfileLink = async () => {
-    if (!shareUrl) return;
-    setSharing(true);
-    try {
-      const result = await shareLink({
-        url: shareUrl,
-        title: `${reptile.name} — Reptilita`,
-        text: `Meet ${reptile.name} (${reptile.commonName || reptile.species})`,
-      });
-      if (result === "unavailable") {
-        const ok = await copyToClipboard(shareUrl);
-        if (ok) {
-          toast.success("Share menu not available — profile link copied");
-        } else {
-          setManualCopyOpen(true);
-        }
-      }
-    } finally {
-      setSharing(false);
-    }
-  };
+  const shareLine = reptile.commonName || reptile.species || "pet";
+  const shareText = `Meet ${reptile.name} (${shareLine})`;
+  const systemShare = canUseSystemShareLink();
 
   const handleCopyProfileLink = async () => {
     if (!shareUrl) return;
@@ -76,86 +116,151 @@ export function PetProfileShareDialog({ open, onOpenChange, reptile }: PetProfil
     }
   };
 
-  const openSharePreview = () => {
+  const handleMoreSharingOptions = async () => {
+    if (!shareUrl) return;
     onOpenChange(false);
-    navigate(`/share-profile/${reptile.id}`);
+    setSharing(true);
+    try {
+      const result = await shareLink({
+        url: shareUrl,
+        title: `${reptile.name} — Reptilita`,
+        text: shareText,
+      });
+      if (result === "unavailable") {
+        const ok = await copyToClipboard(shareUrl);
+        if (ok) {
+          toast.success("Share sheet not available — profile link copied");
+        } else {
+          setManualCopyOpen(true);
+        }
+      }
+    } finally {
+      setSharing(false);
+    }
   };
 
-  const openCareCard = () => {
+  const goToSharePage = (search: string) => {
     onOpenChange(false);
-    navigate(`/care-card/${reptile.id}`);
+    navigate(`/share-profile/${reptile.id}${search}`);
   };
 
-  const systemShare = canUseSystemShareLink();
+  const openExternal = (url: string) => {
+    onOpenChange(false);
+    openUrlInNewTab(url);
+  };
 
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Share {reptile.name}&apos;s profile</DialogTitle>
-            <DialogDescription className="text-left space-y-2 pt-1">
-              <span className="block">
-                Share a <strong>profile link</strong> (opens in Reptilita where your animal is saved) or a{" "}
-                <strong>share image</strong> for posts and stories.
-              </span>
-              <span className="block text-xs opacity-90">
-                Reptilita does not post to Facebook, Instagram, or X — your device shares or saves the link
-                or image you choose.
-              </span>
+        <DialogContent className="sm:max-w-md max-h-[min(92dvh,720px)] flex flex-col gap-0 p-0 overflow-hidden">
+          <DialogHeader className="px-5 pt-5 pb-3 text-left space-y-1.5 shrink-0">
+            <DialogTitle className="text-lg">Share {reptile.name}&apos;s profile</DialogTitle>
+            <DialogDescription className="text-xs sm:text-sm leading-relaxed">
+              Most options below share your <strong>public profile link</strong>.{" "}
+              <strong>Share image</strong> exports the card (best for Instagram).{" "}
+              <strong>More sharing options</strong> opens your device share sheet with the link when available.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="flex flex-col gap-2 pt-1">
-            <Button
-              className="w-full min-h-[52px] h-auto flex flex-col gap-1 py-3"
-              onClick={openSharePreview}
+          <div className="flex-1 min-h-0 overflow-y-auto px-3 sm:px-4 pb-1 space-y-1.5">
+            <ShareActionRow
+              icon={<FacebookIcon />}
+              title="Share to Facebook"
+              subtitle="Opens Facebook with your profile link"
               disabled={!shareUrl}
-            >
-              <span className="flex items-center justify-center gap-2 font-semibold">
-                <Share2 className="w-4 h-4 shrink-0" />
-                Share profile
-              </span>
-              <span className="text-xs font-normal opacity-90 px-1 leading-snug">
-                Photo-first preview — copy the profile link or download a card for social posts
-              </span>
-            </Button>
-
-            {systemShare && (
-              <Button
-                variant="outline"
-                className="w-full min-h-[48px] justify-start"
-                onClick={handleShareProfileLink}
-                disabled={!shareUrl || sharing}
-              >
-                <Send className="w-4 h-4 mr-2 shrink-0" />
-                {sharing ? "Opening…" : "Share profile link (apps)"}
-              </Button>
-            )}
+              onClick={() => openExternal(buildFacebookSharerUrl(shareUrl))}
+              iconWrapClassName="bg-[#1877F2]/15 text-[#1877F2]"
+            />
+            <ShareActionRow
+              icon={<InstagramIcon />}
+              title="Save image for Instagram"
+              subtitle="Opens the share card — save or share the image, then post in Instagram"
+              onClick={() => goToSharePage("?instagram=1")}
+              iconWrapClassName="bg-gradient-to-br from-fuchsia-500/15 to-orange-400/15 text-fuchsia-700 dark:text-fuchsia-400"
+            />
+            <ShareActionRow
+              icon={<XIcon />}
+              title="Share to X"
+              subtitle="Opens X with a short message and your profile link"
+              disabled={!shareUrl}
+              onClick={() => openExternal(buildXIntentUrl(shareUrl, shareText))}
+              iconWrapClassName="bg-foreground/10 text-foreground"
+            />
+            <ShareActionRow
+              icon={<WhatsAppIcon />}
+              title="Send via WhatsApp"
+              subtitle="Opens WhatsApp with message text and your profile link"
+              disabled={!shareUrl}
+              onClick={() => openExternal(buildWhatsAppShareUrl(shareText, shareUrl))}
+              iconWrapClassName="bg-[#25D366]/15 text-emerald-700 dark:text-emerald-400"
+            />
+            <ShareActionRow
+              icon={<TelegramIcon />}
+              title="Share via Telegram"
+              subtitle="Opens Telegram with your profile link"
+              disabled={!shareUrl}
+              onClick={() => openExternal(buildTelegramShareUrl(shareUrl, shareText))}
+              iconWrapClassName="bg-sky-500/15 text-sky-700 dark:text-sky-400"
+            />
+            <ShareActionRow
+              icon={<Copy className="h-5 w-5" />}
+              title="Copy profile link"
+              subtitle="Copy the public profile URL to paste anywhere"
+              disabled={!shareUrl}
+              onClick={() => void handleCopyProfileLink()}
+              iconWrapClassName="bg-muted text-foreground"
+            />
+            <ShareActionRow
+              icon={<ImageIcon className="h-5 w-5" />}
+              title="Share image"
+              subtitle="Export the share card — share sheet or download"
+              onClick={() => goToSharePage("?autoExport=1")}
+              iconWrapClassName="bg-primary/12 text-primary"
+            />
+            <ShareActionRow
+              icon={<MoreHorizontal className="h-5 w-5" />}
+              title="More sharing options"
+              subtitle={
+                systemShare
+                  ? "Opens the system share sheet with your profile link"
+                  : "Copies your profile link if the device share sheet is not available"
+              }
+              disabled={!shareUrl || sharing}
+              onClick={() => void handleMoreSharingOptions()}
+              iconWrapClassName="bg-muted text-foreground"
+            />
 
             {!systemShare && (
-              <p className="text-xs text-muted-foreground px-0.5">
-                No system share menu in this browser — open <strong>Share profile</strong> for the preview, or copy
-                the link below.
+              <p className="text-[11px] text-muted-foreground px-1 pt-0.5 pb-1 leading-snug">
+                No system share menu in this browser — <strong>More sharing options</strong> will copy your link, or use{" "}
+                <strong>Copy profile link</strong>.
               </p>
             )}
+          </div>
 
+          <div className="shrink-0 border-t border-border/80 bg-muted/20 px-3 sm:px-4 py-3 space-y-1.5">
             <Button
-              variant="outline"
-              className="w-full min-h-[48px] justify-start"
-              onClick={handleCopyProfileLink}
-              disabled={!shareUrl}
+              variant="secondary"
+              className="w-full min-h-[48px] justify-start gap-2 rounded-xl"
+              onClick={() => goToSharePage("")}
             >
-              <Copy className="w-4 h-4 mr-2 shrink-0" />
-              Copy profile link
+              <Share2 className="w-4 h-4 shrink-0 opacity-80" />
+              <span className="flex flex-col items-start gap-0.5">
+                <span className="text-sm font-medium leading-none">Open share card</span>
+                <span className="text-xs font-normal text-muted-foreground leading-snug">
+                  Full preview, copy link, and export
+                </span>
+              </span>
             </Button>
-
             <Button
-              variant="outline"
-              className="w-full min-h-[48px] justify-start text-muted-foreground border-dashed"
-              onClick={openCareCard}
+              variant="ghost"
+              className="w-full min-h-[44px] justify-start gap-2 text-muted-foreground rounded-xl"
+              onClick={() => {
+                onOpenChange(false);
+                navigate(`/care-card/${reptile.id}`);
+              }}
             >
-              <QrCode className="w-4 h-4 mr-2 shrink-0" />
+              <QrCode className="w-4 h-4 shrink-0" />
               Open care summary (QR)
             </Button>
           </div>

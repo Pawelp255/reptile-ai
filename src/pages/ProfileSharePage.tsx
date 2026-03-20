@@ -1,6 +1,6 @@
 // Share-friendly pet profile — link, native share, and image export (distinct from Care Card)
-import { useState, useEffect, useRef } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowLeft, Copy, Image as ImageIcon, Check, Share2 } from "lucide-react";
 import { PageMotion } from "@/components/motion/PageMotion";
@@ -63,6 +63,7 @@ const BREEDING_LABELS: Record<string, string> = {
 export default function ProfileSharePage() {
   const { reptileId } = useParams<{ reptileId: string }>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [reptile, setReptile] = useState<Reptile | null>(null);
   const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
@@ -106,6 +107,89 @@ export default function ProfileSharePage() {
     load();
   }, [reptileId, navigate]);
 
+  const exportCardImage = useCallback(async () => {
+    if (!cardRef.current || !reptile) return;
+
+    setSavingImage(true);
+    try {
+      const canvas = await html2canvas(cardRef.current, {
+        backgroundColor: null,
+        scale: 2,
+        useCORS: true,
+        logging: false,
+      });
+
+      const dataUrl = canvas.toDataURL("image/png");
+      const dateStr = format(new Date(), "yyyy-MM-dd");
+      const safeName = reptile.name.replace(/[^a-zA-Z0-9]/g, "_");
+      const fileName = `Profile_${safeName}_${dateStr}.png`;
+
+      await shareImage(dataUrl, fileName, `${reptile.name} — Reptilita`);
+      toast.success(isNative() ? "Image ready to share" : "Image download started");
+      setSavedJustNow(true);
+      setTimeout(() => setSavedJustNow(false), 1500);
+    } catch (error) {
+      console.error("Failed to save profile image:", error);
+      toast.error("Failed to save image");
+    } finally {
+      setSavingImage(false);
+    }
+  }, [reptile]);
+
+  const instagramHintRequested = searchParams.get("instagram") === "1";
+  const autoExportRequested = searchParams.get("autoExport") === "1";
+
+  useEffect(() => {
+    if (!instagramHintRequested || loading || !reptile) return;
+    toast("Save image for Instagram", {
+      description:
+        "Use Share image or Download share image below, then create a new post in Instagram and pick that saved photo. Profile links are for other apps — Instagram works best with the image.",
+      duration: 6500,
+    });
+    requestAnimationFrame(() => {
+      document.getElementById("profile-share-export-actions")?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("instagram");
+        return next;
+      },
+      { replace: true },
+    );
+  }, [instagramHintRequested, loading, reptile, setSearchParams]);
+
+  useEffect(() => {
+    if (!autoExportRequested || loading || !reptile) return;
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        try {
+          if (cancelled) return;
+          if (cardRef.current) await exportCardImage();
+          else {
+            toast.info("Use Share image below to export your card.");
+          }
+        } finally {
+          if (!cancelled) {
+            setSearchParams(
+              (prev) => {
+                const next = new URLSearchParams(prev);
+                next.delete("autoExport");
+                return next;
+              },
+              { replace: true },
+            );
+          }
+        }
+      })();
+    }, 450);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [autoExportRequested, loading, reptile, exportCardImage, setSearchParams]);
+
   const handleCopyLink = async () => {
     const success = await copyToClipboard(shareUrl);
     if (success) {
@@ -140,33 +224,8 @@ export default function ProfileSharePage() {
     }
   };
 
-  const handleSaveImage = async () => {
-    if (!cardRef.current || !reptile) return;
-
-    setSavingImage(true);
-    try {
-      const canvas = await html2canvas(cardRef.current, {
-        backgroundColor: null,
-        scale: 2,
-        useCORS: true,
-        logging: false,
-      });
-
-      const dataUrl = canvas.toDataURL("image/png");
-      const dateStr = format(new Date(), "yyyy-MM-dd");
-      const safeName = reptile.name.replace(/[^a-zA-Z0-9]/g, "_");
-      const fileName = `Profile_${safeName}_${dateStr}.png`;
-
-      await shareImage(dataUrl, fileName, `${reptile.name} — Reptilita`);
-      toast.success(isNative() ? "Image ready to share" : "Image download started");
-      setSavedJustNow(true);
-      setTimeout(() => setSavedJustNow(false), 1500);
-    } catch (error) {
-      console.error("Failed to save profile image:", error);
-      toast.error("Failed to save image");
-    } finally {
-      setSavingImage(false);
-    }
+  const handleSaveImage = () => {
+    void exportCardImage();
   };
 
   const feedSchedule = schedule.find((s) => s.taskType === "feed");
@@ -203,7 +262,10 @@ export default function ProfileSharePage() {
           <ArrowLeft className="w-4 h-4 mr-1" />
           Back
         </Button>
-        <div className="flex flex-col sm:flex-row flex-wrap gap-2 w-full sm:w-auto sm:max-w-none">
+        <div
+          id="profile-share-export-actions"
+          className="flex flex-col sm:flex-row flex-wrap gap-2 w-full sm:w-auto sm:max-w-none scroll-mt-24"
+        >
           <Button
             variant="outline"
             size="sm"
