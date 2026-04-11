@@ -8,6 +8,10 @@ import { Separator } from '@/components/ui/separator';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
+function getErrorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error ? error.message : fallback;
+}
+
 export default function AuthPage() {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
@@ -48,8 +52,8 @@ export default function AuthPage() {
         if (error) throw error;
         toast.success('Welcome back!');
       }
-    } catch (err: any) {
-      toast.error(err.message || 'Authentication failed');
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, 'Authentication failed'));
     } finally {
       setLoading(false);
     }
@@ -66,8 +70,8 @@ export default function AuthPage() {
       });
 
       if (error) toast.error(error.message || `Sign in with ${provider} failed`);
-    } catch (err: any) {
-      toast.error(err.message || `Sign in with ${provider} failed`);
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, `Sign in with ${provider} failed`));
     } finally {
       setSocialLoading(null);
     }

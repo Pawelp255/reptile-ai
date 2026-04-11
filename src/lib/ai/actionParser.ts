@@ -28,16 +28,32 @@ const VALID_EVENT_TYPES: EventType[] = ['feeding', 'cleaning', 'shedding', 'heal
 const VALID_SUPPLEMENTS: Supplement[] = ['calcium', 'd3', 'multivitamin'];
 const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
+type ActionCandidate = Record<string, unknown>;
+
 function isValidDate(d: string): boolean {
   return DATE_REGEX.test(d) && !isNaN(Date.parse(d));
 }
 
-function validateScheduleAction(raw: any, validReptileIds: string[]): ScheduleAction | null {
+function isActionCandidate(value: unknown): value is ActionCandidate {
+  return typeof value === 'object' && value !== null;
+}
+
+function isTaskType(value: unknown): value is TaskType {
+  return typeof value === 'string' && VALID_TASK_TYPES.includes(value as TaskType);
+}
+
+function isEventType(value: unknown): value is EventType {
+  return typeof value === 'string' && VALID_EVENT_TYPES.includes(value as EventType);
+}
+
+function validateScheduleAction(raw: ActionCandidate, validReptileIds: string[]): ScheduleAction | null {
   if (
     raw.type !== 'schedule' ||
-    !VALID_TASK_TYPES.includes(raw.taskType) ||
+    !isTaskType(raw.taskType) ||
+    typeof raw.reptileId !== 'string' ||
     !validReptileIds.includes(raw.reptileId) ||
     typeof raw.frequencyDays !== 'number' || raw.frequencyDays < 1 ||
+    typeof raw.nextDueDate !== 'string' ||
     !isValidDate(raw.nextDueDate)
   ) return null;
 
@@ -51,11 +67,13 @@ function validateScheduleAction(raw: any, validReptileIds: string[]): ScheduleAc
   };
 }
 
-function validateEventAction(raw: any, validReptileIds: string[]): EventAction | null {
+function validateEventAction(raw: ActionCandidate, validReptileIds: string[]): EventAction | null {
   if (
     raw.type !== 'event' ||
-    !VALID_EVENT_TYPES.includes(raw.eventType) ||
+    !isEventType(raw.eventType) ||
+    typeof raw.reptileId !== 'string' ||
     !validReptileIds.includes(raw.reptileId) ||
+    typeof raw.eventDate !== 'string' ||
     !isValidDate(raw.eventDate)
   ) return null;
 
@@ -67,7 +85,7 @@ function validateEventAction(raw: any, validReptileIds: string[]): EventAction |
     details: typeof raw.details === 'string' ? raw.details : undefined,
     weightGrams: typeof raw.weightGrams === 'number' ? raw.weightGrams : undefined,
     supplements: Array.isArray(raw.supplements) 
-      ? raw.supplements.filter((s: any) => VALID_SUPPLEMENTS.includes(s))
+      ? raw.supplements.filter((s): s is Supplement => VALID_SUPPLEMENTS.includes(s as Supplement))
       : undefined,
   };
 }
@@ -82,9 +100,10 @@ export function extractActions(text: string, validReptileIds: string[]): AIActio
   while ((match = jsonBlockRegex.exec(text)) !== null) {
     try {
       const parsed = JSON.parse(match[1]);
-      const rawActions = Array.isArray(parsed.actions) ? parsed.actions : [];
+      const rawActions = isActionCandidate(parsed) && Array.isArray(parsed.actions) ? parsed.actions : [];
       
       for (const raw of rawActions) {
+        if (!isActionCandidate(raw)) continue;
         if (raw.type === 'schedule') {
           const valid = validateScheduleAction(raw, validReptileIds);
           if (valid) actions.push(valid);

@@ -21,6 +21,8 @@ import { BREEDING_STATUS_OPTIONS as breedingStatusOptions } from '@/types';
 import type { GeneticGene } from '@/types/genetics';
 import {
   ANIMAL_CATEGORY_OPTIONS,
+  getSpeciesPresetById,
+  getSpeciesPresetsForCategory,
   type AnimalCategory,
   type HabitatType,
   type HumidityPreference,
@@ -28,6 +30,8 @@ import {
   type WaterRequirement,
   type HandlingProfile,
 } from '@/lib/animals/taxonomy';
+
+const CUSTOM_PRESET_VALUE = '__custom__';
 
 interface ExtendedFormData extends ReptileFormData {
   hetsInput: string;
@@ -56,6 +60,7 @@ export default function EditReptilePage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [selectedPresetId, setSelectedPresetId] = useState(CUSTOM_PRESET_VALUE);
   const [formData, setFormData] = useState<ExtendedFormData>({
     name: '',
     species: '',
@@ -85,6 +90,34 @@ export default function EditReptilePage() {
     geneticsNotes: '',
     genes: [],
   });
+
+  const speciesPresets = getSpeciesPresetsForCategory(formData.animalCategory);
+
+  const handleApplyPreset = (presetId: string) => {
+    setSelectedPresetId(presetId);
+    if (presetId === CUSTOM_PRESET_VALUE) return;
+
+    const preset = getSpeciesPresetById(presetId);
+    if (!preset) return;
+
+    const meta = ANIMAL_CATEGORY_OPTIONS.find((c) => c.value === preset.category);
+    setFormData((prev) => ({
+      ...prev,
+      species: preset.commonName,
+      commonName: preset.commonName,
+      scientificName: preset.scientificName || '',
+      animalCategory: preset.category,
+      animalClass: meta?.class ?? prev.animalClass,
+      speciesGroup: preset.speciesGroup || '',
+      dietType: preset.dietType,
+      habitatType: preset.habitatType,
+      humidityPreference: preset.humidityPreference,
+      uvbRequirement: preset.uvbRequirement,
+      waterRequirement: preset.waterRequirement,
+      handlingProfile: preset.handlingProfile,
+      isAmphibian: preset.isAmphibian ?? (meta?.class === 'amphibian'),
+    }));
+  };
 
   useEffect(() => {
     const loadReptile = async () => {
@@ -273,6 +306,7 @@ export default function EditReptilePage() {
               value={formData.animalCategory}
               onValueChange={(value: AnimalCategory) => {
                 const meta = ANIMAL_CATEGORY_OPTIONS.find((c) => c.value === value);
+                setSelectedPresetId(CUSTOM_PRESET_VALUE);
                 setFormData((prev) => ({
                   ...prev,
                   animalCategory: value,
@@ -292,6 +326,29 @@ export default function EditReptilePage() {
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          <div>
+            <Label>Species Preset</Label>
+            <Select
+              value={selectedPresetId}
+              onValueChange={handleApplyPreset}
+            >
+              <SelectTrigger className="mt-1.5">
+                <SelectValue placeholder="Choose a preset or keep custom details" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={CUSTOM_PRESET_VALUE}>Custom / manual entry</SelectItem>
+                {speciesPresets.map((preset) => (
+                  <SelectItem key={preset.id} value={preset.id}>
+                    {preset.commonName}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground mt-1">
+              Choosing a preset updates common care fields. Review details before saving.
+            </p>
           </div>
 
           <div>

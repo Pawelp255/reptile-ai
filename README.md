@@ -1,10 +1,10 @@
-# Reptile AI
+# Reptilita
 
-A mobile-first reptile husbandry tracker with breeding management, genetics calculator, and full offline support. Available as a PWA and native iOS/Android apps.
+A premium mobile-first reptile and amphibian care companion for keepers, breeders, rescue teams, and enthusiasts. Includes husbandry tracking, breeding tools, genetics support, and offline-first local data.
 
 ## Features
 
-- 🦎 **Reptile Management** - Track all your reptiles with profiles, photos, and health records
+- 🦎 **Animal Management** - Track reptiles and amphibians with profiles, photos, and health records
 - 📅 **Task Scheduling** - Feeding, cleaning, and health check reminders
 - 🧬 **Advanced Genetics Calculator** - Dominant/codominant/recessive inheritance with pos-het support
 - 🥚 **Breeding Management** - Pairings, clutches, and offspring tracking

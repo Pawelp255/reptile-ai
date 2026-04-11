@@ -27,9 +27,11 @@ import {
   canUseSystemShareLink,
   isNative,
 } from "@/lib/native/sharing";
-import { buildProfileShareUrl } from "@/lib/share/shareUrls";
+import { buildProfileShareUrl, buildPublicShareUrl } from "@/lib/share/shareUrls";
 import { getDisplayEmoji } from "@/lib/animals/taxonomy";
 import { ContentSkeleton } from "@/components/system/SkeletonLoaders";
+import { PublicShareControls } from "@/components/share/PublicShareControls";
+import { getPublicShareForAnimal, type PublicShareRecord } from "@/lib/share/publicShare";
 import type { Reptile, ScheduleItem, CareEvent, TaskType } from "@/types";
 
 const TASK_LABELS: Record<TaskType, string> = {
@@ -69,6 +71,8 @@ export default function ProfileSharePage() {
   const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
   const [lastFeeding, setLastFeeding] = useState<CareEvent | null>(null);
   const [shareUrl, setShareUrl] = useState<string>("");
+  const [publicRecord, setPublicRecord] = useState<PublicShareRecord | null>(null);
+  const [publicBaseUrl, setPublicBaseUrl] = useState<string | undefined>();
   const [loading, setLoading] = useState(true);
   const [savingImage, setSavingImage] = useState(false);
   const [savedJustNow, setSavedJustNow] = useState(false);
@@ -98,6 +102,10 @@ export default function ProfileSharePage() {
         setSchedule(sched);
         setLastFeeding(feeding || null);
         setShareUrl(buildProfileShareUrl(reptileId, settings.publicBaseUrl));
+        setPublicBaseUrl(settings.publicBaseUrl);
+        void getPublicShareForAnimal(reptileId, "profile")
+          .then(setPublicRecord)
+          .catch(() => setPublicRecord(null));
       } catch (error) {
         console.error("Failed to load profile share data:", error);
       } finally {
@@ -191,31 +199,35 @@ export default function ProfileSharePage() {
   }, [autoExportRequested, loading, reptile, exportCardImage, setSearchParams]);
 
   const handleCopyLink = async () => {
-    const success = await copyToClipboard(shareUrl);
+    const publicShareUrl = publicRecord ? buildPublicShareUrl("profile", publicRecord.slug, publicBaseUrl) : "";
+    const activeShareUrl = publicShareUrl || shareUrl;
+    const success = await copyToClipboard(activeShareUrl);
     if (success) {
-      toast.success("Link copied to clipboard");
+      toast.success(publicShareUrl ? "Public profile link copied" : "Local-only profile link copied");
     } else {
-      setFallbackUrl(shareUrl);
+      setFallbackUrl(activeShareUrl);
       setFallbackDialogOpen(true);
     }
   };
 
   const handleShareLink = async () => {
     if (!reptile) return;
+    const publicShareUrl = publicRecord ? buildPublicShareUrl("profile", publicRecord.slug, publicBaseUrl) : "";
+    const activeShareUrl = publicShareUrl || shareUrl;
     setSharingLink(true);
     try {
       const result = await shareLink({
-        url: shareUrl,
+        url: activeShareUrl,
         title: `${reptile.name} — Reptilita`,
         text: `Meet ${reptile.name} (${reptile.commonName || reptile.species})`,
       });
       if (result === "unavailable") {
-        const copied = await copyToClipboard(shareUrl);
+        const copied = await copyToClipboard(activeShareUrl);
         if (copied) {
-          toast.success("Share menu unavailable — profile link copied instead");
+          toast.success(publicShareUrl ? "Share menu unavailable; public link copied" : "Share menu unavailable; local-only link copied");
         } else {
           toast.error("Sharing not available on this device");
-          setFallbackUrl(shareUrl);
+          setFallbackUrl(activeShareUrl);
           setFallbackDialogOpen(true);
         }
       }
@@ -232,8 +244,14 @@ export default function ProfileSharePage() {
   const emoji = reptile
     ? getDisplayEmoji(reptile.animalCategory, reptile.species)
     : "";
+  const displayNames = reptile
+    ? [reptile.commonName, reptile.species].filter(
+        (value, index, values) => Boolean(value) && values.indexOf(value) === index,
+      )
+    : [];
 
   const showSystemShare = canUseSystemShareLink();
+  const usingPublicLink = Boolean(publicRecord);
   const imageActionLabel = savingImage
     ? "Working…"
     : savedJustNow
@@ -273,7 +291,7 @@ export default function ProfileSharePage() {
             className="min-h-[44px] transition-all duration-200 ease-out active:scale-[0.98] shadow-[var(--shadow-card)]"
           >
             <Copy className="w-4 h-4 mr-1" />
-            Copy profile link
+            {usingPublicLink ? "Copy public link" : "Copy local link"}
           </Button>
           {showSystemShare && (
             <Button
@@ -284,7 +302,7 @@ export default function ProfileSharePage() {
               className="min-h-[44px] transition-all duration-200 ease-out active:scale-[0.98] shadow-[var(--shadow-card)]"
             >
               <Share2 className="w-4 h-4 mr-1" />
-              {sharingLink ? "Opening…" : "Share profile link"}
+              {sharingLink ? "Opening…" : usingPublicLink ? "Share public link" : "Share local link"}
             </Button>
           )}
           <Button
@@ -306,14 +324,23 @@ export default function ProfileSharePage() {
 
       <p className="text-sm text-muted-foreground max-w-md mx-auto mb-4 px-0.5 leading-relaxed">
         This card is what you share as an <strong>image</strong> (e.g. save it for Instagram — there is no direct
-        Instagram link post from here). The <strong>profile link</strong> opens Reptilita on a device that already has
-        your data. Reptilita never posts to social networks for you.
+        Instagram link post from here). Public links open a read-only cloud snapshot; local links only work where this
+        animal is already saved. Reptilita never posts to social networks for you.
       </p>
       {!showSystemShare && (
         <p className="text-xs text-muted-foreground max-w-md mx-auto mb-4 px-0.5">
           No share menu in this browser — use <strong>Copy profile link</strong> or <strong>Download share image</strong>.
         </p>
       )}
+
+      <div className="max-w-md mx-auto mb-4">
+        <PublicShareControls
+          reptileId={reptile.id}
+          shareType="profile"
+          label="Profile"
+          onRecordChange={setPublicRecord}
+        />
+      </div>
 
       <div
         ref={cardRef}
@@ -337,7 +364,7 @@ export default function ProfileSharePage() {
           <p className="text-[10px] uppercase tracking-[0.2em] opacity-80 font-medium">Pet profile</p>
           <h1 className="text-2xl font-bold tracking-tight mt-1">{reptile.name}</h1>
           <p className="text-sm opacity-95 mt-1 leading-snug">
-            {[reptile.commonName, reptile.species].filter(Boolean).join(" · ") || reptile.species}
+            {displayNames.join(" · ") || reptile.species}
             {reptile.morph ? ` · ${reptile.morph}` : ""}
           </p>
           <p className="text-sm opacity-90 mt-2">

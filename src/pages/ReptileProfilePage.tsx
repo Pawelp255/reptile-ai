@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Trash2, Edit, Calendar, Utensils, RefreshCw, Pencil, Scale, Ruler, Heart, Plus, FileText, Bot, Share2 } from 'lucide-react';
+import { ArrowLeft, Trash2, Edit, Calendar, Utensils, RefreshCw, Pencil, Scale, Ruler, Heart, Plus, FileText, FileBadge, Bot, Share2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { PageHeader } from '@/components/PageHeader';
 import { PageMotion } from '@/components/motion/PageMotion';
@@ -120,7 +120,7 @@ export default function ReptileProfilePage() {
   const [deletingEvent, setDeletingEvent] = useState(false);
   const [shareProfileOpen, setShareProfileOpen] = useState(false);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     if (!id) return;
 
     try {
@@ -172,11 +172,11 @@ export default function ReptileProfilePage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id, navigate]);
 
   useEffect(() => {
     loadData();
-  }, [id]);
+  }, [loadData]);
 
   const handleDelete = async () => {
     if (!id) return;
@@ -437,6 +437,17 @@ export default function ReptileProfilePage() {
 
           {/* Action Buttons — share panel, Vet PDF / AI (staggered) */}
           <div className="space-y-2 animate-in-slide-up motion-delay-2">
+            <Link to={`/passport/${id}`}>
+              <Button
+                type="button"
+                variant="secondary"
+                className="w-full min-h-[48px]"
+                size="lg"
+              >
+                <FileBadge className="w-4 h-4 mr-2" />
+                Open Passport
+              </Button>
+            </Link>
             <Button
               type="button"
               className="w-full min-h-[48px]"

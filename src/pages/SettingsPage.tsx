@@ -86,7 +86,7 @@ export default function SettingsPage() {
   const [seedingExpo, setSeedingExpo] = useState(false);
   const [exportingPromo, setExportingPromo] = useState(false);
 
-  // Public share URL
+  // Share link base URL
   const [publicBaseUrl, setPublicBaseUrl] = useState('');
   const [savingPublicUrl, setSavingPublicUrl] = useState(false);
 
@@ -358,7 +358,7 @@ export default function SettingsPage() {
                   </div>
                   <div>
                     <p className="text-card-title text-foreground">Not signed in</p>
-                    <p className="text-secondary text-[13px]">Sign in to sync your data</p>
+                    <p className="text-secondary text-[13px]">Sign in for account profile features</p>
                   </div>
                 </div>
                 <Link to="/auth">
@@ -534,10 +534,10 @@ export default function SettingsPage() {
             <div>
               <div className="flex items-center gap-2 mb-2">
                 <Globe className="w-4 h-4 text-primary" />
-                <span className="font-medium">Public Share URL (optional)</span>
+                <span className="font-medium">Share Link Base URL (optional)</span>
               </div>
               <p className="text-sm text-muted-foreground mb-3">
-                If you host this web app (e.g. Cloudflare, Netlify), set the base URL here so QR codes on Care Cards work on other devices.
+                If you host this web app, set the base URL used in copied links. Animal data is still stored on this device unless you export or share an image.
               </p>
               <div className="flex gap-2">
                 <Input
@@ -555,7 +555,7 @@ export default function SettingsPage() {
                     setSavingPublicUrl(true);
                     try {
                       await updateSettings({ publicBaseUrl: publicBaseUrl.trim() || undefined });
-                      toast.success(publicBaseUrl.trim() ? 'Public URL saved' : 'Public URL cleared');
+                      toast.success(publicBaseUrl.trim() ? 'Share link base URL saved' : 'Share link base URL cleared');
                     } catch {
                       toast.error('Failed to save URL');
                     } finally {
@@ -733,7 +733,7 @@ export default function SettingsPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Sign out?</AlertDialogTitle>
             <AlertDialogDescription>
-              You will be signed out of your account and need to sign in again to access your data.
+              You will be signed out of your account. Local animal data on this device is not removed.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

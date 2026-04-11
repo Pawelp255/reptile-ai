@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Copy, Image as ImageIcon, MoreHorizontal, QrCode, Share2 } from "lucide-react";
+import { Copy, FileBadge, Image as ImageIcon, MoreHorizontal, QrCode, Share2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -16,7 +16,7 @@ import {
   shareLink,
   canUseSystemShareLink,
 } from "@/lib/native/sharing";
-import { buildProfileShareUrl } from "@/lib/share/shareUrls";
+import { buildProfileShareUrl, buildPublicShareUrl } from "@/lib/share/shareUrls";
 import {
   buildFacebookSharerUrl,
   buildTelegramShareUrl,
@@ -31,6 +31,8 @@ import {
   WhatsAppIcon,
   XIcon,
 } from "@/components/share/SocialSharePlatformIcons";
+import { PublicShareControls } from "@/components/share/PublicShareControls";
+import { getPublicShareForAnimal, type PublicShareRecord } from "@/lib/share/publicShare";
 import { cn } from "@/lib/utils";
 import type { Reptile } from "@/types";
 import type { ReactNode } from "react";
@@ -86,16 +88,25 @@ function ShareActionRow({
 export function PetProfileShareDialog({ open, onOpenChange, reptile }: PetProfileShareDialogProps) {
   const navigate = useNavigate();
   const [shareUrl, setShareUrl] = useState("");
+  const [publicRecord, setPublicRecord] = useState<PublicShareRecord | null>(null);
+  const [publicBaseUrl, setPublicBaseUrl] = useState<string | undefined>();
   const [sharing, setSharing] = useState(false);
   const [manualCopyOpen, setManualCopyOpen] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
-    getSettings().then((s) => {
+    Promise.all([
+      getSettings(),
+      getPublicShareForAnimal(reptile.id, "profile"),
+    ]).then(([s, existing]) => {
       if (!cancelled) {
         setShareUrl(buildProfileShareUrl(reptile.id, s.publicBaseUrl));
+        setPublicBaseUrl(s.publicBaseUrl);
+        setPublicRecord(existing);
       }
+    }).catch(() => {
+      if (!cancelled) setPublicRecord(null);
     });
     return () => {
       cancelled = true;
@@ -105,31 +116,35 @@ export function PetProfileShareDialog({ open, onOpenChange, reptile }: PetProfil
   const shareLine = reptile.commonName || reptile.species || "pet";
   const shareText = `Meet ${reptile.name} (${shareLine})`;
   const systemShare = canUseSystemShareLink();
+  const publicShareUrl = publicRecord ? buildPublicShareUrl("profile", publicRecord.slug, publicBaseUrl) : "";
+  const activeShareUrl = publicShareUrl || shareUrl;
+  const usingPublicLink = Boolean(publicShareUrl);
+  const linkKindLabel = usingPublicLink ? "public snapshot link" : "local-only profile link";
 
   const handleCopyProfileLink = async () => {
-    if (!shareUrl) return;
-    const ok = await copyToClipboard(shareUrl);
+    if (!activeShareUrl) return;
+    const ok = await copyToClipboard(activeShareUrl);
     if (ok) {
-      toast.success("Profile link copied");
+      toast.success(usingPublicLink ? "Public profile link copied" : "Local-only profile link copied");
     } else {
       setManualCopyOpen(true);
     }
   };
 
   const handleMoreSharingOptions = async () => {
-    if (!shareUrl) return;
+    if (!activeShareUrl) return;
     onOpenChange(false);
     setSharing(true);
     try {
       const result = await shareLink({
-        url: shareUrl,
+        url: activeShareUrl,
         title: `${reptile.name} — Reptilita`,
         text: shareText,
       });
       if (result === "unavailable") {
-        const ok = await copyToClipboard(shareUrl);
+        const ok = await copyToClipboard(activeShareUrl);
         if (ok) {
-          toast.success("Share sheet unavailable — profile link copied");
+          toast.success(`Share sheet unavailable; ${linkKindLabel} copied`);
         } else {
           setManualCopyOpen(true);
         }
@@ -156,9 +171,9 @@ export function PetProfileShareDialog({ open, onOpenChange, reptile }: PetProfil
           <DialogHeader className="px-5 pt-5 pb-3 text-left space-y-1.5 shrink-0">
             <DialogTitle className="text-lg">Share {reptile.name}&apos;s profile</DialogTitle>
             <DialogDescription className="text-xs sm:text-sm leading-relaxed">
-              <strong>Link</strong> — Facebook, X, WhatsApp, Telegram, Copy link, and More use your public profile URL
-              (you finish the post or send in each app). <strong>Image</strong> — Instagram and Share image use a
-              picture of the card you save or share yourself. Reptilita does not post to social networks for you.
+              <strong>Link</strong> actions use the {linkKindLabel}. Create a public link below for people who do not
+              have your local data. <strong>Image</strong> actions export a card photo. Reptilita does not post to
+              social networks for you.
             </DialogDescription>
           </DialogHeader>
 
@@ -166,9 +181,9 @@ export function PetProfileShareDialog({ open, onOpenChange, reptile }: PetProfil
             <ShareActionRow
               icon={<FacebookIcon />}
               title="Facebook"
-              subtitle="Public profile link — opens the Facebook share box; you complete the post there"
-              disabled={!shareUrl}
-              onClick={() => openExternal(buildFacebookSharerUrl(shareUrl))}
+              subtitle={`${usingPublicLink ? "Public" : "Local-only"} profile link; you complete the post there`}
+              disabled={!activeShareUrl}
+              onClick={() => openExternal(buildFacebookSharerUrl(activeShareUrl))}
               iconWrapClassName="bg-[#1877F2]/15 text-[#1877F2]"
             />
             <ShareActionRow
@@ -181,32 +196,32 @@ export function PetProfileShareDialog({ open, onOpenChange, reptile }: PetProfil
             <ShareActionRow
               icon={<XIcon />}
               title="X"
-              subtitle="Public profile link and short text — opens the X post composer for you to send"
-              disabled={!shareUrl}
-              onClick={() => openExternal(buildXIntentUrl(shareUrl, shareText))}
+              subtitle={`${usingPublicLink ? "Public" : "Local-only"} link and short text; you send the post`}
+              disabled={!activeShareUrl}
+              onClick={() => openExternal(buildXIntentUrl(activeShareUrl, shareText))}
               iconWrapClassName="bg-foreground/10 text-foreground"
             />
             <ShareActionRow
               icon={<WhatsAppIcon />}
               title="WhatsApp"
-              subtitle="Message with your profile link — opens WhatsApp; you tap send"
-              disabled={!shareUrl}
-              onClick={() => openExternal(buildWhatsAppShareUrl(shareText, shareUrl))}
+              subtitle={`Message with your ${usingPublicLink ? "public" : "local-only"} profile link`}
+              disabled={!activeShareUrl}
+              onClick={() => openExternal(buildWhatsAppShareUrl(shareText, activeShareUrl))}
               iconWrapClassName="bg-[#25D366]/15 text-emerald-700 dark:text-emerald-400"
             />
             <ShareActionRow
               icon={<TelegramIcon />}
               title="Telegram"
-              subtitle="Share URL with caption — opens Telegram; you confirm the chat and send"
-              disabled={!shareUrl}
-              onClick={() => openExternal(buildTelegramShareUrl(shareUrl, shareText))}
+              subtitle={`Share ${usingPublicLink ? "public" : "local-only"} URL with caption`}
+              disabled={!activeShareUrl}
+              onClick={() => openExternal(buildTelegramShareUrl(activeShareUrl, shareText))}
               iconWrapClassName="bg-sky-500/15 text-sky-700 dark:text-sky-400"
             />
             <ShareActionRow
               icon={<Copy className="h-5 w-5" />}
               title="Copy link"
-              subtitle="Copies the public profile URL — paste it in any app"
-              disabled={!shareUrl}
+              subtitle={`Copies the ${linkKindLabel}; paste it in any app`}
+              disabled={!activeShareUrl}
               onClick={() => void handleCopyProfileLink()}
               iconWrapClassName="bg-muted text-foreground"
             />
@@ -222,10 +237,10 @@ export function PetProfileShareDialog({ open, onOpenChange, reptile }: PetProfil
               title="More…"
               subtitle={
                 systemShare
-                  ? "System share sheet with your profile link — pick any app that accepts links"
-                  : "No share sheet here — we copy your profile link instead"
+                  ? `System share sheet with your ${linkKindLabel}`
+                  : `No share sheet here; we copy your ${linkKindLabel} instead`
               }
-              disabled={!shareUrl || sharing}
+              disabled={!activeShareUrl || sharing}
               onClick={() => void handleMoreSharingOptions()}
               iconWrapClassName="bg-muted text-foreground"
             />
@@ -239,6 +254,12 @@ export function PetProfileShareDialog({ open, onOpenChange, reptile }: PetProfil
           </div>
 
           <div className="shrink-0 border-t border-border/80 bg-muted/20 px-3 sm:px-4 py-3 space-y-1.5">
+            <PublicShareControls
+              reptileId={reptile.id}
+              shareType="profile"
+              label="Profile"
+              onRecordChange={setPublicRecord}
+            />
             <Button
               variant="secondary"
               className="w-full min-h-[48px] justify-start gap-2 rounded-xl"
@@ -251,6 +272,17 @@ export function PetProfileShareDialog({ open, onOpenChange, reptile }: PetProfil
                   Full-screen preview — copy link, share link, or export image
                 </span>
               </span>
+            </Button>
+            <Button
+              variant="ghost"
+              className="w-full min-h-[44px] justify-start gap-2 text-muted-foreground rounded-xl"
+              onClick={() => {
+                onOpenChange(false);
+                navigate(`/passport/${reptile.id}`);
+              }}
+            >
+              <FileBadge className="w-4 h-4 shrink-0" />
+              Open Reptilita Passport
             </Button>
             <Button
               variant="ghost"
@@ -276,13 +308,13 @@ export function PetProfileShareDialog({ open, onOpenChange, reptile }: PetProfil
             Automatic copy failed. Select and copy the profile URL below:
           </p>
           <div className="bg-muted rounded-lg p-3">
-            <p className="text-sm break-all font-mono select-all">{shareUrl}</p>
+            <p className="text-sm break-all font-mono select-all">{activeShareUrl}</p>
           </div>
           <Button
             variant="outline"
             className="w-full mt-2"
             onClick={() => {
-              navigator.clipboard?.writeText(shareUrl).then(
+              navigator.clipboard?.writeText(activeShareUrl).then(
                 () => {
                   toast.success("Link copied");
                   setManualCopyOpen(false);

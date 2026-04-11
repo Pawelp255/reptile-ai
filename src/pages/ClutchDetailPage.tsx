@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, Plus, Trash2, Baby, Egg, Calendar } from 'lucide-react';
 import { format } from 'date-fns';
@@ -70,7 +70,7 @@ export default function ClutchDetailPage() {
     notes: '',
   });
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     if (!id) return;
 
     try {
@@ -105,11 +105,11 @@ export default function ClutchDetailPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id, navigate]);
 
   useEffect(() => {
     loadData();
-  }, [id]);
+  }, [loadData]);
 
   const handleDelete = async () => {
     if (!id) return;

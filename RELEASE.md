@@ -1,4 +1,4 @@
-# Reptile AI — Release & Build Guide
+# Reptilita - Release & Build Guide
 
 Concise notes for building and packaging the app for web, PWA, and native (iOS/Android).
 
@@ -46,7 +46,7 @@ Concise notes for building and packaging the app for web, PWA, and native (iOS/A
 
 - **Production:** Do **not** set `CAPACITOR_DEV_SERVE`. Run `npm run build` then `npx cap sync`. The app loads from `webDir` (`dist/`).
 - **Optional dev with remote URL:** Set `CAPACITOR_DEV_SERVE=true` and `CAPACITOR_DEV_SERVE_URL=...` if you need to point at a remote dev server.
-- **App identity:** In `capacitor.config.ts`, `appId` is `com.reptileai.app` and `appName` is `Reptile AI`. Change `appId` if you need a different bundle identifier (e.g. for an existing app).
+- **App identity:** In `capacitor.config.ts`, `appId` is `com.reptileai.app` and `appName` is `Reptilita`. Change `appId` if you need a different bundle identifier (e.g. for an existing app).
 
 ---
 

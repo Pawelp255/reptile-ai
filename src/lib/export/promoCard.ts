@@ -25,7 +25,7 @@ export async function generatePromoCard(appUrl?: string): Promise<Blob> {
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(80, 80, 80);
-  doc.text('Your smart reptile care companion', w / 2, 36, { align: 'center' });
+  doc.text('Premium reptile & amphibian care', w / 2, 36, { align: 'center' });
 
   // Divider
   doc.setDrawColor(42, 157, 143);

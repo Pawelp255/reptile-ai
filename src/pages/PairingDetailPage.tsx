@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, Plus, Trash2, Egg, Calendar, Edit, Calculator } from 'lucide-react';
 import { format } from 'date-fns';
@@ -74,7 +74,7 @@ export default function PairingDetailPage() {
     expectedHatchDate: addDays(getToday(), 60), // Default 60 days
   });
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     if (!id) return;
 
     try {
@@ -104,11 +104,11 @@ export default function PairingDetailPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id, navigate]);
 
   useEffect(() => {
     loadData();
-  }, [id]);
+  }, [loadData]);
 
   const handleDelete = async () => {
     if (!id) return;

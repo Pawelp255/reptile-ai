@@ -20,7 +20,7 @@ export default defineConfig(({ mode }) => ({
       manifest: {
         name: "Reptilita",
         short_name: "Reptilita",
-        description: "AI-powered reptile care assistant",
+        description: "Premium reptile and amphibian care companion",
         start_url: "/",
         display: "standalone",
         background_color: "#f7faf9",

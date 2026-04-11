@@ -1,6 +1,6 @@
-# Reptile AI — iOS/Android Build Guide (Capacitor)
+# Reptilita - iOS/Android Build Guide (Capacitor)
 
-This guide covers building the Reptile AI app as a native iOS/Android application using Capacitor.
+This guide covers building Reptilita as a native iOS/Android application using Capacitor.
 
 ## Prerequisites
 

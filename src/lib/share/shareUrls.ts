@@ -10,3 +10,15 @@ export function buildCareCardShareUrl(reptileId: string, publicBaseUrl?: string)
 export function buildProfileShareUrl(reptileId: string, publicBaseUrl?: string): string {
   return `${buildShareBase(publicBaseUrl)}/share-profile/${reptileId}`;
 }
+
+export function buildPassportShareUrl(reptileId: string, publicBaseUrl?: string): string {
+  return `${buildShareBase(publicBaseUrl)}/passport/${reptileId}`;
+}
+
+export function buildPublicShareUrl(
+  shareType: "profile" | "passport" | "care-card",
+  slug: string,
+  publicBaseUrl?: string,
+): string {
+  return `${buildShareBase(publicBaseUrl)}/public/${shareType}/${slug}`;
+}

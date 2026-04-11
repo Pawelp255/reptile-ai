@@ -80,6 +80,9 @@ export async function createReptile(data: ReptileFormData): Promise<Reptile> {
     isVenomous: data.isVenomous,
     isDangerous: data.isDangerous,
     isAmphibian: data.isAmphibian,
+    geneticsNotes: data.geneticsNotes,
+    hets: data.hets,
+    genes: data.genes,
     photoUrl: data.photoUrl?.trim() || undefined,
     createdAt: now,
     updatedAt: now,
@@ -131,6 +134,25 @@ export async function updateReptile(id: string, data: Partial<ReptileFormData>):
 // Delete a reptile and all related data
 export async function deleteReptile(id: string): Promise<void> {
   const db = await getDB();
+
+  // Delete breeding records that depend on pairings involving this animal.
+  // This mirrors deletePairing/deleteClutch behavior without importing those modules
+  // here, so deleting an animal cannot leave orphaned clutches or offspring.
+  const pairings = await db.getAll('pairings');
+  const dependentPairings = pairings.filter((pairing) => pairing.parentAId === id || pairing.parentBId === id);
+  for (const pairing of dependentPairings) {
+    const clutches = await db.getAllFromIndex('clutches', 'by-pairing', pairing.id);
+    for (const clutch of clutches) {
+      const offspring = await db.getAllFromIndex('offspring', 'by-clutch', clutch.id);
+      const offspringTx = db.transaction('offspring', 'readwrite');
+      for (const item of offspring) {
+        await offspringTx.store.delete(item.id);
+      }
+      await offspringTx.done;
+      await db.delete('clutches', clutch.id);
+    }
+    await db.delete('pairings', pairing.id);
+  }
 
   // Delete reptile
   await db.delete('reptiles', id);

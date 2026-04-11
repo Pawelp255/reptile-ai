@@ -1,6 +1,8 @@
-// IndexedDB Storage Layer for Reptile AI
+// IndexedDB Storage Layer for Reptilita
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
 import type { Reptile, CareEvent, ScheduleItem, AppSettings, Pairing, Clutch, Offspring } from '@/types';
+
+type StoredAppSettings = AppSettings & { id: string };
 
 interface ReptileAIDB extends DBSchema {
   reptiles: {
@@ -27,7 +29,7 @@ interface ReptileAIDB extends DBSchema {
   };
   settings: {
     key: string;
-    value: AppSettings;
+    value: StoredAppSettings;
   };
   // Phase 2: Breeding stores
   pairings: {

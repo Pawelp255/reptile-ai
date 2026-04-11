@@ -1,4 +1,4 @@
-// Reptile AI Data Model Types
+// Reptilita Data Model Types
 
 import type { GeneticGene } from './genetics';
 import type {
@@ -204,7 +204,7 @@ export interface AppSettings {
   overdueReminders: boolean;
   openaiApiKey?: string; // BYOK - stored locally or __secure_storage__ flag
   expoDemoMode?: boolean;
-  publicBaseUrl?: string; // Optional public URL for shareable QR codes
+  publicBaseUrl?: string; // Optional base URL for copied share links
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {

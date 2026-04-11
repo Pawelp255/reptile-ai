@@ -1,4 +1,4 @@
-// Advanced Genetics Calculator for Reptile AI
+// Advanced Genetics Calculator for Reptilita
 // Implements Mendelian inheritance with dominant, codominant, and recessive genes
 
 import type { GeneticGene, CombinedOutcome, GeneOutcome, InheritanceMode, GeneState } from '@/types/genetics';

@@ -41,6 +41,51 @@ export type Database = {
         }
         Relationships: []
       }
+      public_share_records: {
+        Row: {
+          created_at: string
+          expires_at: string | null
+          id: string
+          payload: Json
+          reptile_id: string
+          revoked: boolean
+          share_type: "profile" | "passport" | "care-card"
+          slug: string
+          summary: string | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          payload: Json
+          reptile_id: string
+          revoked?: boolean
+          share_type: "profile" | "passport" | "care-card"
+          slug: string
+          summary?: string | null
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          payload?: Json
+          reptile_id?: string
+          revoked?: boolean
+          share_type?: "profile" | "passport" | "care-card"
+          slug?: string
+          summary?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

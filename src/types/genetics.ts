@@ -1,4 +1,4 @@
-// Advanced Genetics Types for Reptile AI
+// Advanced Genetics Types for Reptilita
 
 export type InheritanceMode = 'dominant' | 'codominant' | 'recessive';
 

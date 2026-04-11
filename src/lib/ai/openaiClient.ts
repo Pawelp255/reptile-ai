@@ -18,8 +18,34 @@ export interface OpenAIResponse {
   error?: OpenAIError;
 }
 
+interface OpenAIErrorPayload {
+  error?: {
+    message?: string;
+  };
+}
+
+interface ResponseOutputContent {
+  type?: string;
+  text?: string;
+}
+
+interface ResponseOutputItem {
+  type?: string;
+  content?: ResponseOutputContent[];
+}
+
+interface ResponsesPayload {
+  output?: ResponseOutputItem[];
+}
+
+interface StreamEventPayload {
+  type?: string;
+  delta?: string;
+  message?: string;
+}
+
 // Map HTTP status to error type
-function mapErrorStatus(status: number, errorData: any): OpenAIError {
+function mapErrorStatus(status: number, errorData: OpenAIErrorPayload): OpenAIError {
   if (status === 401) {
     return { type: 'invalid_key', message: 'Invalid API key. Please check your OpenAI API key in Settings.' };
   }
@@ -72,13 +98,13 @@ export async function sendResponse(
       return { success: false, error: mapErrorStatus(response.status, errorData) };
     }
 
-    const data = await response.json();
+    const data = await response.json() as ResponsesPayload;
     // Responses API returns output array with message items
     const outputText = data.output
-      ?.filter((item: any) => item.type === 'message')
-      ?.flatMap((item: any) => item.content)
-      ?.filter((c: any) => c.type === 'output_text')
-      ?.map((c: any) => c.text)
+      ?.filter((item) => item.type === 'message')
+      ?.flatMap((item) => item.content ?? [])
+      ?.filter((c) => c.type === 'output_text')
+      ?.map((c) => c.text ?? '')
       ?.join('') || '';
 
     if (!outputText) {
@@ -158,7 +184,7 @@ export async function sendStreamingResponse(
         }
 
         try {
-          const event = JSON.parse(jsonStr);
+          const event = JSON.parse(jsonStr) as StreamEventPayload;
           // Handle response.output_text.delta events
           if (event.type === 'response.output_text.delta' && event.delta) {
             onChunk(event.delta);

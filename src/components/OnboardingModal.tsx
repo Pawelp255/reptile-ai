@@ -36,7 +36,7 @@ const STEPS: Step[] = [
   {
     icon: <Share2 className="w-8 h-8 text-primary" />,
     title: 'Share care cards',
-    description: 'From any profile, tap Share Care Card to generate a QR-linked summary for sitters or vets.',
+    description: 'From any profile, generate a care summary image or link for devices that already have this animal saved.',
   },
 ];
 

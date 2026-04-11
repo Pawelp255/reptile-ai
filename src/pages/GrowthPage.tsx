@@ -36,7 +36,7 @@ export default function GrowthPage() {
   useEffect(() => {
     getAllReptiles().then(r => {
       setReptiles(r);
-      if (!selectedId && r.length > 0) setSelectedId(r[0].id);
+      setSelectedId(current => current || r[0]?.id || '');
       setLoading(false);
     });
   }, []);

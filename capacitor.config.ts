@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 /**
- * Capacitor configuration for Reptile AI.
+ * Capacitor configuration for Reptilita.
  *
  * RELEASE BUILDS (App Store / Play Store):
  * - Run: npm run build
@@ -15,7 +15,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.reptileai.app',
-  appName: 'Reptile AI',
+  appName: 'Reptilita',
   webDir: 'dist',
   // Only use remote server when explicitly requested (dev/preview). Omit for production.
   ...(process.env.CAPACITOR_DEV_SERVE === 'true' &&
@@ -45,7 +45,7 @@ const config: CapacitorConfig = {
   ios: {
     contentInset: 'automatic',
     preferredContentMode: 'mobile',
-    scheme: 'Reptile AI',
+    scheme: 'Reptilita',
   },
   android: {
     backgroundColor: '#2a9d8f',

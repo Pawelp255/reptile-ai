@@ -22,8 +22,10 @@ import {
   getSettings,
 } from '@/lib/storage';
 import { copyToClipboard, shareImage } from '@/lib/native/sharing';
-import { buildCareCardShareUrl } from '@/lib/share/shareUrls';
+import { buildCareCardShareUrl, buildPublicShareUrl } from '@/lib/share/shareUrls';
 import { ContentSkeleton } from '@/components/system/SkeletonLoaders';
+import { PublicShareControls } from '@/components/share/PublicShareControls';
+import { getPublicShareForAnimal, type PublicShareRecord } from '@/lib/share/publicShare';
 import type { Reptile, ScheduleItem, CareEvent, TaskType } from '@/types';
 
 const TASK_LABELS: Record<TaskType, string> = {
@@ -57,6 +59,8 @@ export default function CareCardPage() {
   const [lastFeeding, setLastFeeding] = useState<CareEvent | null>(null);
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
   const [shareUrl, setShareUrl] = useState<string>('');
+  const [publicRecord, setPublicRecord] = useState<PublicShareRecord | null>(null);
+  const [publicBaseUrl, setPublicBaseUrl] = useState<string | undefined>();
   const [loading, setLoading] = useState(true);
   const [savingImage, setSavingImage] = useState(false);
   const [savedJustNow, setSavedJustNow] = useState(false);
@@ -87,15 +91,11 @@ export default function CareCardPage() {
 
         // Build share URL using publicBaseUrl if set
         const url = buildCareCardShareUrl(reptileId, settings.publicBaseUrl);
+        setPublicBaseUrl(settings.publicBaseUrl);
         setShareUrl(url);
-
-        // Generate QR code
-        const qr = await QRCode.toDataURL(url, {
-          width: 120,
-          margin: 1,
-          color: { dark: '#2a9d8f', light: '#ffffff' },
-        });
-        setQrDataUrl(qr);
+        void getPublicShareForAnimal(reptileId, 'care-card')
+          .then(setPublicRecord)
+          .catch(() => setPublicRecord(null));
       } catch (error) {
         console.error('Failed to load care card data:', error);
       } finally {
@@ -105,13 +105,28 @@ export default function CareCardPage() {
     load();
   }, [reptileId, navigate]);
 
+  const publicShareUrl = publicRecord ? buildPublicShareUrl('care-card', publicRecord.slug, publicBaseUrl) : '';
+  const activeShareUrl = publicShareUrl || shareUrl;
+  const usingPublicLink = Boolean(publicShareUrl);
+
+  useEffect(() => {
+    if (!activeShareUrl) return;
+    QRCode.toDataURL(activeShareUrl, {
+      width: 120,
+      margin: 1,
+      color: { dark: '#2a9d8f', light: '#ffffff' },
+    }).then(setQrDataUrl).catch((error) => {
+      console.error('Failed to generate care card QR:', error);
+    });
+  }, [activeShareUrl]);
+
   const handleCopyLink = async () => {
-    const success = await copyToClipboard(shareUrl);
+    const success = await copyToClipboard(activeShareUrl);
     if (success) {
-      toast.success('Link copied to clipboard');
+      toast.success(publicShareUrl ? 'Public care card link copied' : 'Local-only care card link copied');
     } else {
       // Show fallback dialog with selectable URL
-      setFallbackUrl(shareUrl);
+      setFallbackUrl(activeShareUrl);
       setFallbackDialogOpen(true);
     }
   };
@@ -170,13 +185,22 @@ export default function CareCardPage() {
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" onClick={handleCopyLink} className="min-h-[44px] transition-all duration-200 ease-out active:scale-[0.98] shadow-[var(--shadow-card)]">
             <Copy className="w-4 h-4 mr-1" />
-            Copy Link
+            {usingPublicLink ? 'Copy Public Link' : 'Copy Local Link'}
           </Button>
           <Button variant="outline" size="sm" onClick={handleSaveImage} disabled={savingImage} className="min-h-[44px] transition-all duration-200 ease-out active:scale-[0.98] shadow-[var(--shadow-card)] data-[state=saved]:border-primary/50">
             {savedJustNow ? <Check className="w-4 h-4 mr-1 text-primary" /> : <ImageIcon className="w-4 h-4 mr-1" />}
             {savingImage ? 'Saving…' : savedJustNow ? 'Saved' : 'Save Image'}
           </Button>
         </div>
+      </div>
+
+      <div className="max-w-md mx-auto mb-4">
+        <PublicShareControls
+          reptileId={reptile.id}
+          shareType="care-card"
+          label="Care card"
+          onRecordChange={setPublicRecord}
+        />
       </div>
 
       {/* Shareable card — premium reveal */}
@@ -261,7 +285,9 @@ export default function CareCardPage() {
           >
             <div className="glass-panel rounded-[var(--radius-xl)] p-4 flex items-center justify-between gap-4">
               <div className="min-w-0">
-                <p className="text-xs font-medium text-muted-foreground">Scan to view this care card</p>
+                <p className="text-xs font-medium text-muted-foreground">
+                  {usingPublicLink ? 'Scan public care card' : 'Scan local care card'}
+                </p>
                 <p className="text-[10px] text-muted-foreground/80 mt-0.5">Powered by Reptilita</p>
               </div>
               {qrDataUrl && (
