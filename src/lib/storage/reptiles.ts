@@ -1,5 +1,6 @@
 // Reptile CRUD operations
 import { getDB, generateId, getNow, getToday, addDays } from './db';
+import { revokePublicSharesForAnimal } from '@/lib/share/revokePublicShares';
 import type { Reptile, ReptileFormData, ScheduleItem, DietType } from '@/types';
 
 // Get feeding frequency (days) based on diet type. Legacy + expanded for reptiles/amphibians.
@@ -134,6 +135,12 @@ export async function updateReptile(id: string, data: Partial<ReptileFormData>):
 // Delete a reptile and all related data
 export async function deleteReptile(id: string): Promise<void> {
   const db = await getDB();
+
+  try {
+    await revokePublicSharesForAnimal(id);
+  } catch (error) {
+    console.warn('Failed to revoke public shares for deleted animal:', error);
+  }
 
   // Delete breeding records that depend on pairings involving this animal.
   // This mirrors deletePairing/deleteClutch behavior without importing those modules

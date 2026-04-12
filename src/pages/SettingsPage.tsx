@@ -110,6 +110,11 @@ export default function SettingsPage() {
 
   // Fetch user profile when authenticated
   useEffect(() => {
+    if (!supabase) {
+      setProfile(null);
+      return;
+    }
+
     if (user) {
       const fetchProfile = async () => {
         const { data } = await supabase

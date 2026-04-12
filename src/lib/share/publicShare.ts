@@ -11,6 +11,13 @@ import type { CareEvent, Reptile, ScheduleItem } from "@/types";
 
 export type PublicShareType = "profile" | "passport" | "care-card";
 export type PublicShareRecord = Tables<"public_share_records">;
+export type PublicShareLifecycleState = "active" | "expired" | "revoked" | "local-only";
+
+export type PublicShareStatus = {
+  state: PublicShareLifecycleState;
+  record: PublicShareRecord | null;
+  isStale: boolean;
+};
 
 export type PublicSharePayload = {
   branding: "Reptilita";
@@ -78,6 +85,31 @@ type PublicShareResult = {
 };
 
 const MAX_INLINE_PUBLIC_PHOTO_CHARS = 450_000;
+
+function requireSupabase() {
+  if (!supabase) {
+    throw new Error("Public sharing is unavailable until Supabase is configured.");
+  }
+  return supabase;
+}
+
+function isExpired(record: Pick<PublicShareRecord, "expires_at">): boolean {
+  return Boolean(record.expires_at && new Date(record.expires_at).getTime() <= Date.now());
+}
+
+function isPublicSnapshotStale(record: PublicShareRecord, localUpdatedAt?: string): boolean {
+  if (!localUpdatedAt) return false;
+  const localTime = new Date(localUpdatedAt).getTime();
+  const publicTime = new Date(record.updated_at).getTime();
+  if (Number.isNaN(localTime) || Number.isNaN(publicTime)) return false;
+  return localTime > publicTime;
+}
+
+function getRecordState(record: PublicShareRecord): Exclude<PublicShareLifecycleState, "local-only"> {
+  if (record.revoked) return "revoked";
+  if (isExpired(record)) return "expired";
+  return "active";
+}
 
 function generateSlug(): string {
   const random = crypto.getRandomValues(new Uint8Array(12));
@@ -226,11 +258,24 @@ export async function getPublicShareForAnimal(
   reptileId: string,
   shareType: PublicShareType,
 ): Promise<PublicShareRecord | null> {
+  const status = await getPublicShareStatusForAnimal(reptileId, shareType);
+  return status.state === "active" ? status.record : null;
+}
+
+export async function getPublicShareStatusForAnimal(
+  reptileId: string,
+  shareType: PublicShareType,
+  localUpdatedAt?: string,
+): Promise<PublicShareStatus> {
+  if (!supabase) {
+    return { state: "local-only", record: null, isStale: false };
+  }
+
   const {
     data: { user },
     error: userError,
   } = await supabase.auth.getUser();
-  if (userError || !user) return null;
+  if (userError || !user) return { state: "local-only", record: null, isStale: false };
 
   const { data, error } = await supabase
     .from("public_share_records")
@@ -238,13 +283,18 @@ export async function getPublicShareForAnimal(
     .eq("user_id", user.id)
     .eq("reptile_id", reptileId)
     .eq("share_type", shareType)
-    .eq("revoked", false)
     .order("updated_at", { ascending: false })
     .limit(1)
     .maybeSingle();
 
   if (error) throw error;
-  return data;
+  if (!data) return { state: "local-only", record: null, isStale: false };
+
+  return {
+    state: getRecordState(data),
+    record: data,
+    isStale: isPublicSnapshotStale(data, localUpdatedAt),
+  };
 }
 
 export async function createOrUpdatePublicShare({
@@ -252,25 +302,27 @@ export async function createOrUpdatePublicShare({
   shareType,
   expiresAt = null,
 }: PublicShareInput): Promise<PublicShareResult> {
+  const client = requireSupabase();
   const {
     data: { user },
     error: userError,
-  } = await supabase.auth.getUser();
+  } = await client.auth.getUser();
 
   if (userError || !user) {
     throw new Error("Sign in to create public share links.");
   }
 
-  const [{ payload, reptile }, existing] = await Promise.all([
+  const [{ payload, reptile }, shareStatus] = await Promise.all([
     buildPayloadForReptile(reptileId, shareType),
-    getPublicShareForAnimal(reptileId, shareType),
+    getPublicShareStatusForAnimal(reptileId, shareType),
   ]);
+  const existing = shareStatus.record && shareStatus.state !== "revoked" ? shareStatus.record : null;
 
   const title = `${reptile.name} | Reptilita ${shareType === "care-card" ? "Care Card" : shareType === "passport" ? "Passport" : "Profile"}`;
   const summary = [reptile.commonName || reptile.species, reptile.morph].filter(Boolean).join(" | ") || null;
 
   if (existing) {
-    const { data, error } = await supabase
+    const { data, error } = await client
       .from("public_share_records")
       .update({
         title,
@@ -298,7 +350,7 @@ export async function createOrUpdatePublicShare({
     expires_at: expiresAt,
   };
 
-  const { data, error } = await supabase
+  const { data, error } = await client
     .from("public_share_records")
     .insert(insert)
     .select("*")
@@ -309,15 +361,16 @@ export async function createOrUpdatePublicShare({
 }
 
 export async function regeneratePublicShare(input: PublicShareInput): Promise<PublicShareResult> {
-  const current = await getPublicShareForAnimal(input.reptileId, input.shareType);
-  if (current) {
-    await revokePublicShare(current.id);
+  const current = await getPublicShareStatusForAnimal(input.reptileId, input.shareType);
+  if (current.record) {
+    await revokePublicShare(current.record.id);
   }
   return createOrUpdatePublicShare(input);
 }
 
 export async function revokePublicShare(recordId: string): Promise<void> {
-  const { error } = await supabase
+  const client = requireSupabase();
+  const { error } = await client
     .from("public_share_records")
     .update({ revoked: true })
     .eq("id", recordId);
@@ -329,7 +382,8 @@ export async function getPublicShareBySlug(
   shareType: PublicShareType,
   slug: string,
 ): Promise<PublicShareRecord | null> {
-  const { data, error } = await supabase
+  const client = requireSupabase();
+  const { data, error } = await client
     .from("public_share_records")
     .select("*")
     .eq("share_type", shareType)
@@ -339,7 +393,7 @@ export async function getPublicShareBySlug(
 
   if (error) throw error;
 
-  if (data?.expires_at && new Date(data.expires_at).getTime() <= Date.now()) {
+  if (data && isExpired(data)) {
     return null;
   }
 

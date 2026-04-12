@@ -482,6 +482,7 @@ export default function PassportPage() {
           reptileId={reptile.id}
           shareType="passport"
           label="Passport"
+          localUpdatedAt={reptile.updatedAt}
           onRecordChange={setPublicRecord}
         />
       </div>

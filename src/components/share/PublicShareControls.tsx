@@ -7,10 +7,11 @@ import { getSettings } from "@/lib/storage";
 import { buildPublicShareUrl } from "@/lib/share/shareUrls";
 import {
   createOrUpdatePublicShare,
-  getPublicShareForAnimal,
+  getPublicShareStatusForAnimal,
   regeneratePublicShare,
   revokePublicShare,
   type PublicShareRecord,
+  type PublicShareStatus,
   type PublicShareType,
 } from "@/lib/share/publicShare";
 
@@ -18,6 +19,7 @@ type PublicShareControlsProps = {
   reptileId: string;
   shareType: PublicShareType;
   label: string;
+  localUpdatedAt?: string;
   onRecordChange?: (record: PublicShareRecord | null) => void;
 };
 
@@ -37,8 +39,13 @@ function formatExpiration(expiresAt: string | null): string {
   return `Expires ${date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}`;
 }
 
-export function PublicShareControls({ reptileId, shareType, label, onRecordChange }: PublicShareControlsProps) {
+export function PublicShareControls({ reptileId, shareType, label, localUpdatedAt, onRecordChange }: PublicShareControlsProps) {
   const [record, setRecord] = useState<PublicShareRecord | null>(null);
+  const [shareStatus, setShareStatus] = useState<PublicShareStatus>({
+    state: "local-only",
+    record: null,
+    isStale: false,
+  });
   const [loading, setLoading] = useState(false);
   const [expiresInDays, setExpiresInDays] = useState("never");
   const [publicBaseUrl, setPublicBaseUrl] = useState<string | undefined>();
@@ -48,26 +55,35 @@ export function PublicShareControls({ reptileId, shareType, label, onRecordChang
   useEffect(() => {
     let cancelled = false;
     Promise.all([
-      getPublicShareForAnimal(reptileId, shareType),
+      getPublicShareStatusForAnimal(reptileId, shareType, localUpdatedAt),
       getSettings(),
     ])
-      .then(([existing, settings]) => {
+      .then(([status, settings]) => {
         if (!cancelled) {
+          const activeRecord = status.state === "active" ? status.record : null;
           setPublicBaseUrl(settings.publicBaseUrl);
-          setRecord(existing);
-          onRecordChange?.(existing);
+          setShareStatus(status);
+          setRecord(activeRecord);
+          onRecordChange?.(activeRecord);
         }
       })
       .catch(() => {
         if (!cancelled) {
           setRecord(null);
+          setShareStatus({ state: "local-only", record: null, isStale: false });
           onRecordChange?.(null);
         }
       });
     return () => {
       cancelled = true;
     };
-  }, [onRecordChange, reptileId, shareType]);
+  }, [localUpdatedAt, onRecordChange, reptileId, shareType]);
+
+  const applyRecord = (nextRecord: PublicShareRecord) => {
+    setRecord(nextRecord);
+    setShareStatus({ state: "active", record: nextRecord, isStale: false });
+    onRecordChange?.(nextRecord);
+  };
 
   const createLink = async () => {
     setLoading(true);
@@ -77,8 +93,7 @@ export function PublicShareControls({ reptileId, shareType, label, onRecordChang
         shareType,
         expiresAt: getExpiresAt(expiresInDays),
       });
-      setRecord(result.record);
-      onRecordChange?.(result.record);
+      applyRecord(result.record);
       await copyToClipboard(buildPublicShareUrl(shareType, result.record.slug, publicBaseUrl));
       toast.success(`${label} public link ready`);
     } catch (error) {
@@ -98,15 +113,17 @@ export function PublicShareControls({ reptileId, shareType, label, onRecordChang
   const refreshLink = async () => {
     setLoading(true);
     try {
-      const result = await regeneratePublicShare({
+      const input = {
         reptileId,
         shareType,
         expiresAt: getExpiresAt(expiresInDays),
-      });
-      setRecord(result.record);
-      onRecordChange?.(result.record);
+      };
+      const result = shareStatus.isStale
+        ? await createOrUpdatePublicShare(input)
+        : await regeneratePublicShare(input);
+      applyRecord(result.record);
       await copyToClipboard(buildPublicShareUrl(shareType, result.record.slug, publicBaseUrl));
-      toast.success("Public link regenerated");
+      toast.success(shareStatus.isStale ? "Public snapshot updated" : "Public link regenerated");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to regenerate public link");
     } finally {
@@ -120,6 +137,7 @@ export function PublicShareControls({ reptileId, shareType, label, onRecordChang
     try {
       await revokePublicShare(record.id);
       setRecord(null);
+      setShareStatus({ state: "revoked", record: null, isStale: false });
       onRecordChange?.(null);
       toast.success("Public link revoked");
     } catch (error) {
@@ -129,6 +147,25 @@ export function PublicShareControls({ reptileId, shareType, label, onRecordChang
     }
   };
 
+  const statusLabel = shareStatus.isStale && record ? "Outdated" : record ? "Active" : shareStatus.state === "expired" ? "Expired" : shareStatus.state === "revoked" ? "Revoked" : "Local-only";
+  const statusClassName = record
+    ? shareStatus.isStale
+      ? "bg-amber-500/10 text-amber-700 dark:text-amber-300"
+      : "bg-primary/10 text-primary"
+    : shareStatus.state === "expired" || shareStatus.state === "revoked"
+      ? "bg-destructive/10 text-destructive"
+      : "bg-muted text-muted-foreground";
+
+  const description = record
+    ? shareStatus.isStale
+      ? "Your local animal record has newer changes than the public snapshot. Update it before sharing."
+      : `Social and copy actions can use this read-only public snapshot. ${formatExpiration(record.expires_at)}.`
+    : shareStatus.state === "expired"
+      ? "The previous public snapshot expired. Create a fresh link when you are ready to share again."
+      : shareStatus.state === "revoked"
+        ? "The previous public snapshot was revoked. Create a fresh link when you are ready to share again."
+        : "Create a read-only Supabase snapshot for people who do not have your local Reptilita data.";
+
   return (
     <div className="rounded-2xl border border-border/70 bg-card/80 p-3 shadow-[var(--shadow-card)]">
       <div className="mb-2 flex items-start gap-2">
@@ -136,16 +173,12 @@ export function PublicShareControls({ reptileId, shareType, label, onRecordChang
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <p className="text-sm font-semibold">{label} public link</p>
-            <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] ${
-              record ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
-            }`}>
-              {record ? "Active" : "Local-only"}
+            <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] ${statusClassName}`}>
+              {statusLabel}
             </span>
           </div>
           <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-            {record
-              ? `Social and copy actions can use this read-only public snapshot. ${formatExpiration(record.expires_at)}.`
-              : "Create a read-only Supabase snapshot for people who do not have your local Reptilita data."}
+            {description}
           </p>
         </div>
       </div>
@@ -174,7 +207,7 @@ export function PublicShareControls({ reptileId, shareType, label, onRecordChang
             </Button>
             <Button variant="outline" size="sm" className="min-h-[40px]" onClick={refreshLink} disabled={loading}>
               <RefreshCw className="mr-1 h-4 w-4" />
-              Regenerate
+              {shareStatus.isStale ? "Update snapshot" : "Regenerate"}
             </Button>
             <Button variant="ghost" size="sm" className="min-h-[40px] text-destructive" onClick={revokeLink} disabled={loading}>
               <ShieldOff className="mr-1 h-4 w-4" />

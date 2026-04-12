@@ -199,6 +199,7 @@ export default function CareCardPage() {
           reptileId={reptile.id}
           shareType="care-card"
           label="Care card"
+          localUpdatedAt={reptile.updatedAt}
           onRecordChange={setPublicRecord}
         />
       </div>

@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { supabase } from '@/integrations/supabase/client';
+import { isSupabaseConfigured, supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 function getErrorMessage(error: unknown, fallback: string): string {
@@ -22,6 +22,8 @@ export default function AuthPage() {
   const [socialLoading, setSocialLoading] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!supabase) return;
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (session) {
         navigate('/', { replace: true });
@@ -37,6 +39,10 @@ export default function AuthPage() {
 
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!supabase) {
+      toast.error('Account features are unavailable until Supabase is configured.');
+      return;
+    }
     setLoading(true);
     try {
       if (isSignUp) {
@@ -60,6 +66,10 @@ export default function AuthPage() {
   };
 
   const handleSocialLogin = async (provider: 'google' | 'apple') => {
+    if (!supabase) {
+      toast.error('Account features are unavailable until Supabase is configured.');
+      return;
+    }
     setSocialLoading(provider);
     try {
       const { error } = await supabase.auth.signInWithOAuth({
@@ -89,6 +99,11 @@ export default function AuthPage() {
           <p className="text-sm text-muted-foreground">
             {isSignUp ? 'Create your account' : 'Welcome back'}
           </p>
+          {!isSupabaseConfigured && (
+            <p className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+              Account sign-in is unavailable in this build. Local animal tracking still works on this device.
+            </p>
+          )}
         </div>
 
         {/* Social Login */}
@@ -97,7 +112,7 @@ export default function AuthPage() {
             variant="outline"
             className="w-full h-12 text-sm font-medium"
             onClick={() => handleSocialLogin('google')}
-            disabled={!!socialLoading}
+            disabled={!isSupabaseConfigured || !!socialLoading}
           >
             {socialLoading === 'google' ? (
               <span className="animate-pulse">Connecting...</span>
@@ -118,7 +133,7 @@ export default function AuthPage() {
             variant="outline"
             className="w-full h-12 text-sm font-medium"
             onClick={() => handleSocialLogin('apple')}
-            disabled={!!socialLoading}
+            disabled={!isSupabaseConfigured || !!socialLoading}
           >
             {socialLoading === 'apple' ? (
               <span className="animate-pulse">Connecting...</span>
@@ -182,7 +197,7 @@ export default function AuthPage() {
             </div>
           </div>
 
-          <Button type="submit" className="w-full h-11" disabled={loading}>
+          <Button type="submit" className="w-full h-11" disabled={!isSupabaseConfigured || loading}>
             {loading ? 'Please wait...' : isSignUp ? 'Create Account' : 'Sign In'}
           </Button>
         </form>

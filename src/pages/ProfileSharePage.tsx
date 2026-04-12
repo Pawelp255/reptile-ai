@@ -338,6 +338,7 @@ export default function ProfileSharePage() {
           reptileId={reptile.id}
           shareType="profile"
           label="Profile"
+          localUpdatedAt={reptile.updatedAt}
           onRecordChange={setPublicRecord}
         />
       </div>

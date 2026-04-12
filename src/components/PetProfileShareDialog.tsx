@@ -32,7 +32,7 @@ import {
   XIcon,
 } from "@/components/share/SocialSharePlatformIcons";
 import { PublicShareControls } from "@/components/share/PublicShareControls";
-import { getPublicShareForAnimal, type PublicShareRecord } from "@/lib/share/publicShare";
+import { getPublicShareStatusForAnimal, type PublicShareRecord } from "@/lib/share/publicShare";
 import { cn } from "@/lib/utils";
 import type { Reptile } from "@/types";
 import type { ReactNode } from "react";
@@ -96,22 +96,28 @@ export function PetProfileShareDialog({ open, onOpenChange, reptile }: PetProfil
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
-    Promise.all([
-      getSettings(),
-      getPublicShareForAnimal(reptile.id, "profile"),
-    ]).then(([s, existing]) => {
+
+    getSettings().then((s) => {
       if (!cancelled) {
         setShareUrl(buildProfileShareUrl(reptile.id, s.publicBaseUrl));
         setPublicBaseUrl(s.publicBaseUrl);
-        setPublicRecord(existing);
+      }
+    }).catch(() => {
+      if (!cancelled) setShareUrl(buildProfileShareUrl(reptile.id));
+    });
+
+    getPublicShareStatusForAnimal(reptile.id, "profile", reptile.updatedAt).then((status) => {
+      if (!cancelled) {
+        setPublicRecord(status.state === "active" ? status.record : null);
       }
     }).catch(() => {
       if (!cancelled) setPublicRecord(null);
     });
+
     return () => {
       cancelled = true;
     };
-  }, [open, reptile.id]);
+  }, [open, reptile.id, reptile.updatedAt]);
 
   const shareLine = reptile.commonName || reptile.species || "pet";
   const shareText = `Meet ${reptile.name} (${shareLine})`;
@@ -258,6 +264,7 @@ export function PetProfileShareDialog({ open, onOpenChange, reptile }: PetProfil
               reptileId={reptile.id}
               shareType="profile"
               label="Profile"
+              localUpdatedAt={reptile.updatedAt}
               onRecordChange={setPublicRecord}
             />
             <Button

@@ -11,6 +11,12 @@ export default function AuthCallbackPage() {
   useEffect(() => {
     const run = async () => {
       try {
+        if (!supabase) {
+          toast.error("Account features are unavailable until Supabase is configured.");
+          navigate("/auth", { replace: true });
+          return;
+        }
+
         setStatus("Finalizing session…");
 
         // Supabase reads the OAuth PKCE code from the current URL.
@@ -49,4 +55,3 @@ export default function AuthCallbackPage() {
     </div>
   );
 }
-
