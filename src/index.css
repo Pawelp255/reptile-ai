@@ -213,6 +213,12 @@
       radial-gradient(ellipse 50% 35% at 50% 100%, hsl(152 20% 91% / 0.12), transparent 38%);
   }
 
+  body,
+  #root {
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+
   .dark body {
     background-image:
       radial-gradient(ellipse 130% 90% at 50% -25%, hsl(166 26% 13% / 0.5), transparent 48%),
@@ -573,7 +579,9 @@
   /* Page container — nav + safe area; subtle entry */
   .page-container {
     @apply min-h-screen overflow-x-hidden;
-    padding-bottom: calc(3.75rem + env(safe-area-inset-bottom, 0px));
+    min-height: 100vh;
+    min-height: 100dvh;
+    padding-bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px));
     animation: motion-fade-in var(--motion-duration-normal) var(--motion-ease);
   }
 

@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { BottomNav } from "@/components/BottomNav";
+import { PwaInstallPrompt } from "@/components/PwaInstallPrompt";
 import { useCapacitor } from "@/hooks/useCapacitor";
 import { OnboardingModal } from "@/components/OnboardingModal";
 import { ErrorBoundary } from "@/components/system/ErrorBoundary";
@@ -71,6 +72,7 @@ function AppContent() {
         </Routes>
       </Suspense>
       <BottomNav />
+      <PwaInstallPrompt />
       <OnboardingModal />
     </div>
   );
