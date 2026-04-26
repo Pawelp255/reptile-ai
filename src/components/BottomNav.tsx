@@ -12,7 +12,7 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { path: '/', label: 'Today', icon: Calendar },
-  { path: '/reptiles', label: 'My Reptiles', icon: ListChecks },
+  { path: '/reptiles', label: 'My Animals', icon: ListChecks },
   { path: '/add-event', label: 'Add Event', icon: PlusCircle },
   { path: '/journal', label: 'Journal', icon: BookOpen },
   { path: '/settings', label: 'Settings', icon: Settings },

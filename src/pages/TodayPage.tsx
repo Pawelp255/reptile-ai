@@ -1,7 +1,8 @@
 import { useState, useEffect, Fragment } from 'react';
-import { motion } from 'framer-motion';
+import { Link, useNavigate } from 'react-router-dom';
+import { motion, useReducedMotion } from 'framer-motion';
 import { cn } from '@/lib/utils';
-import { Calendar, Bug } from 'lucide-react';
+import { ArrowUpRight, Bug, Sparkles } from 'lucide-react';
 import { PageHeader } from '@/components/PageHeader';
 import { PageMotion } from '@/components/motion/PageMotion';
 import { StaggerList, StaggerItem } from '@/components/motion/StaggerList';
@@ -11,16 +12,19 @@ import { MarkDoneModal } from '@/components/MarkDoneModal';
 import { DemoBadge } from '@/components/DemoBadge';
 import { TodayTasksSkeleton } from '@/components/system/SkeletonLoaders';
 import { Button } from '@/components/ui/button';
-import { 
-  getAllScheduleItems, 
-  getAllReptiles, 
+import { toast } from 'sonner';
+import {
+  getAllScheduleItems,
+  getAllReptiles,
   markTaskDone,
   isOverdue,
   isDueToday,
   isWithinDays,
   getSettings,
+  seedExpoDemo,
+  updateSettings,
 } from '@/lib/storage';
-import type { ScheduleItem, Reptile, TaskType, AppSettings } from '@/types';
+import type { ScheduleItem, Reptile } from '@/types';
 
 interface TaskWithReptile extends ScheduleItem {
   reptile: Reptile;
@@ -29,6 +33,8 @@ interface TaskWithReptile extends ScheduleItem {
 type FilterMode = 'today' | 'week';
 
 export default function TodayPage() {
+  const navigate = useNavigate();
+  const prefersReducedMotion = useReducedMotion();
   const [tasks, setTasks] = useState<TaskWithReptile[]>([]);
   const [reptiles, setReptiles] = useState<Map<string, Reptile>>(new Map());
   const [loading, setLoading] = useState(true);
@@ -39,6 +45,7 @@ export default function TodayPage() {
     task: TaskWithReptile | null;
   }>({ isOpen: false, task: null });
   const [saving, setSaving] = useState(false);
+  const [enablingDemo, setEnablingDemo] = useState(false);
 
   const loadData = async () => {
     try {
@@ -101,6 +108,35 @@ export default function TodayPage() {
 
   const overdueTasks = filteredTasks.filter(t => isOverdue(t.nextDueDate));
   const dueTodayTasks = filteredTasks.filter(t => isDueToday(t.nextDueDate));
+  const todayImportantTasks = tasks
+    .filter(task => isOverdue(task.nextDueDate) || isDueToday(task.nextDueDate))
+    .sort((a, b) => {
+      const aOverdue = isOverdue(a.nextDueDate);
+      const bOverdue = isOverdue(b.nextDueDate);
+      if (aOverdue && !bOverdue) return -1;
+      if (!aOverdue && bOverdue) return 1;
+      return new Date(a.nextDueDate).getTime() - new Date(b.nextDueDate).getTime();
+    });
+  const nextImportantTask = todayImportantTasks[0];
+  const focusAnimal = nextImportantTask?.reptile;
+  const animalsNeedingAttentionCount = new Set(todayImportantTasks.map(task => task.reptileId)).size;
+  const healthyAnimalsCount = Math.max(reptiles.size - animalsNeedingAttentionCount, 0);
+  const careScore = reptiles.size === 0
+    ? 0
+    : Math.max(0, Math.round((healthyAnimalsCount / reptiles.size) * 100));
+  const taskTypeLabels: Record<ScheduleItem['taskType'], string> = {
+    feed: 'Feeding',
+    clean: 'Cleaning',
+    check: 'Health check',
+    shed: 'Shedding',
+  };
+  const motionSettings = prefersReducedMotion
+    ? { initial: false as const }
+    : {
+      initial: { opacity: 0, y: 6 },
+      animate: { opacity: 1, y: 0 },
+      transition: { duration: 0.22, ease: [0.25, 0.1, 0.25, 1] as const },
+    };
 
   const handleMarkDone = (task: TaskWithReptile) => {
     setModalState({ isOpen: true, task });
@@ -118,6 +154,23 @@ export default function TodayPage() {
       console.error('Failed to mark task done:', error);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleEnableDemoMode = async () => {
+    setEnablingDemo(true);
+    try {
+      await seedExpoDemo();
+      await updateSettings({ expoDemoMode: true });
+      setIsExpoDemo(true);
+      toast.success('Demo mode enabled. Seeded data is ready.');
+      navigate('/', { replace: true });
+      await loadData();
+    } catch (error) {
+      console.error('Failed to enable demo mode:', error);
+      toast.error('Could not enable demo mode');
+    } finally {
+      setEnablingDemo(false);
     }
   };
 
@@ -147,39 +200,146 @@ export default function TodayPage() {
       />
 
       <div className="page-content page-content-top space-y-6">
-        {/* Today hero — summary + premium filter pill */}
+        {!isExpoDemo && (
+          <motion.div
+            className="premium-surface rounded-[var(--radius-xl)] p-4 sm:p-5 border border-primary/25"
+            {...motionSettings}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-medium tracking-[0.16em] uppercase text-primary/85">Presentation Ready</p>
+                <p className="text-card-title mt-1">Enable Demo Mode</p>
+                <p className="text-secondary mt-1">
+                  Seed realistic sample animals, schedules, and events.
+                </p>
+              </div>
+              <Sparkles className="w-4 h-4 text-primary mt-1 shrink-0" />
+            </div>
+            <div className="mt-3 flex gap-2">
+              <Button onClick={handleEnableDemoMode} disabled={enablingDemo} className="min-h-[40px]">
+                {enablingDemo ? 'Enabling…' : 'Enable Demo Mode'}
+              </Button>
+              <Link to="/settings">
+                <Button variant="outline" className="min-h-[40px]">Demo Settings</Button>
+              </Link>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Collection hero */}
         <motion.div
           className="premium-surface-elevated rounded-[var(--radius-xl)] p-4 sm:p-5 shadow-[var(--surface-shadow-deep)]"
-          initial={{ opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.22, ease: [0.25, 0.1, 0.25, 1] }}
+          {...motionSettings}
         >
-          <div className="flex items-start justify-between gap-3 mb-4">
-            <div className="min-w-0">
+          <div className="flex items-start justify-between gap-3">
+            <div>
               <p className="text-xs font-medium tracking-[0.18em] uppercase text-muted-foreground/80">
-                Today
+                Today&apos;s Care Score
               </p>
-              <p className="text-page-title mt-1">
-                Caring for {Object.keys(groupedTasks).length || 0} animal
-                {Object.keys(groupedTasks).length === 1 ? '' : 's'}
+              <p className="mt-1 text-[2rem] leading-none font-semibold tracking-tight tabular-nums">
+                {careScore}
+                <span className="text-base text-muted-foreground">/100</span>
+              </p>
+              <p className="text-secondary mt-1">
+                {reptiles.size === 0
+                  ? 'No collection loaded yet.'
+                  : `${healthyAnimalsCount} of ${reptiles.size} animals healthy today.`}
               </p>
             </div>
-            <div className="flex flex-col items-end gap-1.5 text-xs">
-              <span className="px-2.5 py-1 rounded-full bg-destructive/10 text-destructive/90 font-medium tabular-nums">
-                {overdueTasks.length} Overdue
-              </span>
-              <span className="px-2.5 py-1 rounded-full bg-primary/10 text-primary/90 font-medium tabular-nums">
-                {dueTodayTasks.length} Due today
-              </span>
+            <div className="rounded-xl border border-primary/20 bg-primary/10 px-3 py-2 text-right">
+              <p className="text-[10px] uppercase tracking-[0.14em] text-primary/85">Collection</p>
+              <p className="text-sm font-medium">{reptiles.size} animal{reptiles.size === 1 ? '' : 's'}</p>
             </div>
           </div>
 
-          {/* Filter toggle — premium sliding pill */}
+          <div className="mt-4 grid grid-cols-3 gap-2.5 text-xs">
+            <div className="rounded-lg border border-destructive/20 bg-destructive/10 px-2.5 py-2">
+              <p className="text-muted-foreground">Overdue</p>
+              <p className="mt-0.5 text-base font-semibold tabular-nums text-destructive">{overdueTasks.length}</p>
+            </div>
+            <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-2.5 py-2">
+              <p className="text-muted-foreground">Due</p>
+              <p className="mt-0.5 text-base font-semibold tabular-nums text-amber-700 dark:text-amber-300">{dueTodayTasks.length}</p>
+            </div>
+            <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-2">
+              <p className="text-muted-foreground">Healthy</p>
+              <p className="mt-0.5 text-base font-semibold tabular-nums text-emerald-700 dark:text-emerald-300">{healthyAnimalsCount}</p>
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-2.5 sm:grid-cols-2">
+            <div className="rounded-lg border border-border/50 bg-card/70 px-3 py-2.5">
+              <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">Next Important Task</p>
+              {nextImportantTask ? (
+                <p className="mt-1 text-sm font-medium">
+                  {taskTypeLabels[nextImportantTask.taskType]} for {nextImportantTask.reptile.name}
+                </p>
+              ) : (
+                <p className="mt-1 text-sm text-muted-foreground">No urgent care tasks right now.</p>
+              )}
+            </div>
+            <div className="rounded-lg border border-border/50 bg-card/70 px-3 py-2.5">
+              <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">Focus Animal Spotlight</p>
+              {focusAnimal ? (
+                <p className="mt-1 text-sm font-medium">
+                  {focusAnimal.name}
+                  <span className="ml-1 text-muted-foreground font-normal">· {focusAnimal.species}</span>
+                </p>
+              ) : (
+                <p className="mt-1 text-sm text-muted-foreground">Add an animal to start today&apos;s plan.</p>
+              )}
+            </div>
+          </div>
+
+          <div className="mt-4 grid grid-cols-3 gap-2">
+            <Link to="/reptiles/new">
+              <Button variant="outline" className="w-full min-h-[40px]">Add Animal</Button>
+            </Link>
+            <Link to="/add-event">
+              <Button variant="outline" className="w-full min-h-[40px]">Add Care Event</Button>
+            </Link>
+            <Link to="/genetics">
+              <Button variant="outline" className="w-full min-h-[40px]">Open Genetics</Button>
+            </Link>
+          </div>
+
+          {isExpoDemo && (
+            <div className="mt-4 rounded-lg border border-primary/25 bg-primary/10 px-3 py-2 text-sm text-primary">
+              Demo collection loaded
+            </div>
+          )}
+
+          {!isExpoDemo && reptiles.size === 0 && (
+            <div className="mt-4 rounded-lg border border-primary/35 bg-primary/10 px-3 py-3">
+              <p className="text-sm font-medium">Load demo collection</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Instantly preview a premium, fully populated care workspace.
+              </p>
+              <Button onClick={handleEnableDemoMode} disabled={enablingDemo} className="mt-2 min-h-[40px]">
+                {enablingDemo ? 'Loading Demo…' : 'Load Demo Collection'}
+              </Button>
+            </div>
+          )}
+        </motion.div>
+
+        <motion.div className="rounded-[var(--radius-lg)] border border-border/60 bg-card/60 px-3 py-2.5" {...motionSettings}>
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs text-muted-foreground">Local-first: data stored on this device.</p>
+            <Link to="/settings" className="text-xs inline-flex items-center gap-1 text-primary">
+              Demo settings
+              <ArrowUpRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+        </motion.div>
+
+        {/* Filter toggle — premium sliding pill */}
+        <motion.div className="premium-surface rounded-[var(--radius-xl)] p-3" {...motionSettings}>
           <div className="flex rounded-[999px] bg-muted/50 p-0.5 relative">
             <motion.div
               className="absolute inset-y-0.5 w-[calc(50%-3px)] rounded-[999px] bg-card/95 border border-border/40 shadow-[var(--surface-shadow)]"
-              animate={{ left: filterMode === 'today' ? 2 : 'calc(50% + 1.5px)' }}
+              animate={prefersReducedMotion ? undefined : { left: filterMode === 'today' ? 2 : 'calc(50% + 1.5px)' }}
               transition={{ type: 'tween', duration: 0.22, ease: [0.25, 0.1, 0.25, 1] }}
+              style={prefersReducedMotion ? { left: filterMode === 'today' ? 2 : 'calc(50% + 1.5px)' } : undefined}
             />
             <button
               type="button"

@@ -65,7 +65,7 @@ export default function ReptilesPage() {
   if (loading) {
     return (
       <PageMotion className="page-container">
-        <PageHeader title="My Reptiles" />
+        <PageHeader title="My Animals" />
         <div className="page-content page-content-top loading-min-height">
           <ReptileListSkeleton />
         </div>

@@ -326,6 +326,52 @@ export default function SettingsPage() {
       />
 
       <div className="page-content page-content-top space-y-7 pb-10">
+        {/* Demo Mode entry point */}
+        <section>
+          <h2 className="section-header mb-2.5">Demo</h2>
+          <div className="premium-surface-elevated rounded-[var(--radius-xl)] overflow-hidden border border-primary/25">
+            <div className="flex items-center justify-between gap-4 min-h-[58px] px-4 sm:px-5 py-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <Sparkles className="w-4 h-4 text-primary shrink-0" />
+                <div>
+                  <span className="font-medium block">Presentation Demo Mode</span>
+                  <span className="text-sm text-muted-foreground">
+                    {settings.expoDemoMode ? 'Demo mode is active' : 'Seed sample data and open Today'}
+                  </span>
+                </div>
+              </div>
+              <Button
+                size="sm"
+                onClick={async () => {
+                  if (settings.expoDemoMode) {
+                    navigate('/');
+                    return;
+                  }
+                  setSeedingExpo(true);
+                  try {
+                    await seedExpoDemo();
+                    await updateSettings({ expoDemoMode: true });
+                    setSettings(prev => ({ ...prev, expoDemoMode: true }));
+                    toast.success('Demo mode ready');
+                    navigate('/');
+                  } catch (e) {
+                    console.error('Seed expo failed:', e);
+                    toast.error('Failed to enable demo mode');
+                  } finally {
+                    setSeedingExpo(false);
+                  }
+                }}
+                disabled={seedingExpo}
+              >
+                {settings.expoDemoMode ? 'Open Today' : (seedingExpo ? 'Preparing…' : 'Start Demo')}
+              </Button>
+            </div>
+            <p className="text-caption px-4 sm:px-5 pb-4">
+              Local-first: data stored on this device.
+            </p>
+          </div>
+        </section>
+
         {/* Account */}
         <section>
           <h2 className="section-header mb-2.5">Account</h2>
@@ -658,6 +704,9 @@ export default function SettingsPage() {
                 </div>
               </>
             )}
+            <p className="text-caption px-4 sm:px-5 pb-4 pt-2">
+              Demo mode de-emphasizes preview integrations (for example sensor/IoT placeholders) to keep presentations focused.
+            </p>
           </div>
         </section>
 
