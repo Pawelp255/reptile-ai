@@ -7,9 +7,9 @@ export async function seedExpoDemo(): Promise<void> {
   const now = getNow();
   const today = getToday();
 
-  // Check if reptiles already exist
+  // Keep demo loading idempotent while allowing demo data beside real data.
   const existing = await db.getAll('reptiles');
-  if (existing.length > 0) return; // Don't overwrite real data
+  if (existing.some(r => r.notes?.includes('[DEMO]') || r.geneticsNotes?.includes('[DEMO]'))) return;
 
   // Demo reptiles
   const atlas: Reptile = {
