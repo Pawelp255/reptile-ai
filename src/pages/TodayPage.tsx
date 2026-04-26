@@ -185,7 +185,7 @@ export default function TodayPage() {
       await updateSettings({ expoDemoMode: true });
       setIsExpoDemo(true);
       toast.success('Demo mode enabled. Seeded data is ready.');
-      navigate('/', { replace: true });
+      navigate('/today', { replace: true });
       await loadData();
     } catch (error) {
       console.error('Failed to enable demo mode:', error);
