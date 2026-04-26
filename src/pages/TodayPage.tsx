@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { ArrowUpRight, Bug, Sparkles } from 'lucide-react';
+import { getDisplayEmoji } from '@/lib/animals/taxonomy';
 import { PageHeader } from '@/components/PageHeader';
 import { PageMotion } from '@/components/motion/PageMotion';
 import { StaggerList, StaggerItem } from '@/components/motion/StaggerList';
@@ -118,18 +119,38 @@ export default function TodayPage() {
       return new Date(a.nextDueDate).getTime() - new Date(b.nextDueDate).getTime();
     });
   const nextImportantTask = todayImportantTasks[0];
-  const focusAnimal = nextImportantTask?.reptile;
+  const reptileList = Array.from(reptiles.values());
+  const randomAnimalFallback = reptileList.length > 0
+    ? reptileList[new Date().getDate() % reptileList.length]
+    : undefined;
+  const focusAnimal = nextImportantTask?.reptile ?? randomAnimalFallback;
   const animalsNeedingAttentionCount = new Set(todayImportantTasks.map(task => task.reptileId)).size;
   const healthyAnimalsCount = Math.max(reptiles.size - animalsNeedingAttentionCount, 0);
   const careScore = reptiles.size === 0
     ? 0
     : Math.max(0, Math.round((healthyAnimalsCount / reptiles.size) * 100));
+  const careScoreState = careScore >= 80 ? 'healthy' : careScore >= 50 ? 'attention' : 'urgent';
+  const careScoreBarClassName = careScoreState === 'healthy'
+    ? 'bg-gradient-to-r from-emerald-500 to-teal-500'
+    : careScoreState === 'attention'
+      ? 'bg-gradient-to-r from-amber-500 to-orange-500'
+      : 'bg-gradient-to-r from-rose-500 to-red-600';
+  const careScoreLabelClassName = careScoreState === 'healthy'
+    ? 'text-emerald-700 dark:text-emerald-300'
+    : careScoreState === 'attention'
+      ? 'text-amber-700 dark:text-amber-300'
+      : 'text-rose-700 dark:text-rose-300';
   const taskTypeLabels: Record<ScheduleItem['taskType'], string> = {
     feed: 'Feeding',
     clean: 'Cleaning',
     check: 'Health check',
     shed: 'Shedding',
   };
+  const focusAnimalNextTask = focusAnimal
+    ? tasks
+      .filter(task => task.reptileId === focusAnimal.id)
+      .sort((a, b) => new Date(a.nextDueDate).getTime() - new Date(b.nextDueDate).getTime())[0]
+    : undefined;
   const motionSettings = prefersReducedMotion
     ? { initial: false as const }
     : {
@@ -228,18 +249,68 @@ export default function TodayPage() {
 
         {/* Collection hero */}
         <motion.div
-          className="premium-surface-elevated rounded-[var(--radius-xl)] p-4 sm:p-5 shadow-[var(--surface-shadow-deep)]"
+          className="premium-surface-elevated relative overflow-hidden rounded-[var(--radius-xl)] p-4 sm:p-5 shadow-[var(--surface-shadow-deep)]"
           {...motionSettings}
         >
-          <div className="flex items-start justify-between gap-3">
+          <div
+            className="pointer-events-none absolute inset-0"
+            aria-hidden
+            style={{
+              background:
+                'radial-gradient(120% 80% at 10% 0%, hsl(var(--primary) / 0.08) 0%, transparent 60%), radial-gradient(100% 70% at 100% 100%, hsl(var(--accent) / 0.05) 0%, transparent 62%)',
+            }}
+          />
+
+          <div className="relative z-10 flex items-start justify-between gap-3">
             <div>
               <p className="text-xs font-medium tracking-[0.18em] uppercase text-muted-foreground/80">
                 Today&apos;s Care Score
               </p>
-              <p className="mt-1 text-[2rem] leading-none font-semibold tracking-tight tabular-nums">
+              <motion.p
+                className="mt-1 text-[2rem] leading-none font-semibold tracking-tight tabular-nums"
+                initial={prefersReducedMotion ? false : { scale: 0.97, opacity: 0.9 }}
+                animate={prefersReducedMotion ? undefined : { scale: 1, opacity: 1 }}
+                transition={{ duration: 0.24, ease: [0.25, 0.1, 0.25, 1] }}
+              >
                 {careScore}
                 <span className="text-base text-muted-foreground">/100</span>
-              </p>
+              </motion.p>
+              <div className="mt-2">
+                <p className={cn('text-[11px] font-medium tracking-wide', careScoreLabelClassName)}>
+                  Collection health
+                </p>
+                <div className="mt-1.5 h-2.5 w-full max-w-[13rem] overflow-hidden rounded-full bg-muted/70">
+                  <motion.div
+                    className={cn('h-full rounded-full transition-[width] duration-300 ease-premium', careScoreBarClassName)}
+                    style={{ width: `${careScore}%` }}
+                    animate={
+                      prefersReducedMotion
+                        ? undefined
+                        : {
+                          boxShadow: [
+                            '0 0 0px hsl(var(--primary) / 0)',
+                            '0 0 10px hsl(var(--primary) / 0.35)',
+                            '0 0 0px hsl(var(--primary) / 0)',
+                          ],
+                        }
+                    }
+                    transition={
+                      prefersReducedMotion
+                        ? undefined
+                        : { duration: 0.45, ease: [0.25, 0.1, 0.25, 1] }
+                    }
+                    key={`care-score-${careScore}`}
+                    role="progressbar"
+                    aria-label="Collection health"
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-valuenow={careScore}
+                  />
+                </div>
+                <p className="mt-1.5 text-[11px] text-muted-foreground">
+                  {overdueTasks.length} overdue • {dueTodayTasks.length} due today
+                </p>
+              </div>
               <p className="text-secondary mt-1">
                 {reptiles.size === 0
                   ? 'No collection loaded yet.'
@@ -252,7 +323,7 @@ export default function TodayPage() {
             </div>
           </div>
 
-          <div className="mt-4 grid grid-cols-3 gap-2.5 text-xs">
+          <div className="relative z-10 mt-4 grid grid-cols-3 gap-2.5 text-xs">
             <div className="rounded-lg border border-destructive/20 bg-destructive/10 px-2.5 py-2">
               <p className="text-muted-foreground">Overdue</p>
               <p className="mt-0.5 text-base font-semibold tabular-nums text-destructive">{overdueTasks.length}</p>
@@ -267,7 +338,7 @@ export default function TodayPage() {
             </div>
           </div>
 
-          <div className="mt-4 grid gap-2.5 sm:grid-cols-2">
+          <div className="relative z-10 mt-4 grid gap-2.5 sm:grid-cols-2">
             <div className="rounded-lg border border-border/50 bg-card/70 px-3 py-2.5">
               <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">Next Important Task</p>
               {nextImportantTask ? (
@@ -279,19 +350,40 @@ export default function TodayPage() {
               )}
             </div>
             <div className="rounded-lg border border-border/50 bg-card/70 px-3 py-2.5">
-              <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">Focus Animal Spotlight</p>
+              <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">Focus Animal of the Day</p>
               {focusAnimal ? (
-                <p className="mt-1 text-sm font-medium">
-                  {focusAnimal.name}
-                  <span className="ml-1 text-muted-foreground font-normal">· {focusAnimal.species}</span>
-                </p>
+                <div className="mt-1.5">
+                  <div className="flex items-center gap-2.5">
+                    <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg border border-border/50 bg-secondary/70">
+                      {focusAnimal.photoUrl ? (
+                        <img src={focusAnimal.photoUrl} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        <span className="flex h-full w-full items-center justify-center text-lg">
+                          {getDisplayEmoji(focusAnimal.animalCategory, focusAnimal.species)}
+                        </span>
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold">{focusAnimal.name}</p>
+                      <p className="truncate text-xs text-muted-foreground">{focusAnimal.species}</p>
+                    </div>
+                  </div>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    {focusAnimalNextTask
+                      ? `Next task: ${taskTypeLabels[focusAnimalNextTask.taskType]}`
+                      : 'Next task: Add a schedule to start care reminders.'}
+                  </p>
+                  <Link to={`/reptiles/${focusAnimal.id}`} className="mt-2 inline-block">
+                    <Button variant="outline" size="sm" className="h-8 px-2.5 text-xs">Open profile</Button>
+                  </Link>
+                </div>
               ) : (
                 <p className="mt-1 text-sm text-muted-foreground">Add an animal to start today&apos;s plan.</p>
               )}
             </div>
           </div>
 
-          <div className="mt-4 grid grid-cols-3 gap-2">
+          <div className="relative z-10 mt-4 grid grid-cols-3 gap-2">
             <Link to="/reptiles/new">
               <Button variant="outline" className="w-full min-h-[40px]">Add Animal</Button>
             </Link>
@@ -304,13 +396,13 @@ export default function TodayPage() {
           </div>
 
           {isExpoDemo && (
-            <div className="mt-4 rounded-lg border border-primary/25 bg-primary/10 px-3 py-2 text-sm text-primary">
+            <div className="relative z-10 mt-4 rounded-lg border border-primary/25 bg-primary/10 px-3 py-2 text-sm text-primary">
               Demo collection loaded
             </div>
           )}
 
           {!isExpoDemo && reptiles.size === 0 && (
-            <div className="mt-4 rounded-lg border border-primary/35 bg-primary/10 px-3 py-3">
+            <div className="relative z-10 mt-4 rounded-lg border border-primary/35 bg-primary/10 px-3 py-3">
               <p className="text-sm font-medium">Load demo collection</p>
               <p className="mt-0.5 text-xs text-muted-foreground">
                 Instantly preview a premium, fully populated care workspace.
