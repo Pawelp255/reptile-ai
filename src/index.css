@@ -594,7 +594,13 @@
 
   /* First block below header */
   .page-content-top {
-    padding-top: 1rem;
+    padding-top: 0.75rem;
+  }
+
+  @media (min-width: 640px) {
+    .page-content-top {
+      padding-top: 0.875rem;
+    }
   }
 
   /* Sticky bottom action bar — premium glass, safe-area aware */

@@ -14,7 +14,7 @@ export function PageHeader({ title, subtitle, rightContent, className }: PageHea
         /* Static header: avoids WebKit/Capacitor overlap when ancestors use transforms (e.g. PageMotion). Top safe inset is body-only in index.css. */
         'glass-shell page-header-glass relative',
         'border-b border-border/50',
-        'px-4 pb-2.5 pt-3 sm:pb-3 sm:pt-3.5',
+        'px-4 pb-2 pt-2.5 sm:pb-2.5 sm:pt-3',
         className
       )}
     >
