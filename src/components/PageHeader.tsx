@@ -11,9 +11,10 @@ export function PageHeader({ title, subtitle, rightContent, className }: PageHea
   return (
     <header
       className={cn(
-        'glass-shell page-header-glass sticky top-0 z-40',
+        /* Safe area lives on body only; small fixed padding for title rhythm. Sticky top matches inset so the bar stays below the status area when scrolling. */
+        'glass-shell page-header-glass sticky z-40 top-[env(safe-area-inset-top,0px)]',
         'border-b border-border/50',
-        'px-4 pb-2.5 pt-[max(0.75rem,env(safe-area-inset-top))] sm:pb-3 sm:pt-[max(0.875rem,env(safe-area-inset-top))]',
+        'px-4 pb-2.5 pt-3 sm:pb-3 sm:pt-3.5',
         className
       )}
     >
