@@ -17,6 +17,7 @@ import { toast } from 'sonner';
 import {
   getAllScheduleItems,
   getAllReptiles,
+  getToday,
   markTaskDone,
   isOverdue,
   isDueToday,
@@ -107,8 +108,12 @@ export default function TodayPage() {
     return acc;
   }, {} as Record<string, { reptile: Reptile; tasks: TaskWithReptile[] }>);
 
-  const overdueTasks = filteredTasks.filter(t => isOverdue(t.nextDueDate));
-  const dueTodayTasks = filteredTasks.filter(t => isDueToday(t.nextDueDate));
+  /** Overdue / due-today backlog for hero stats and badges (not tied to week filter). */
+  const backlogTodayTasks = tasks.filter(
+    t => t.reptile && (isOverdue(t.nextDueDate) || isDueToday(t.nextDueDate)),
+  );
+  const overdueTasks = backlogTodayTasks.filter(t => isOverdue(t.nextDueDate));
+  const dueTodayTasks = backlogTodayTasks.filter(t => isDueToday(t.nextDueDate));
   const todayImportantTasks = tasks
     .filter(task => isOverdue(task.nextDueDate) || isDueToday(task.nextDueDate))
     .sort((a, b) => {
@@ -125,25 +130,38 @@ export default function TodayPage() {
     : undefined;
   const focusAnimal = nextImportantTask?.reptile ?? randomAnimalFallback;
   const animalsNeedingAttentionCount = new Set(todayImportantTasks.map(task => task.reptileId)).size;
-  const healthyAnimalsCount = Math.max(reptiles.size - animalsNeedingAttentionCount, 0);
-  const careScore = reptiles.size === 0
-    ? 0
-    : Math.max(0, Math.round((healthyAnimalsCount / reptiles.size) * 100));
-  const careScoreState = careScore >= 80 ? 'healthy' : careScore >= 50 ? 'attention' : 'urgent';
-  const careScoreBarClassName = careScoreState === 'healthy'
-    ? 'bg-gradient-to-r from-emerald-500 to-teal-500'
-    : careScoreState === 'attention'
-      ? 'bg-gradient-to-r from-amber-500 to-orange-500'
-      : 'bg-gradient-to-r from-rose-500 to-red-600';
-  const careScoreLabelClassName = careScoreState === 'healthy'
-    ? 'text-emerald-700 dark:text-emerald-300'
-    : careScoreState === 'attention'
-      ? 'text-amber-700 dark:text-amber-300'
-      : 'text-rose-700 dark:text-rose-300';
+  const animalsClearTodayCount = Math.max(reptiles.size - animalsNeedingAttentionCount, 0);
+  const todayStr = getToday();
+  const completedTodayCount = tasks.filter(t => t.reptile && t.lastDoneDate === todayStr).length;
+  const totalTodayTasks = backlogTodayTasks.length + completedTodayCount;
+  const careProgressPercent = totalTodayTasks === 0
+    ? 100
+    : Math.round((completedTodayCount / totalTodayTasks) * 100);
+  const careProgressState = careProgressPercent >= 80
+    ? 'on-track'
+    : careProgressPercent >= 50
+      ? 'in-progress'
+      : 'needs-attention';
+  const careProgressStatusLabel = careProgressPercent >= 80
+    ? 'On track'
+    : careProgressPercent >= 50
+      ? 'In progress'
+      : 'Needs attention';
+  const careProgressStatusClass =
+    careProgressState === 'on-track'
+      ? 'text-muted-foreground'
+      : careProgressState === 'in-progress'
+        ? 'text-amber-800/90 dark:text-amber-200/85'
+        : 'text-[hsl(220_16%_40%)] dark:text-[hsl(217_24%_75%)]';
+  const CARE_RING_SIZE = 108;
+  const CARE_RING_STROKE = 7;
+  const careRingRadius = (CARE_RING_SIZE - CARE_RING_STROKE) / 2;
+  const careRingCircumference = 2 * Math.PI * careRingRadius;
+
   const taskTypeLabels: Record<ScheduleItem['taskType'], string> = {
     feed: 'Feeding',
     clean: 'Cleaning',
-    check: 'Health check',
+    check: 'Routine check',
     shed: 'Shedding',
   };
   const focusAnimalNextTask = focusAnimal
@@ -261,63 +279,101 @@ export default function TodayPage() {
             }}
           />
 
-          <div className="relative z-10 flex items-start justify-between gap-3">
-            <div>
-              <p className="text-xs font-medium tracking-[0.18em] uppercase text-muted-foreground/80">
-                Today&apos;s Care Score
-              </p>
-              <motion.p
-                className="mt-1 text-[2rem] leading-none font-semibold tracking-tight tabular-nums"
-                initial={prefersReducedMotion ? false : { scale: 0.97, opacity: 0.9 }}
-                animate={prefersReducedMotion ? undefined : { scale: 1, opacity: 1 }}
-                transition={{ duration: 0.24, ease: [0.25, 0.1, 0.25, 1] }}
-              >
-                {careScore}
-                <span className="text-base text-muted-foreground">/100</span>
-              </motion.p>
-              <div className="mt-2">
-                <p className={cn('text-[11px] font-medium tracking-wide', careScoreLabelClassName)}>
-                  Collection health
+          <div className="relative z-10 flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0 flex-1 space-y-3">
+              <div>
+                <p className="text-xs font-medium tracking-[0.18em] uppercase text-muted-foreground/80">
+                  Today&apos;s Care Progress
                 </p>
-                <div className="mt-1.5 h-2.5 w-full max-w-[13rem] overflow-hidden rounded-full bg-muted/70">
-                  <motion.div
-                    className={cn('h-full rounded-full transition-[width] duration-300 ease-premium', careScoreBarClassName)}
-                    style={{ width: `${careScore}%` }}
-                    animate={
-                      prefersReducedMotion
-                        ? undefined
-                        : {
-                          boxShadow: [
-                            '0 0 0px hsl(var(--primary) / 0)',
-                            '0 0 10px hsl(var(--primary) / 0.35)',
-                            '0 0 0px hsl(var(--primary) / 0)',
-                          ],
-                        }
-                    }
-                    transition={
-                      prefersReducedMotion
-                        ? undefined
-                        : { duration: 0.45, ease: [0.25, 0.1, 0.25, 1] }
-                    }
-                    key={`care-score-${careScore}`}
-                    role="progressbar"
-                    aria-label="Collection health"
-                    aria-valuemin={0}
-                    aria-valuemax={100}
-                    aria-valuenow={careScore}
-                  />
-                </div>
-                <p className="mt-1.5 text-[11px] text-muted-foreground">
-                  {overdueTasks.length} overdue • {dueTodayTasks.length} due today
+                <p className="text-secondary mt-1 text-xs sm:text-sm">
+                  Care tasks completed
                 </p>
               </div>
-              <p className="text-secondary mt-1">
-                {reptiles.size === 0
-                  ? 'No collection loaded yet.'
-                  : `${healthyAnimalsCount} of ${reptiles.size} animals healthy today.`}
-              </p>
+              <div className="flex flex-row items-start gap-4 sm:gap-5">
+                <div className="shrink-0">
+                  <div
+                    className="relative"
+                    role="progressbar"
+                    aria-valuenow={careProgressPercent}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-label={
+                      totalTodayTasks === 0
+                        ? 'All clear today — no scheduled tasks due'
+                        : `Care completion ${careProgressPercent} percent`
+                    }
+                  >
+                    <svg
+                      width={CARE_RING_SIZE}
+                      height={CARE_RING_SIZE}
+                      viewBox={`0 0 ${CARE_RING_SIZE} ${CARE_RING_SIZE}`}
+                      className="rotate-[-90deg] shrink-0"
+                      aria-hidden
+                    >
+                      <circle
+                        cx={CARE_RING_SIZE / 2}
+                        cy={CARE_RING_SIZE / 2}
+                        r={careRingRadius}
+                        fill="none"
+                        stroke="hsl(var(--muted))"
+                        strokeWidth={CARE_RING_STROKE}
+                        className="text-muted/55"
+                        strokeOpacity={0.45}
+                      />
+                      <motion.circle
+                        cx={CARE_RING_SIZE / 2}
+                        cy={CARE_RING_SIZE / 2}
+                        r={careRingRadius}
+                        fill="none"
+                        strokeWidth={CARE_RING_STROKE}
+                        strokeLinecap="round"
+                        className="text-[hsl(168_32%_38%)] dark:text-[hsl(167_36%_48%)]"
+                        stroke="currentColor"
+                        strokeDasharray={careRingCircumference}
+                        initial={
+                          prefersReducedMotion
+                            ? { strokeDashoffset: careRingCircumference * (1 - careProgressPercent / 100) }
+                            : { strokeDashoffset: careRingCircumference }
+                        }
+                        animate={{
+                          strokeDashoffset: careRingCircumference * (1 - careProgressPercent / 100),
+                        }}
+                        transition={
+                          prefersReducedMotion
+                            ? { duration: 0 }
+                            : { duration: 0.85, ease: [0.25, 0.1, 0.25, 1] }
+                        }
+                      />
+                    </svg>
+                    <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center px-2">
+                      <span className="text-[1.35rem] font-semibold tabular-nums leading-none tracking-tight text-foreground sm:text-[1.55rem]">
+                        {careProgressPercent}%
+                      </span>
+                      <span className="mt-1 text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                        {totalTodayTasks === 0 ? 'All clear today' : 'completed'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="min-w-0 flex-1 space-y-1.5 pt-0.5">
+                  <p className={cn('text-xs font-medium', careProgressStatusClass)}>
+                    {totalTodayTasks === 0 ? 'On track' : careProgressStatusLabel}
+                  </p>
+                  <p className="text-[11px] leading-relaxed text-muted-foreground">
+                    {overdueTasks.length} overdue • {dueTodayTasks.length} due today
+                    {completedTodayCount > 0 && (
+                      <span>{` • ${completedTodayCount} completed today`}</span>
+                    )}
+                  </p>
+                  <p className="text-xs text-muted-foreground/90 pt-1">
+                    {reptiles.size === 0
+                      ? 'No collection loaded yet.'
+                      : `${animalsClearTodayCount} of ${reptiles.size} with no overdue or due-today tasks.`}
+                  </p>
+                </div>
+              </div>
             </div>
-            <div className="rounded-xl border border-primary/20 bg-primary/10 px-3 py-2 text-right">
+            <div className="shrink-0 self-end sm:self-auto rounded-xl border border-primary/20 bg-primary/10 px-3 py-2 text-right sm:ml-auto">
               <p className="text-[10px] uppercase tracking-[0.14em] text-primary/85">Collection</p>
               <p className="text-sm font-medium">{reptiles.size} animal{reptiles.size === 1 ? '' : 's'}</p>
             </div>
@@ -332,9 +388,9 @@ export default function TodayPage() {
               <p className="text-muted-foreground">Due</p>
               <p className="mt-0.5 text-base font-semibold tabular-nums text-amber-700 dark:text-amber-300">{dueTodayTasks.length}</p>
             </div>
-            <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-2">
-              <p className="text-muted-foreground">Healthy</p>
-              <p className="mt-0.5 text-base font-semibold tabular-nums text-emerald-700 dark:text-emerald-300">{healthyAnimalsCount}</p>
+            <div className="rounded-lg border border-teal-500/15 bg-teal-500/[0.08] px-2.5 py-2 dark:bg-teal-500/10">
+              <p className="text-muted-foreground">Clear today</p>
+              <p className="mt-0.5 text-base font-semibold tabular-nums text-teal-800/90 dark:text-teal-200/85">{animalsClearTodayCount}</p>
             </div>
           </div>
 
