@@ -26,12 +26,12 @@ export default function AuthPage() {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (session) {
-        navigate('/', { replace: true });
+        navigate('/today', { replace: true });
       }
     });
     
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) navigate('/', { replace: true });
+      if (session) navigate('/today', { replace: true });
     });
 
     return () => subscription.unsubscribe();

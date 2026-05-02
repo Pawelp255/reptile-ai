@@ -11,7 +11,7 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { path: '/', label: 'Today', icon: Calendar },
+  { path: '/today', label: 'Today', icon: Calendar },
   { path: '/reptiles', label: 'My Animals', icon: ListChecks },
   { path: '/add-event', label: 'Add Event', icon: PlusCircle },
   { path: '/journal', label: 'Journal', icon: BookOpen },
@@ -22,9 +22,6 @@ export function BottomNav() {
   const location = useLocation();
 
   const isActive = (path: string) => {
-    if (path === '/') {
-      return location.pathname === '/';
-    }
     return location.pathname.startsWith(path);
   };
 

@@ -9,7 +9,8 @@ import { ReptileCard } from '@/components/ReptileCard';
 import { EmptyState } from '@/components/EmptyState';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { getAllReptiles, getNextFeedingDate } from '@/lib/storage';
+import { toast } from 'sonner';
+import { getAllReptiles, getNextFeedingDate, seedExpoDemo, updateSettings } from '@/lib/storage';
 import { ReptileListSkeleton } from '@/components/system/SkeletonLoaders';
 import type { Reptile } from '@/types';
 
@@ -23,6 +24,7 @@ export default function ReptilesPage() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<'all' | 'reptile' | 'amphibian'>('all');
+  const [loadingSample, setLoadingSample] = useState(false);
 
   const loadReptiles = async () => {
     try {
@@ -47,6 +49,21 @@ export default function ReptilesPage() {
   useEffect(() => {
     loadReptiles();
   }, []);
+
+  const handleLoadSampleData = async () => {
+    setLoadingSample(true);
+    try {
+      await seedExpoDemo();
+      await updateSettings({ expoDemoMode: true });
+      toast.success('Starter setup ready');
+      await loadReptiles();
+    } catch (e) {
+      console.error('Failed to load sample data:', e);
+      toast.error('Could not load sample data');
+    } finally {
+      setLoadingSample(false);
+    }
+  };
 
   const filteredReptiles = reptiles.filter(({ reptile }) => {
     if (!searchQuery.trim()) return true;
@@ -160,12 +177,23 @@ export default function ReptilesPage() {
                 title="No animals yet"
                 description="Add your first animal to track feeding, health checks, and care schedules."
                 action={
-                  <Link to="/reptiles/new">
-                    <Button>
-                      <Plus className="w-4 h-4 mr-2" />
-                      Add Animal
+                  <div className="flex w-full max-w-sm flex-col gap-2 sm:flex-row sm:justify-center">
+                    <Link to="/reptiles/new" className="w-full sm:w-auto">
+                      <Button className="w-full min-h-[44px]">
+                        <Plus className="w-4 h-4 mr-2" />
+                        Add your first animal
+                      </Button>
+                    </Link>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full min-h-[44px] text-muted-foreground sm:w-auto"
+                      disabled={loadingSample}
+                      onClick={handleLoadSampleData}
+                    >
+                      {loadingSample ? 'Loading…' : 'Load sample data'}
                     </Button>
-                  </Link>
+                  </div>
                 }
               />
             </div>

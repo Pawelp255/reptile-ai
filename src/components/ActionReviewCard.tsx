@@ -1,5 +1,6 @@
 // AI Action Review Card component
 import { Check, X, Calendar, ClipboardList } from 'lucide-react';
+import { stripDemoMarkerForDisplay } from '@/lib/display/stripDemoMarker';
 import { Button } from '@/components/ui/button';
 import type { AIAction, ScheduleAction, EventAction } from '@/lib/ai/actionParser';
 
@@ -30,7 +31,9 @@ function ScheduleActionRow({ action, reptileName }: { action: ScheduleAction; re
         <div className="text-xs text-muted-foreground">
           Every {action.frequencyDays} days — next: {action.nextDueDate}
         </div>
-        {action.notes && <div className="text-xs text-muted-foreground mt-0.5">{action.notes}</div>}
+        {stripDemoMarkerForDisplay(action.notes) && (
+          <div className="text-xs text-muted-foreground mt-0.5">{stripDemoMarkerForDisplay(action.notes)}</div>
+        )}
       </div>
     </div>
   );
@@ -43,7 +46,9 @@ function EventActionRow({ action, reptileName }: { action: EventAction; reptileN
       <div className="text-sm">
         <span className="font-medium">{EVENT_LABELS[action.eventType] || action.eventType}</span>
         <span className="text-muted-foreground"> for {reptileName} on {action.eventDate}</span>
-        {action.details && <div className="text-xs text-muted-foreground">{action.details}</div>}
+        {stripDemoMarkerForDisplay(action.details) && (
+          <div className="text-xs text-muted-foreground">{stripDemoMarkerForDisplay(action.details)}</div>
+        )}
         {action.weightGrams && <div className="text-xs text-muted-foreground">Weight: {action.weightGrams}g</div>}
       </div>
     </div>

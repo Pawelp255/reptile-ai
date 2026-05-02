@@ -15,6 +15,7 @@ import {
 import { toast } from 'sonner';
 import QRCode from 'qrcode';
 import html2canvas from 'html2canvas';
+import { stripDemoMarkerForDisplay } from '@/lib/display/stripDemoMarker';
 import {
   getReptileById,
   getScheduleByReptile,
@@ -249,7 +250,9 @@ export default function CareCardPage() {
               <span className="text-muted-foreground text-xs uppercase tracking-wide">Last Feeding</span>
               <p className="font-medium text-sm">
                 {format(new Date(lastFeeding.eventDate), 'MMM d, yyyy')}
-                {lastFeeding.details ? ` — ${lastFeeding.details}` : ''}
+                {stripDemoMarkerForDisplay(lastFeeding.details)
+                  ? ` — ${stripDemoMarkerForDisplay(lastFeeding.details)}`
+                  : ''}
               </p>
             </div>
           )}
@@ -270,10 +273,10 @@ export default function CareCardPage() {
           )}
 
           {/* Notes excerpt */}
-          {reptile.notes && (
+          {stripDemoMarkerForDisplay(reptile.notes) && (
             <div className="pt-3 border-t border-border">
               <span className="text-muted-foreground text-xs uppercase tracking-wide">Notes</span>
-              <p className="text-sm mt-1 line-clamp-3">{reptile.notes}</p>
+              <p className="text-sm mt-1 line-clamp-3">{stripDemoMarkerForDisplay(reptile.notes)}</p>
             </div>
           )}
 

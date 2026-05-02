@@ -30,6 +30,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
+import { stripDemoMarkerForDisplay } from '@/lib/display/stripDemoMarker';
 import { getAllCareEvents, getAllReptiles, deleteCareEvent } from '@/lib/storage';
 import type { CareEvent, Reptile, EventType } from '@/types';
 
@@ -258,10 +259,10 @@ export default function JournalPage() {
                 </div>
               )}
 
-              {selectedEvent.details && (
+              {stripDemoMarkerForDisplay(selectedEvent.details) && (
                 <div>
                   <span className="text-muted-foreground text-sm">Details</span>
-                  <p className="mt-1 text-sm">{selectedEvent.details}</p>
+                  <p className="mt-1 text-sm">{stripDemoMarkerForDisplay(selectedEvent.details)}</p>
                 </div>
               )}
 

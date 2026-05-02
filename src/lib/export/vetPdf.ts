@@ -1,6 +1,7 @@
 // Vet PDF Export using jsPDF
 import { jsPDF } from 'jspdf';
 import { format } from 'date-fns';
+import { stripDemoMarkerForDisplay } from '@/lib/display/stripDemoMarker';
 import {
   getReptileById,
   getCareEventsByReptile,
@@ -128,14 +129,15 @@ export async function exportVetPdf(
     y += 5;
   }
 
-  if (reptile.notes) {
+  const notesDisplay = stripDemoMarkerForDisplay(reptile.notes);
+  if (notesDisplay) {
     y += 3;
     checkPageBreak(10);
     doc.setFont('helvetica', 'bold');
     doc.text('Notes:', margin, y);
     y += 5;
     doc.setFont('helvetica', 'normal');
-    const noteLines = doc.splitTextToSize(reptile.notes, contentWidth);
+    const noteLines = doc.splitTextToSize(notesDisplay, contentWidth);
     doc.text(noteLines, margin, y);
     y += noteLines.length * 4.5;
   }
@@ -161,8 +163,9 @@ export async function exportVetPdf(
       doc.text(geneLines, margin, y);
       y += geneLines.length * 4.5;
     }
-    if (reptile.geneticsNotes) {
-      const genLines = doc.splitTextToSize(reptile.geneticsNotes, contentWidth);
+    const geneticsDisplay = stripDemoMarkerForDisplay(reptile.geneticsNotes);
+    if (geneticsDisplay) {
+      const genLines = doc.splitTextToSize(geneticsDisplay, contentWidth);
       doc.text(genLines, margin, y);
       y += genLines.length * 4.5;
     }
@@ -199,7 +202,7 @@ export async function exportVetPdf(
       doc.text(format(new Date(event.eventDate), 'MMM d'), margin, y);
       doc.text(EVENT_LABELS[event.eventType], margin + 30, y);
       
-      let detail = event.details || '-';
+      let detail = stripDemoMarkerForDisplay(event.details) || '-';
       if (event.weightGrams) detail += ` (${event.weightGrams}g)`;
       const detailLines = doc.splitTextToSize(detail, contentWidth - 55);
       doc.text(detailLines, margin + 55, y);

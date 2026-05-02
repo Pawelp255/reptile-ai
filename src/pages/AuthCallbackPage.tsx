@@ -31,7 +31,7 @@ export default function AuthCallbackPage() {
 
         if (session) {
           setStatus("Sign-in complete.");
-          navigate("/", { replace: true });
+          navigate("/today", { replace: true });
           return;
         }
 

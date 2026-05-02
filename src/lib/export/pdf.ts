@@ -1,5 +1,6 @@
 // PDF Report Generator (generates printable HTML)
 import { format } from 'date-fns';
+import { stripDemoMarkerForDisplay } from '@/lib/display/stripDemoMarker';
 import type { Reptile, CareEvent, EventType } from '@/types';
 
 const eventLabels: Record<EventType, string> = {
@@ -72,7 +73,7 @@ export function generatePDFReport(reptiles: Reptile[], events: CareEvent[]): str
         <tr>
           <td style="padding: 8px; border-bottom: 1px solid #eee;">${format(new Date(event.eventDate), 'MMM d, yyyy')}</td>
           <td style="padding: 8px; border-bottom: 1px solid #eee;">${eventLabels[event.eventType]}</td>
-          <td style="padding: 8px; border-bottom: 1px solid #eee;">${event.details || '-'}</td>
+          <td style="padding: 8px; border-bottom: 1px solid #eee;">${stripDemoMarkerForDisplay(event.details) || '-'}</td>
         </tr>
       `)
       .join('');
@@ -103,9 +104,9 @@ export function generatePDFReport(reptiles: Reptile[], events: CareEvent[]): str
           ` : ''}
         </table>
 
-        ${reptile.notes ? `
+        ${stripDemoMarkerForDisplay(reptile.notes) ? `
         <div style="background: #f5f5f5; padding: 12px; border-radius: 4px; margin-bottom: 16px;">
-          <p style="margin: 0; font-size: 14px; color: #333;"><strong>Notes:</strong> ${reptile.notes}</p>
+          <p style="margin: 0; font-size: 14px; color: #333;"><strong>Notes:</strong> ${stripDemoMarkerForDisplay(reptile.notes)}</p>
         </div>
         ` : ''}
 

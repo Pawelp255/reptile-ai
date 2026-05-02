@@ -1,19 +1,9 @@
-import { useEffect, useState } from 'react';
 import { PageHeader } from '@/components/PageHeader';
 import { PageMotion } from '@/components/motion/PageMotion';
 import { Sparkles } from 'lucide-react';
 import { PhotoHealthCheck } from '@/components/health/PhotoHealthCheck';
-import { getSettings } from '@/lib/storage';
 
 export default function HealthCheckPage() {
-  const [isExpoDemo, setIsExpoDemo] = useState(false);
-
-  useEffect(() => {
-    getSettings()
-      .then((settings) => setIsExpoDemo(!!settings.expoDemoMode))
-      .catch(() => setIsExpoDemo(false));
-  }, []);
-
   return (
     <PageMotion className="page-container">
       <PageHeader title="Photo Health Check" subtitle="Preview visual analysis" />
@@ -26,11 +16,6 @@ export default function HealthCheckPage() {
           <p className="text-xs text-muted-foreground mt-2">
             Local-first: data stored on this device.
           </p>
-          {isExpoDemo && (
-            <p className="text-xs text-muted-foreground mt-1">
-              Sensor/IoT placeholder integrations are de-emphasized in demo mode.
-            </p>
-          )}
         </div>
         <PhotoHealthCheck />
       </div>

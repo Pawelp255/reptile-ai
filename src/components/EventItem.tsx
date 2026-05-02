@@ -1,5 +1,6 @@
 import { format } from 'date-fns';
 import { Utensils, Sparkles, Heart, Hand, StickyNote, RefreshCw, Image } from 'lucide-react';
+import { stripDemoMarkerForDisplay } from '@/lib/display/stripDemoMarker';
 import { cn } from '@/lib/utils';
 import type { EventType } from '@/types';
 
@@ -49,6 +50,7 @@ export function EventItem({
   showReptileName = false,
   onClick,
 }: EventItemProps) {
+  const displayDetails = stripDemoMarkerForDisplay(details);
   const Icon = eventIcons[eventType];
   const label = eventLabels[eventType];
   const colorClass = eventColors[eventType];
@@ -78,8 +80,8 @@ export function EventItem({
           {format(new Date(eventDate), 'MMM d, yyyy')}
         </p>
         
-        {details && (
-          <p className="text-sm text-foreground/80 line-clamp-2">{details}</p>
+        {displayDetails && (
+          <p className="text-sm text-foreground/80 line-clamp-2">{displayDetails}</p>
         )}
         
         {photoDataUrl && (

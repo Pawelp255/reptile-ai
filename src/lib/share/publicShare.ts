@@ -6,6 +6,7 @@ import {
   getReptileById,
   getScheduleByReptile,
 } from "@/lib/storage";
+import { stripDemoMarkerForDisplay } from "@/lib/display/stripDemoMarker";
 import { buildPublicShareUrl } from "@/lib/share/shareUrls";
 import type { CareEvent, Reptile, ScheduleItem } from "@/types";
 
@@ -130,8 +131,8 @@ function preparePublicPhoto(photoUrl?: string): {
 }
 
 function cleanText(value?: string): string | undefined {
-  const trimmed = value?.trim();
-  return trimmed || undefined;
+  const v = stripDemoMarkerForDisplay(value);
+  return v || undefined;
 }
 
 function summarizeGenes(reptile: Reptile): string | undefined {

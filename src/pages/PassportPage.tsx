@@ -48,6 +48,7 @@ import {
   shareLink,
 } from "@/lib/native/sharing";
 import { buildPassportShareUrl, buildPublicShareUrl } from "@/lib/share/shareUrls";
+import { stripDemoMarkerForDisplay } from "@/lib/display/stripDemoMarker";
 import { getPublicShareForAnimal, type PublicShareRecord } from "@/lib/share/publicShare";
 import { getCategoryLabel, getDisplayEmoji } from "@/lib/animals/taxonomy";
 import type { CareEvent, Reptile, ScheduleItem } from "@/types";
@@ -167,7 +168,8 @@ function formatGeneSummary(reptile: Reptile): string | undefined {
     );
   }
   if (reptile.hets?.length) parts.push(`Het ${reptile.hets.join(", ")}`);
-  if (reptile.geneticsNotes?.trim()) parts.push(reptile.geneticsNotes.trim());
+  const geneticsDisplay = stripDemoMarkerForDisplay(reptile.geneticsNotes);
+  if (geneticsDisplay) parts.push(geneticsDisplay);
   return parts.filter(Boolean).join(" | ") || undefined;
 }
 
@@ -177,11 +179,12 @@ function latestHealthSummary(events: CareEvent[]): string | undefined {
     .sort((a, b) => b.eventDate.localeCompare(a.eventDate))[0];
 
   if (!health) return undefined;
+  const detailLine = stripDemoMarkerForDisplay(health.details);
   const details = [
     formatDateSafe(health.eventDate),
     health.weightGrams ? `${health.weightGrams}g` : undefined,
     health.lengthCm ? `${health.lengthCm}cm` : undefined,
-    health.details?.trim(),
+    detailLine,
   ].filter(Boolean);
 
   return details.join(" | ");
@@ -225,11 +228,12 @@ function RowGrid({ rows }: { rows: PassportRow[] }) {
 }
 
 function NoteBlock({ label, value }: { label: string; value?: string }) {
-  if (!value?.trim()) return null;
+  const display = stripDemoMarkerForDisplay(value);
+  if (!display) return null;
   return (
     <div className="rounded-xl bg-muted/45 p-3">
       <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">{label}</p>
-      <p className="mt-1 text-sm leading-relaxed">{value}</p>
+      <p className="mt-1 text-sm leading-relaxed">{display}</p>
     </div>
   );
 }
@@ -380,10 +384,10 @@ export default function PassportPage() {
       age: formatAge(reptile),
       genetics: formatGeneSummary(reptile),
       lastFeedingText: lastFeeding
-        ? [formatDateSafe(lastFeeding.eventDate), lastFeeding.details?.trim()].filter(Boolean).join(" | ")
+        ? [formatDateSafe(lastFeeding.eventDate), stripDemoMarkerForDisplay(lastFeeding.details)].filter(Boolean).join(" | ")
         : undefined,
       lastSheddingText: lastShedding
-        ? [formatDateSafe(lastShedding.eventDate), lastShedding.details?.trim()].filter(Boolean).join(" | ")
+        ? [formatDateSafe(lastShedding.eventDate), stripDemoMarkerForDisplay(lastShedding.details)].filter(Boolean).join(" | ")
         : undefined,
       feedingSchedule: feedSchedule ? `Every ${feedSchedule.frequencyDays} days` : undefined,
       nextFeeding: feedSchedule ? formatDateSafe(feedSchedule.nextDueDate) : undefined,
@@ -421,7 +425,7 @@ export default function PassportPage() {
     reptile.uvbRequirement ||
     reptile.waterRequirement;
 
-  const hasHandling = reptile.handlingProfile || reptile.notes;
+  const hasHandling = reptile.handlingProfile || stripDemoMarkerForDisplay(reptile.notes);
   const hasHealth = passportData.cautionNotes.length > 0 || passportData.healthSummary || passportData.upcoming.length > 0;
   const hasTransfer = reptile.acquisitionDate || reptile.breedingStatus;
 

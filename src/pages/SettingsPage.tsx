@@ -4,7 +4,6 @@ import { Download, FileText, Calendar, Database, Info, Trash2, Calculator, Key, 
 import { useTheme } from 'next-themes';
 import { PageHeader } from '@/components/PageHeader';
 import { PageMotion } from '@/components/motion/PageMotion';
-import { DemoBadge } from '@/components/DemoBadge';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
@@ -194,7 +193,7 @@ export default function SettingsPage() {
         setSeedingExpo(true);
         try {
           await seedExpoDemo();
-          toast.success('Expo demo data loaded!');
+          toast.success('Sample data ready');
           setTimeout(() => window.location.reload(), 800);
         } catch (e) {
           console.error('Seed expo failed:', e);
@@ -262,11 +261,11 @@ export default function SettingsPage() {
     setLoadingDemo(true);
     try {
       await loadDemoData();
-      toast.success('Demo data loaded! Refresh to see changes.');
+      toast.success('Extended sample data loaded — refreshing…');
       setTimeout(() => window.location.reload(), 1000);
     } catch (error) {
       console.error('Failed to load demo data:', error);
-      toast.error('Failed to load demo data');
+      toast.error('Failed to load sample data');
     } finally {
       setLoadingDemo(false);
     }
@@ -322,56 +321,9 @@ export default function SettingsPage() {
     <PageMotion className="page-container">
       <PageHeader 
         title="Settings" 
-        rightContent={settings.expoDemoMode ? <DemoBadge /> : undefined}
       />
 
       <div className="page-content page-content-top space-y-7 pb-10">
-        {/* Demo Mode entry point */}
-        <section>
-          <h2 className="section-header mb-2.5">Demo</h2>
-          <div className="premium-surface-elevated rounded-[var(--radius-xl)] overflow-hidden border border-primary/25">
-            <div className="flex items-center justify-between gap-4 min-h-[58px] px-4 sm:px-5 py-3">
-              <div className="flex items-center gap-3 min-w-0">
-                <Sparkles className="w-4 h-4 text-primary shrink-0" />
-                <div>
-                  <span className="font-medium block">Presentation Demo Mode</span>
-                  <span className="text-sm text-muted-foreground">
-                    {settings.expoDemoMode ? 'Demo mode is active' : 'Seed sample data and open Today'}
-                  </span>
-                </div>
-              </div>
-              <Button
-                size="sm"
-                onClick={async () => {
-                  if (settings.expoDemoMode) {
-                    navigate('/');
-                    return;
-                  }
-                  setSeedingExpo(true);
-                  try {
-                    await seedExpoDemo();
-                    await updateSettings({ expoDemoMode: true });
-                    setSettings(prev => ({ ...prev, expoDemoMode: true }));
-                    toast.success('Demo mode ready');
-                    navigate('/');
-                  } catch (e) {
-                    console.error('Seed expo failed:', e);
-                    toast.error('Failed to enable demo mode');
-                  } finally {
-                    setSeedingExpo(false);
-                  }
-                }}
-                disabled={seedingExpo}
-              >
-                {settings.expoDemoMode ? 'Open Today' : (seedingExpo ? 'Preparing…' : 'Start Demo')}
-              </Button>
-            </div>
-            <p className="text-caption px-4 sm:px-5 pb-4">
-              Local-first: data stored on this device.
-            </p>
-          </div>
-        </section>
-
         {/* Account */}
         <section>
           <h2 className="section-header mb-2.5">Account</h2>
@@ -638,20 +590,23 @@ export default function SettingsPage() {
           </div>
         </section>
 
-        {/* Expo Demo Mode */}
+        {/* Sample dataset — developer/testing; uses expoDemoMode in storage */}
         <section>
-          <h2 className="section-header mb-2.5">Expo Mode</h2>
+          <h2 className="section-header mb-2.5">Advanced</h2>
+          <p className="text-caption mb-2.5 -mt-1">Optional tools for testing and screenshots. Not required for everyday use.</p>
           <div className="premium-surface rounded-[var(--radius-xl)] overflow-hidden">
-            <label htmlFor="expo-demo" className="flex items-center justify-between gap-4 min-h-[56px] px-4 sm:px-5 py-3 cursor-pointer">
+            <label htmlFor="sample-dataset-toggle" className="flex items-center justify-between gap-4 min-h-[56px] px-4 sm:px-5 py-3 cursor-pointer">
               <div className="flex items-center gap-3 min-w-0">
-                <Sparkles className="w-4 h-4 text-primary shrink-0" />
+                <Sparkles className="w-4 h-4 text-muted-foreground shrink-0" />
                 <div>
-                  <span className="font-medium block">Expo Demo Mode</span>
-                  <span className="text-sm text-muted-foreground">Demo data for presentations</span>
+                  <span className="font-medium block">Sample dataset</span>
+                  <span className="text-sm text-muted-foreground">
+                    Loads example animals, schedules, journal entries, pairings (local-only)
+                  </span>
                 </div>
               </div>
               <Switch
-                id="expo-demo"
+                id="sample-dataset-toggle"
                 checked={!!settings.expoDemoMode}
                 onCheckedChange={() => handleToggle('expoDemoMode')}
                 disabled={seedingExpo}
@@ -665,7 +620,7 @@ export default function SettingsPage() {
                     <div className="flex items-center gap-3 min-w-0">
                       <Share2 className="w-4 h-4 text-primary shrink-0" />
                       <div>
-                        <span className="font-medium block">Share Promo Card</span>
+                        <span className="font-medium block">Share promo card</span>
                         <span className="text-sm text-muted-foreground">PDF with QR code</span>
                       </div>
                     </div>
@@ -677,8 +632,8 @@ export default function SettingsPage() {
                     <div className="flex items-center gap-3 min-w-0">
                       <Trash2 className="w-4 h-4 text-destructive shrink-0" />
                       <div>
-                        <span className="font-medium block">Reset Demo Data</span>
-                        <span className="text-sm text-muted-foreground">Remove demo data only</span>
+                        <span className="font-medium block">Clear sample data</span>
+                        <span className="text-sm text-muted-foreground">Removes only tagged sample rows</span>
                       </div>
                     </div>
                     <Button
@@ -690,22 +645,22 @@ export default function SettingsPage() {
                           await clearDemoData();
                           await updateSettings({ expoDemoMode: false });
                           setSettings(prev => ({ ...prev, expoDemoMode: false }));
-                          toast.success('Demo data cleared');
+                          toast.success('Sample data cleared');
                           setTimeout(() => window.location.reload(), 800);
                         } catch (e) {
-                          console.error('Failed to clear demo data:', e);
-                          toast.error('Failed to clear demo data');
+                          console.error('Failed to clear sample data:', e);
+                          toast.error('Failed to clear sample data');
                         }
                       }}
                     >
-                      Reset
+                      Clear
                     </Button>
                   </div>
                 </div>
               </>
             )}
             <p className="text-caption px-4 sm:px-5 pb-4 pt-2">
-              Demo mode de-emphasizes preview integrations (for example sensor/IoT placeholders) to keep presentations focused.
+              When the sample dataset is on, peripheral preview integrations stay minimal so the core workflow stays in focus.
             </p>
           </div>
         </section>
@@ -719,12 +674,12 @@ export default function SettingsPage() {
                 <div className="flex items-center gap-3 min-w-0">
                   <Database className="w-4 h-4 text-primary shrink-0" />
                   <div>
-                    <span className="font-medium block">Load Demo Data</span>
-                    <span className="text-sm text-muted-foreground">Sample reptiles and events</span>
+                    <span className="font-medium block">Extended sample pack</span>
+                    <span className="text-sm text-muted-foreground">Extra reptiles and events for edge-case testing</span>
                   </div>
                 </div>
                 <Button variant="ghost" size="sm" onClick={handleLoadDemo} disabled={loadingDemo}>
-                  {loadingDemo ? 'Loading…' : 'Load Demo'}
+                  {loadingDemo ? 'Loading…' : 'Load'}
                 </Button>
               </div>
               <div className="flex items-center justify-between gap-4 min-h-[52px] px-4 sm:px-5 py-3">

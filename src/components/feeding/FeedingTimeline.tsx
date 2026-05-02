@@ -1,5 +1,6 @@
 import { format } from 'date-fns';
 import { Utensils } from 'lucide-react';
+import { stripDemoMarkerForDisplay } from '@/lib/display/stripDemoMarker';
 import type { CareEvent } from '@/types';
 
 interface Props {
@@ -25,7 +26,9 @@ export function FeedingTimeline({ events }: Props) {
       {/* Timeline line */}
       <div className="absolute left-[9px] top-2 bottom-2 w-0.5 bg-border" />
 
-      {feedings.map((f, i) => (
+      {feedings.map((f) => {
+        const detailText = stripDemoMarkerForDisplay(f.details);
+        return (
         <div key={f.id} className="relative pb-4 last:pb-0">
           {/* Dot */}
           <div className="absolute left-[-15px] top-1.5 w-3 h-3 rounded-full bg-primary border-2 border-background" />
@@ -45,11 +48,12 @@ export function FeedingTimeline({ events }: Props) {
                 </div>
               )}
             </div>
-            {f.details && <p className="text-sm">{f.details}</p>}
-            {!f.details && <p className="text-sm text-muted-foreground italic">No details</p>}
+            {detailText && <p className="text-sm">{detailText}</p>}
+            {!detailText && <p className="text-sm text-muted-foreground italic">No details</p>}
           </div>
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

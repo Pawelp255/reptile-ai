@@ -2,7 +2,7 @@ import { useState, useEffect, Fragment } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
 import { cn } from '@/lib/utils';
-import { ArrowUpRight, Bug, Sparkles } from 'lucide-react';
+import { ArrowUpRight, Bug } from 'lucide-react';
 import { getDisplayEmoji } from '@/lib/animals/taxonomy';
 import { PageHeader } from '@/components/PageHeader';
 import { PageMotion } from '@/components/motion/PageMotion';
@@ -10,7 +10,6 @@ import { StaggerList, StaggerItem } from '@/components/motion/StaggerList';
 import { TaskCard } from '@/components/TaskCard';
 import { EmptyState } from '@/components/EmptyState';
 import { MarkDoneModal } from '@/components/MarkDoneModal';
-import { DemoBadge } from '@/components/DemoBadge';
 import { TodayTasksSkeleton } from '@/components/system/SkeletonLoaders';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
@@ -22,7 +21,6 @@ import {
   isOverdue,
   isDueToday,
   isWithinDays,
-  getSettings,
   seedExpoDemo,
   updateSettings,
 } from '@/lib/storage';
@@ -30,6 +28,24 @@ import type { ScheduleItem, Reptile } from '@/types';
 
 interface TaskWithReptile extends ScheduleItem {
   reptile: Reptile;
+}
+
+/** Warm, specific copy for the Focus Animal card (display only). */
+function focusAnimalCarePhrase(animalName: string, task: TaskWithReptile | undefined): string {
+  if (!task) return 'Add a schedule to start tailored reminders.';
+  const n = animalName;
+  switch (task.taskType) {
+    case 'feed':
+      return `${n} needs feeding today.`;
+    case 'clean':
+      return `${n} could use a fresh enclosure cleanup.`;
+    case 'check':
+      return `${n} is due for a routine check today.`;
+    case 'shed':
+      return `Keep an eye on ${n}'s shed today.`;
+    default:
+      return `${n} has care waiting.`;
+  }
 }
 
 type FilterMode = 'today' | 'week';
@@ -41,7 +57,6 @@ export default function TodayPage() {
   const [reptiles, setReptiles] = useState<Map<string, Reptile>>(new Map());
   const [loading, setLoading] = useState(true);
   const [filterMode, setFilterMode] = useState<FilterMode>('today');
-  const [isExpoDemo, setIsExpoDemo] = useState(false);
   const [modalState, setModalState] = useState<{
     isOpen: boolean;
     task: TaskWithReptile | null;
@@ -51,13 +66,11 @@ export default function TodayPage() {
 
   const loadData = async () => {
     try {
-      const [scheduleItems, allReptiles, settings] = await Promise.all([
+      const [scheduleItems, allReptiles] = await Promise.all([
         getAllScheduleItems(),
         getAllReptiles(),
-        getSettings(),
       ]);
 
-      setIsExpoDemo(!!settings.expoDemoMode);
       const reptileMap = new Map(allReptiles.map(r => [r.id, r]));
       setReptiles(reptileMap);
 
@@ -134,25 +147,32 @@ export default function TodayPage() {
   const todayStr = getToday();
   const completedTodayCount = tasks.filter(t => t.reptile && t.lastDoneDate === todayStr).length;
   const totalTodayTasks = backlogTodayTasks.length + completedTodayCount;
+  const hasScheduledTodayWork = totalTodayTasks > 0;
   const careProgressPercent = totalTodayTasks === 0
     ? 100
     : Math.round((completedTodayCount / totalTodayTasks) * 100);
-  const careProgressState = careProgressPercent >= 80
-    ? 'on-track'
-    : careProgressPercent >= 50
-      ? 'in-progress'
-      : 'needs-attention';
-  const careProgressStatusLabel = careProgressPercent >= 80
-    ? 'On track'
-    : careProgressPercent >= 50
-      ? 'In progress'
-      : 'Needs attention';
-  const careProgressStatusClass =
-    careProgressState === 'on-track'
-      ? 'text-muted-foreground'
-      : careProgressState === 'in-progress'
-        ? 'text-amber-800/90 dark:text-amber-200/85'
-        : 'text-[hsl(220_16%_40%)] dark:text-[hsl(217_24%_75%)]';
+
+  const careEncouragementLabel = (() => {
+    if (!hasScheduledTodayWork) return 'All clear today';
+    if (careProgressPercent === 0) return 'Start your day';
+    if (careProgressPercent < 50) return 'In progress';
+    if (careProgressPercent < 80) return 'Good progress';
+    return 'Great work';
+  })();
+
+  const careEncouragementClass = (() => {
+    if (!hasScheduledTodayWork) return 'text-muted-foreground';
+    if (careProgressPercent === 0) return 'text-[hsl(220_16%_42%)] dark:text-[hsl(217_24%_78%)]';
+    if (careProgressPercent < 50) return 'text-amber-800/90 dark:text-amber-200/85';
+    if (careProgressPercent < 80) return 'text-teal-800/90 dark:text-teal-200/85';
+    return 'text-[hsl(168_32%_32%)] dark:text-[hsl(167_36%_55%)]';
+  })();
+
+  const careRingSubLabel = (() => {
+    if (!hasScheduledTodayWork) return 'All clear today';
+    if (careProgressPercent === 0) return 'Nothing completed yet';
+    return 'completed';
+  })();
   const CARE_RING_SIZE = 108;
   const CARE_RING_STROKE = 7;
   const careRingRadius = (CARE_RING_SIZE - CARE_RING_STROKE) / 2;
@@ -169,12 +189,22 @@ export default function TodayPage() {
       .filter(task => task.reptileId === focusAnimal.id)
       .sort((a, b) => new Date(a.nextDueDate).getTime() - new Date(b.nextDueDate).getTime())[0]
     : undefined;
+  const focusAnimalCareLine = focusAnimal
+    ? focusAnimalCarePhrase(focusAnimal.name, focusAnimalNextTask)
+    : '';
   const motionSettings = prefersReducedMotion
     ? { initial: false as const }
     : {
       initial: { opacity: 0, y: 6 },
       animate: { opacity: 1, y: 0 },
       transition: { duration: 0.22, ease: [0.25, 0.1, 0.25, 1] as const },
+    };
+  const focusAnimalCardMotion = prefersReducedMotion
+    ? { initial: false as const }
+    : {
+      initial: { opacity: 0, y: 10 },
+      animate: { opacity: 1, y: 0 },
+      transition: { duration: 0.38, ease: [0.25, 0.1, 0.25, 1] as const, delay: 0.06 },
     };
 
   const handleMarkDone = (task: TaskWithReptile) => {
@@ -201,13 +231,12 @@ export default function TodayPage() {
     try {
       await seedExpoDemo();
       await updateSettings({ expoDemoMode: true });
-      setIsExpoDemo(true);
-      toast.success('Demo mode enabled. Seeded data is ready.');
+      toast.success('Starter setup ready');
       navigate('/today', { replace: true });
       await loadData();
     } catch (error) {
       console.error('Failed to enable demo mode:', error);
-      toast.error('Could not enable demo mode');
+      toast.error('Could not load sample data');
     } finally {
       setEnablingDemo(false);
     }
@@ -215,9 +244,9 @@ export default function TodayPage() {
 
   if (loading) {
     return (
-      <PageMotion className="page-container">
-        <PageHeader title="Today" rightContent={isExpoDemo ? <DemoBadge /> : undefined} />
-        <div className="page-content page-content-top loading-min-height">
+      <PageMotion className="page-container relative">
+        <PageHeader quiet title="Today" />
+        <div className="page-content page-content-top loading-min-height !pt-2 sm:!pt-2.5">
           <TodayTasksSkeleton count={4} />
         </div>
       </PageMotion>
@@ -227,55 +256,36 @@ export default function TodayPage() {
   const hasNoTasks = filteredTasks.length === 0;
 
   return (
-    <PageMotion className="page-container">
-      <PageHeader 
-        title="Today" 
-        subtitle={new Date().toLocaleDateString('en-US', { 
-          weekday: 'long', 
-          month: 'long', 
-          day: 'numeric' 
-        })}
-        rightContent={isExpoDemo ? <DemoBadge /> : undefined}
-      />
+    <PageMotion className="page-container relative">
+      <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden" aria-hidden>
+        <div
+          className="absolute inset-0 bg-[radial-gradient(ellipse_90%_50%_at_50%_-15%,hsl(var(--primary)/0.09),transparent_58%),radial-gradient(ellipse_65%_40%_at_100%_35%,hsl(var(--accent)/0.06),transparent_52%),radial-gradient(ellipse_55%_35%_at_0%_80%,hsl(var(--primary)/0.04),transparent_50%)] dark:bg-[radial-gradient(ellipse_90%_50%_at_50%_-15%,hsl(var(--primary)/0.11),transparent_58%),radial-gradient(ellipse_65%_40%_at_100%_35%,hsl(var(--accent)/0.08),transparent_52%),radial-gradient(ellipse_55%_35%_at_0%_80%,hsl(var(--primary)/0.06),transparent_50%)]"
+        />
+      </div>
 
-      <div className="page-content page-content-top space-y-6">
-        {!isExpoDemo && (
+      <div className="relative z-10">
+        <PageHeader
+          quiet
+          title="Today"
+          subtitle={new Date().toLocaleDateString('en-US', {
+            weekday: 'long',
+            month: 'long',
+            day: 'numeric',
+          })}
+        />
+
+        <div className="page-content page-content-top space-y-5 !pt-2 sm:!pt-2.5">
+          {/* Collection hero */}
           <motion.div
-            className="premium-surface rounded-[var(--radius-xl)] p-4 sm:p-5 border border-primary/25"
+            className="premium-surface-elevated relative overflow-hidden rounded-[var(--radius-xl)] p-4 sm:p-5 shadow-[var(--surface-shadow-deep),0_0_48px_-16px_hsl(var(--primary)/0.14)] dark:shadow-[var(--surface-shadow-deep),0_0_56px_-14px_hsl(var(--primary)/0.2)]"
             {...motionSettings}
           >
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-xs font-medium tracking-[0.16em] uppercase text-primary/85">Presentation Ready</p>
-                <p className="text-card-title mt-1">Enable Demo Mode</p>
-                <p className="text-secondary mt-1">
-                  Seed realistic sample animals, schedules, and events.
-                </p>
-              </div>
-              <Sparkles className="w-4 h-4 text-primary mt-1 shrink-0" />
-            </div>
-            <div className="mt-3 flex gap-2">
-              <Button onClick={handleEnableDemoMode} disabled={enablingDemo} className="min-h-[40px]">
-                {enablingDemo ? 'Enabling…' : 'Enable Demo Mode'}
-              </Button>
-              <Link to="/settings">
-                <Button variant="outline" className="min-h-[40px]">Demo Settings</Button>
-              </Link>
-            </div>
-          </motion.div>
-        )}
-
-        {/* Collection hero */}
-        <motion.div
-          className="premium-surface-elevated relative overflow-hidden rounded-[var(--radius-xl)] p-4 sm:p-5 shadow-[var(--surface-shadow-deep)]"
-          {...motionSettings}
-        >
           <div
             className="pointer-events-none absolute inset-0"
             aria-hidden
             style={{
               background:
-                'radial-gradient(120% 80% at 10% 0%, hsl(var(--primary) / 0.08) 0%, transparent 60%), radial-gradient(100% 70% at 100% 100%, hsl(var(--accent) / 0.05) 0%, transparent 62%)',
+                'radial-gradient(120% 80% at 10% 0%, hsl(var(--primary) / 0.1) 0%, transparent 60%), radial-gradient(100% 70% at 100% 100%, hsl(var(--accent) / 0.07) 0%, transparent 62%), linear-gradient(180deg, hsl(var(--background) / 0.04) 0%, transparent 45%)',
             }}
           />
 
@@ -298,9 +308,11 @@ export default function TodayPage() {
                     aria-valuemin={0}
                     aria-valuemax={100}
                     aria-label={
-                      totalTodayTasks === 0
+                      !hasScheduledTodayWork
                         ? 'All clear today — no scheduled tasks due'
-                        : `Care completion ${careProgressPercent} percent`
+                        : careProgressPercent === 0
+                          ? `Care progress ${careProgressPercent} percent. Nothing completed yet — start your day`
+                          : `Care completion ${careProgressPercent} percent, ${careEncouragementLabel}`
                     }
                   >
                     <svg
@@ -349,15 +361,22 @@ export default function TodayPage() {
                       <span className="text-[1.35rem] font-semibold tabular-nums leading-none tracking-tight text-foreground sm:text-[1.55rem]">
                         {careProgressPercent}%
                       </span>
-                      <span className="mt-1 text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
-                        {totalTodayTasks === 0 ? 'All clear today' : 'completed'}
+                      <span
+                        className={cn(
+                          'mt-1 max-w-[5.5rem] text-center font-medium leading-snug text-muted-foreground',
+                          careRingSubLabel === 'completed'
+                            ? 'text-[10px] uppercase tracking-[0.12em]'
+                            : 'text-[10px] sm:text-[11px] normal-case tracking-tight',
+                        )}
+                      >
+                        {careRingSubLabel}
                       </span>
                     </div>
                   </div>
                 </div>
                 <div className="min-w-0 flex-1 space-y-1.5 pt-0.5">
-                  <p className={cn('text-xs font-medium', careProgressStatusClass)}>
-                    {totalTodayTasks === 0 ? 'On track' : careProgressStatusLabel}
+                  <p className={cn('text-xs font-medium', careEncouragementClass)}>
+                    {careEncouragementLabel}
                   </p>
                   <p className="text-[11px] leading-relaxed text-muted-foreground">
                     {overdueTasks.length} overdue • {dueTodayTasks.length} due today
@@ -373,7 +392,7 @@ export default function TodayPage() {
                 </div>
               </div>
             </div>
-            <div className="shrink-0 self-end sm:self-auto rounded-xl border border-primary/20 bg-primary/10 px-3 py-2 text-right sm:ml-auto">
+            <div className="shrink-0 self-end sm:self-auto rounded-xl border border-primary/25 bg-primary/10 px-3 py-2 text-right shadow-[0_0_28px_-10px_hsl(var(--primary)/0.35)] sm:ml-auto dark:shadow-[0_0_32px_-10px_hsl(var(--primary)/0.28)]">
               <p className="text-[10px] uppercase tracking-[0.14em] text-primary/85">Collection</p>
               <p className="text-sm font-medium">{reptiles.size} animal{reptiles.size === 1 ? '' : 's'}</p>
             </div>
@@ -405,12 +424,15 @@ export default function TodayPage() {
                 <p className="mt-1 text-sm text-muted-foreground">No urgent care tasks right now.</p>
               )}
             </div>
-            <div className="rounded-lg border border-border/50 bg-card/70 px-3 py-2.5">
+            <motion.div
+              {...focusAnimalCardMotion}
+              className="rounded-lg border border-border/50 bg-card/70 px-3 py-2.5 shadow-[0_0_36px_-14px_hsl(var(--primary)/0.12)] dark:shadow-[0_0_40px_-12px_hsl(var(--primary)/0.18)]"
+            >
               <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">Focus Animal of the Day</p>
               {focusAnimal ? (
                 <div className="mt-1.5">
                   <div className="flex items-center gap-2.5">
-                    <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg border border-border/50 bg-secondary/70">
+                    <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg border border-primary/15 bg-secondary/70 ring-1 ring-primary/10">
                       {focusAnimal.photoUrl ? (
                         <img src={focusAnimal.photoUrl} alt="" className="h-full w-full object-cover" />
                       ) : (
@@ -424,48 +446,74 @@ export default function TodayPage() {
                       <p className="truncate text-xs text-muted-foreground">{focusAnimal.species}</p>
                     </div>
                   </div>
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    {focusAnimalNextTask
-                      ? `Next task: ${taskTypeLabels[focusAnimalNextTask.taskType]}`
-                      : 'Next task: Add a schedule to start care reminders.'}
+                  <p className="mt-2 text-xs leading-relaxed text-foreground/90">
+                    {focusAnimalCareLine}
                   </p>
                   <Link to={`/reptiles/${focusAnimal.id}`} className="mt-2 inline-block">
-                    <Button variant="outline" size="sm" className="h-8 px-2.5 text-xs">Open profile</Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 px-2.5 text-xs transition-transform motion-safe:active:scale-[0.97] duration-150"
+                    >
+                      Open profile
+                    </Button>
                   </Link>
                 </div>
               ) : (
                 <p className="mt-1 text-sm text-muted-foreground">Add an animal to start today&apos;s plan.</p>
               )}
-            </div>
+            </motion.div>
           </div>
 
           <div className="relative z-10 mt-4 grid grid-cols-3 gap-2">
             <Link to="/reptiles/new">
-              <Button variant="outline" className="w-full min-h-[40px]">Add Animal</Button>
+              <Button
+                variant="outline"
+                className="w-full min-h-[40px] transition-transform duration-150 motion-safe:active:scale-[0.97]"
+              >
+                Add Animal
+              </Button>
             </Link>
             <Link to="/add-event">
-              <Button variant="outline" className="w-full min-h-[40px]">Add Care Event</Button>
+              <Button
+                variant="outline"
+                className="w-full min-h-[40px] transition-transform duration-150 motion-safe:active:scale-[0.97]"
+              >
+                Add Care Event
+              </Button>
             </Link>
             <Link to="/genetics">
-              <Button variant="outline" className="w-full min-h-[40px]">Open Genetics</Button>
+              <Button
+                variant="outline"
+                className="w-full min-h-[40px] transition-transform duration-150 motion-safe:active:scale-[0.97]"
+              >
+                Open Genetics
+              </Button>
             </Link>
           </div>
 
-          {isExpoDemo && (
-            <div className="relative z-10 mt-4 rounded-lg border border-primary/25 bg-primary/10 px-3 py-2 text-sm text-primary">
-              Demo collection loaded
-            </div>
-          )}
-
-          {!isExpoDemo && reptiles.size === 0 && (
-            <div className="relative z-10 mt-4 rounded-lg border border-primary/35 bg-primary/10 px-3 py-3">
-              <p className="text-sm font-medium">Load demo collection</p>
+          {reptiles.size === 0 && (
+            <div className="relative z-10 mt-4 rounded-lg border border-border/60 bg-card/80 px-3 py-3">
+              <p className="text-sm font-medium text-foreground">Add your first animal</p>
               <p className="mt-0.5 text-xs text-muted-foreground">
-                Instantly preview a premium, fully populated care workspace.
+                Track feeding, sheds, weights, and schedules in one place.
               </p>
-              <Button onClick={handleEnableDemoMode} disabled={enablingDemo} className="mt-2 min-h-[40px]">
-                {enablingDemo ? 'Loading Demo…' : 'Load Demo Collection'}
-              </Button>
+              <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+                <Link to="/reptiles/new">
+                  <Button className="min-h-[40px] w-full sm:w-auto transition-transform duration-150 motion-safe:active:scale-[0.97]">
+                    Add your first animal
+                  </Button>
+                </Link>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="min-h-[40px] w-full sm:w-auto text-muted-foreground transition-transform duration-150 motion-safe:active:scale-[0.97]"
+                  onClick={handleEnableDemoMode}
+                  disabled={enablingDemo}
+                >
+                  {enablingDemo ? 'Loading…' : 'Load sample data'}
+                </Button>
+              </div>
             </div>
           )}
         </motion.div>
@@ -474,7 +522,7 @@ export default function TodayPage() {
           <div className="flex items-center justify-between gap-3">
             <p className="text-xs text-muted-foreground">Local-first: data stored on this device.</p>
             <Link to="/settings" className="text-xs inline-flex items-center gap-1 text-primary">
-              Demo settings
+              Settings
               <ArrowUpRight className="w-3.5 h-3.5" />
             </Link>
           </div>
@@ -493,7 +541,7 @@ export default function TodayPage() {
               type="button"
               onClick={() => setFilterMode('today')}
               className={cn(
-                'relative z-10 flex-1 min-h-[40px] rounded-[999px] text-sm font-medium transition-colors duration-200 active:scale-[0.98]',
+                'relative z-10 flex-1 min-h-[40px] rounded-[999px] text-sm font-medium transition-[color,transform] duration-200 motion-safe:active:scale-[0.98]',
                 filterMode === 'today' ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
               )}
             >
@@ -508,7 +556,7 @@ export default function TodayPage() {
               type="button"
               onClick={() => setFilterMode('week')}
               className={cn(
-                'relative z-10 flex-1 min-h-[40px] rounded-[999px] text-sm font-medium transition-colors duration-200 active:scale-[0.98]',
+                'relative z-10 flex-1 min-h-[40px] rounded-[999px] text-sm font-medium transition-[color,transform] duration-200 motion-safe:active:scale-[0.98]',
                 filterMode === 'week' ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
               )}
             >
@@ -569,6 +617,7 @@ export default function TodayPage() {
             </StaggerList>
           )}
         </Fragment>
+      </div>
       </div>
 
       <MarkDoneModal

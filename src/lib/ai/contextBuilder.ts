@@ -1,6 +1,7 @@
 // Context Builder for AI Assistant
 // Builds structured context from local IndexedDB data
 
+import { stripDemoMarkerForDisplay } from '@/lib/display/stripDemoMarker';
 import {
   getAllReptiles,
   getAllCareEvents,
@@ -80,8 +81,12 @@ function buildReptileContext(
   if (reptile.morph) lines.push(`- Morph: ${reptile.morph}`);
   if (reptile.birthDate) lines.push(`- Birth date: ${formatDate(reptile.birthDate)}`);
   if (reptile.estimatedAgeMonths) lines.push(`- Estimated age: ${reptile.estimatedAgeMonths} months`);
-  if (opts.includeNotes && reptile.notes) lines.push(`- Notes: ${reptile.notes}`);
-  if (opts.includeNotes && reptile.geneticsNotes) lines.push(`- Genetics notes: ${reptile.geneticsNotes}`);
+  if (opts.includeNotes && stripDemoMarkerForDisplay(reptile.notes)) {
+    lines.push(`- Notes: ${stripDemoMarkerForDisplay(reptile.notes)}`);
+  }
+  if (opts.includeNotes && stripDemoMarkerForDisplay(reptile.geneticsNotes)) {
+    lines.push(`- Genetics notes: ${stripDemoMarkerForDisplay(reptile.geneticsNotes)}`);
+  }
   if (reptile.hets?.length) lines.push(`- Het traits: ${reptile.hets.join(', ')}`);
   if (reptile.genes?.length) {
     const geneList = reptile.genes.map(g => `${g.name} (${g.mode}: ${g.state})`).join(', ');
@@ -93,7 +98,8 @@ function buildReptileContext(
     lines.push('', '### Recent Care Events:');
     for (const event of reptileEvents) {
       let eventLine = `- ${formatDate(event.eventDate)}: ${event.eventType}`;
-      if (opts.includeNotes && event.details) eventLine += ` - ${event.details}`;
+      const evDetail = stripDemoMarkerForDisplay(event.details);
+      if (opts.includeNotes && evDetail) eventLine += ` - ${evDetail}`;
       if (opts.includeWeights && event.weightGrams) eventLine += ` (Weight: ${event.weightGrams}g)`;
       lines.push(eventLine);
     }
@@ -121,7 +127,8 @@ async function buildPairingContext(pairingId: string, reptiles: Reptile[]): Prom
     `- Start date: ${formatDate(pairing.startDate)}`,
   ];
 
-  if (pairing.notes) lines.push(`- Notes: ${pairing.notes}`);
+  const pairingNotes = stripDemoMarkerForDisplay(pairing.notes);
+  if (pairingNotes) lines.push(`- Notes: ${pairingNotes}`);
   if (parentA?.morph) lines.push(`- Parent A morph: ${parentA.morph}`);
   if (parentB?.morph) lines.push(`- Parent B morph: ${parentB.morph}`);
 
@@ -152,7 +159,8 @@ function buildJournalContext(
   for (const event of recentEvents) {
     const reptileName = reptileMap.get(event.reptileId) || 'Unknown';
     let line = `- ${formatDate(event.eventDate)} [${reptileName}]: ${event.eventType}`;
-    if (opts.includeNotes && event.details) line += ` - ${event.details}`;
+    const jDetail = stripDemoMarkerForDisplay(event.details);
+    if (opts.includeNotes && jDetail) line += ` - ${jDetail}`;
     if (opts.includeWeights && event.weightGrams) line += ` (Weight: ${event.weightGrams}g)`;
     if (event.supplements?.length) line += ` (Supplements: ${event.supplements.join(', ')})`;
     lines.push(line);

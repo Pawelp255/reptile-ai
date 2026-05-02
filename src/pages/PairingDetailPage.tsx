@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, Plus, Trash2, Egg, Calendar, Edit, Calculator } from 'lucide-react';
 import { format } from 'date-fns';
+import { stripDemoMarkerForDisplay } from '@/lib/display/stripDemoMarker';
 import { PageHeader } from '@/components/PageHeader';
 import { EmptyState } from '@/components/EmptyState';
 import { Button } from '@/components/ui/button';
@@ -263,10 +264,10 @@ export default function PairingDetailPage() {
               <span className="text-muted-foreground">Start Date</span>
               <span className="font-medium">{format(new Date(pairing.startDate), 'MMM d, yyyy')}</span>
             </div>
-            {pairing.notes && (
+            {stripDemoMarkerForDisplay(pairing.notes) && (
               <div className="pt-2 border-t border-border">
                 <span className="text-muted-foreground text-sm">Notes</span>
-                <p className="text-sm mt-1">{pairing.notes}</p>
+                <p className="text-sm mt-1">{stripDemoMarkerForDisplay(pairing.notes)}</p>
               </div>
             )}
           </div>

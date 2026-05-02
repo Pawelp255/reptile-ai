@@ -21,6 +21,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { stripDemoMarkerForDisplay } from '@/lib/display/stripDemoMarker';
 import {
   getReptileById,
   deleteReptile,
@@ -360,21 +361,21 @@ export default function ReptileProfilePage() {
                 </div>
               )}
             </div>
-            {reptile.notes && (
+            {stripDemoMarkerForDisplay(reptile.notes) && (
               <div className="mt-4 pt-4 border-t border-border">
                 <span className="text-muted-foreground text-sm">Notes</span>
-                <p className="text-sm mt-1">{reptile.notes}</p>
+                <p className="text-sm mt-1">{stripDemoMarkerForDisplay(reptile.notes)}</p>
               </div>
             )}
             {/* Genetics Info */}
-            {(reptile.hets?.length || reptile.geneticsNotes) && (
+            {(reptile.hets?.length || stripDemoMarkerForDisplay(reptile.geneticsNotes)) && (
               <div className="mt-4 pt-4 border-t border-border">
                 <span className="text-muted-foreground text-sm">Genetics</span>
                 {reptile.hets && reptile.hets.length > 0 && (
                   <p className="text-sm mt-1">Het: {reptile.hets.join(', ')}</p>
                 )}
-                {reptile.geneticsNotes && (
-                  <p className="text-sm mt-1 text-muted-foreground">{reptile.geneticsNotes}</p>
+                {stripDemoMarkerForDisplay(reptile.geneticsNotes) && (
+                  <p className="text-sm mt-1 text-muted-foreground">{stripDemoMarkerForDisplay(reptile.geneticsNotes)}</p>
                 )}
               </div>
             )}
@@ -675,10 +676,10 @@ export default function ReptileProfilePage() {
                 </div>
               )}
 
-              {selectedEvent.details && (
+              {stripDemoMarkerForDisplay(selectedEvent.details) && (
                 <div>
                   <span className="text-muted-foreground text-sm">Details</span>
-                  <p className="mt-1 text-sm">{selectedEvent.details}</p>
+                  <p className="mt-1 text-sm">{stripDemoMarkerForDisplay(selectedEvent.details)}</p>
                 </div>
               )}
 

@@ -42,16 +42,16 @@ export default function LandingPage() {
   const navigate = useNavigate();
   const [loadingDemo, setLoadingDemo] = useState(false);
 
-  const openDemoApp = async () => {
+  const openWithSampleData = async () => {
     setLoadingDemo(true);
     try {
       await seedExpoDemo();
       await updateSettings({ expoDemoMode: true });
-      toast.success('Demo collection loaded');
+      toast.success('Starter setup ready');
       navigate('/today');
     } catch (error) {
-      console.error('Failed to load demo collection:', error);
-      toast.error('Could not load demo collection');
+      console.error('Failed to load sample collection:', error);
+      toast.error('Could not load sample data');
     } finally {
       setLoadingDemo(false);
     }
@@ -70,7 +70,7 @@ export default function LandingPage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={openDemoApp}
+            onClick={openWithSampleData}
             disabled={loadingDemo}
             className="rounded-full bg-card/70"
           >
@@ -92,18 +92,18 @@ export default function LandingPage() {
               so nothing gets missed.
             </p>
             <div className="mt-7 flex flex-col gap-3 sm:flex-row">
-              <Button onClick={openDemoApp} disabled={loadingDemo} size="lg" className="rounded-full">
-                {loadingDemo ? 'Loading demo...' : 'Start demo now'}
+              <Button onClick={openWithSampleData} disabled={loadingDemo} size="lg" className="rounded-full">
+                {loadingDemo ? 'Loading…' : 'Try it with sample data'}
                 <ChevronRight className="h-4 w-4" aria-hidden />
               </Button>
               <Button
                 variant="outline"
                 size="lg"
-                onClick={openDemoApp}
+                onClick={openWithSampleData}
                 disabled={loadingDemo}
                 className="w-full rounded-full bg-card/70 sm:w-auto"
               >
-                Open demo app
+                Open app
               </Button>
             </div>
             <div className="mt-5 flex flex-wrap gap-3 text-xs text-muted-foreground">
@@ -156,26 +156,26 @@ export default function LandingPage() {
         </section>
 
         <section className="premium-surface-elevated overflow-hidden rounded-[calc(var(--radius-xl)+0.5rem)] p-5 text-center sm:p-8">
-          <p className="text-xs font-medium uppercase tracking-[0.18em] text-primary">Demo CTA</p>
+          <p className="text-xs font-medium uppercase tracking-[0.18em] text-primary">Quick start</p>
           <h2 className="mx-auto mt-2 max-w-xl text-2xl font-semibold tracking-tight sm:text-3xl">
             See a complete collection in seconds.
           </h2>
           <p className="mx-auto mt-3 max-w-lg text-secondary">
             Load realistic animals, care schedules, events, pairings, and clutch data locally on this device.
           </p>
-          <Button onClick={openDemoApp} disabled={loadingDemo} size="lg" className="mt-6 rounded-full">
-            {loadingDemo ? 'Loading demo...' : 'Load demo collection'}
+          <Button onClick={openWithSampleData} disabled={loadingDemo} size="lg" className="mt-6 rounded-full">
+            {loadingDemo ? 'Loading…' : 'Load sample collection'}
           </Button>
         </section>
 
         <footer className="flex flex-col gap-3 border-t border-border/60 py-6 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
           <p>Reptilita - care records, reminders, and breeding tools for animal keepers.</p>
           <div className="flex gap-4">
-            <button type="button" onClick={openDemoApp} className="text-foreground hover:text-primary">
-              Open demo app
+            <button type="button" onClick={openWithSampleData} className="text-foreground hover:text-primary">
+              Open with sample data
             </button>
-            <button type="button" onClick={openDemoApp} className="text-foreground hover:text-primary">
-              Start demo
+            <button type="button" onClick={openWithSampleData} className="text-foreground hover:text-primary">
+              Go to app
             </button>
           </div>
         </footer>
@@ -204,7 +204,7 @@ function TodayMockup({ compact = false }: { compact?: boolean }) {
             <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">Today</p>
             <p className="text-xl font-semibold tracking-tight">Care plan</p>
           </div>
-          <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">Demo</span>
+          <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">Preview</span>
         </div>
 
         <div className="mt-4 rounded-2xl border border-primary/20 bg-card/80 p-4">
