@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <title>Reptilita app icon</title>
+  <defs>
+    <linearGradient id="bgSurf" x1="88" y1="72" x2="936" y2="972" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#141c19"/>
+      <stop offset="0.52" stop-color="#080b0a"/>
+      <stop offset="1" stop-color="#040605"/>
+    </linearGradient>
+    <radialGradient id="rimLight" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(512 256) rotate(92) scale(560 780)">
+      <stop offset="0" stop-color="#1a3d36" stop-opacity="0.55"/>
+      <stop offset="0.42" stop-color="#0f201c" stop-opacity="0.12"/>
+      <stop offset="1" stop-color="#040605" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="irisFill" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(512 478) rotate(90) scale(330 284)">
+      <stop offset="0" stop-color="#5ff0dc"/>
+      <stop offset="0.28" stop-color="#34c9b6"/>
+      <stop offset="0.55" stop-color="#1a9587"/>
+      <stop offset="0.82" stop-color="#0d4a43"/>
+      <stop offset="1" stop-color="#06221e"/>
+    </radialGradient>
+    <radialGradient id="irisGlow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(512 478) rotate(88) scale(380 320)">
+      <stop offset="0.55" stop-color="#143028" stop-opacity="0"/>
+      <stop offset="0.74" stop-color="#1d8f7f" stop-opacity="0.45"/>
+      <stop offset="0.93" stop-color="#2ecbaf" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#5ff0dc" stop-opacity="0.08"/>
+    </radialGradient>
+    <linearGradient id="lidSheen" x1="312" y1="296" x2="712" y2="596" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.42"/>
+      <stop offset="0.35" stop-color="#d4fff7" stop-opacity="0.12"/>
+      <stop offset="0.72" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="slitGlass" x1="512" y1="348" x2="512" y2="608" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0a0a0a"/>
+      <stop offset="0.5" stop-color="#010101"/>
+      <stop offset="1" stop-color="#0d0f0f"/>
+    </linearGradient>
+  </defs>
+  <!-- Rounded tile (full-bleed; iOS masks to squircle separately) -->
+  <rect width="1024" height="1024" rx="226" ry="226" fill="url(#bgSurf)"/>
+  <rect width="1024" height="1024" rx="226" ry="226" fill="url(#rimLight)"/>
+  <!-- Outer eye socket depth -->
+  <ellipse cx="512" cy="490" rx="368" ry="316" fill="#050807" opacity="0.94"/>
+  <ellipse cx="512" cy="488" rx="352" ry="302" fill="#08100d" opacity="0.88"/>
+  <!-- Iris -->
+  <ellipse cx="512" cy="478" rx="336" ry="258" fill="url(#irisFill)"/>
+  <ellipse cx="512" cy="478" rx="356" ry="278" fill="none" stroke="#2fedda" stroke-opacity="0.14" stroke-width="6"/>
+  <ellipse cx="512" cy="478" rx="336" ry="258" fill="url(#irisGlow)"/>
+  <!-- Glass sheen over iris -->
+  <ellipse cx="468" cy="408" rx="160" ry="96" transform="rotate(-18 468 408)" fill="url(#lidSheen)"/>
+  <!-- Narrow specular ping -->
+  <ellipse cx="420" cy="384" rx="42" ry="28" transform="rotate(-22 420 384)" fill="#ffffff" opacity="0.28"/>
+  <!-- Vertical slit pupil -->
+  <ellipse cx="512" cy="478" rx="44" ry="208" fill="url(#slitGlass)"/>
+  <ellipse cx="512" cy="478" rx="26" ry="196" fill="#000000"/>
+  <!-- Thin bright rim inside slit for small-size readability -->
+  <ellipse cx="512" cy="478" rx="30" ry="188" fill="none" stroke="#1a9082" stroke-opacity="0.18" stroke-width="4"/>
+</svg>
