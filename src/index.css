@@ -193,7 +193,7 @@
     scroll-behavior: smooth;
   }
 
-  /* Single source for top inset: spacing below status bar / Dynamic Island (viewport-fit=cover). */
+  /* Single vertical safe-area inset for the shell (below status bar / Dynamic Island). Headers use rhythm padding only — do not duplicate env(safe-area-inset-top) on PageHeader. */
   body {
     @apply text-foreground antialiased;
     font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;

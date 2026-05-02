@@ -11,8 +11,8 @@ export function PageHeader({ title, subtitle, rightContent, className }: PageHea
   return (
     <header
       className={cn(
-        /* Safe area lives on body only; small fixed padding for title rhythm. Sticky top matches inset so the bar stays below the status area when scrolling. */
-        'glass-shell page-header-glass sticky z-40 top-[env(safe-area-inset-top,0px)]',
+        /* Static header: avoids WebKit/Capacitor overlap when ancestors use transforms (e.g. PageMotion). Top safe inset is body-only in index.css. */
+        'glass-shell page-header-glass relative',
         'border-b border-border/50',
         'px-4 pb-2.5 pt-3 sm:pb-3 sm:pt-3.5',
         className
