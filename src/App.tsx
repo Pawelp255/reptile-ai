@@ -4,7 +4,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { BottomNav } from "@/components/BottomNav";
 import { PwaInstallPrompt } from "@/components/PwaInstallPrompt";
 import { useCapacitor } from "@/hooks/useCapacitor";
@@ -49,7 +49,8 @@ function AppContent() {
         <Routes>
           <Route path="/auth" element={<AuthPage />} />
           <Route path="/auth/callback" element={<AuthCallbackPage />} />
-          <Route path="/" element={<TodayPage />} />
+          <Route path="/" element={<Navigate to="/today" replace />} />
+          <Route path="/today" element={<TodayPage />} />
           <Route path="/reptiles" element={<ReptilesPage />} />
           <Route path="/reptiles/new" element={<NewReptilePage />} />
           <Route path="/reptiles/:id" element={<ReptileProfilePage />} />
