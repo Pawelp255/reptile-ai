@@ -11,9 +11,6 @@ importers:
       '@capacitor/android':
         specifier: ^8.0.2
         version: 8.3.1(@capacitor/core@8.3.1)
-      '@capacitor/cli':
-        specifier: ^8.0.2
-        version: 8.3.1
       '@capacitor/clipboard':
         specifier: ^8.0.0
         version: 8.0.1(@capacitor/core@8.3.1)
@@ -216,6 +213,9 @@ importers:
         specifier: ^3.25.76
         version: 3.25.76
     devDependencies:
+      '@capacitor/cli':
+        specifier: ^8.0.2
+        version: 8.3.1
       '@eslint/js':
         specifier: ^9.32.0
         version: 9.39.4

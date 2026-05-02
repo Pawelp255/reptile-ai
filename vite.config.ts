@@ -102,6 +102,11 @@ export default defineConfig(() => {
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      ...(disablePwa
+        ? {
+            "virtual:pwa-register": path.resolve(__dirname, "./src/pwa-register-stub.ts"),
+          }
+        : {}),
     },
   },
   });

@@ -3,18 +3,22 @@ import type { CapacitorConfig } from '@capacitor/cli';
 /**
  * Capacitor configuration for Reptilita.
  *
- * RELEASE BUILDS (App Store / Play Store):
- * - Run: npm run build
- * - Then: npx cap sync
- * - Do NOT set CAPACITOR_DEV_SERVE — app will load from webDir (dist).
+ * iOS TESTFLIGHT / APP STORE WEB ASSETS:
+ * - Use `pnpm run build:ios` (disables service worker — recommended for WKWebView)
+ * - Then `pnpm exec cap sync ios`
+ * - Omit CAPACITOR_DEV_SERVE so the shell loads bundled files from webDir (`dist`).
  *
- * OPTIONAL — Development with remote host:
- * - Set env: CAPACITOR_DEV_SERVE=true before cap run/sync to load from a remote URL.
- * - For local builds, leave unset to use dist/.
+ * WEB / PWA (hosting separately):
+ * - Use `pnpm run build` (includes vite-plugin-pwa + Workbox SW)
+ *
+ * Dev live reload against a LAN URL:
+ * - CAPACITOR_DEV_SERVE=true and CAPACITOR_DEV_SERVE_URL before cap sync/run.
  */
 
+// Note: Capacitor 8 removed `bundledWebRuntime`; the native bridge ships with @capacitor/core.
+
 const config: CapacitorConfig = {
-  appId: 'com.reptileai.app',
+  appId: 'com.yourcompany.reptilita',
   appName: 'Reptilita',
   webDir: 'dist',
   // Only use remote server when explicitly requested (dev/preview). Omit for production.

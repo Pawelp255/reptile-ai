@@ -6,8 +6,12 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:ios": "REPTILITA_DISABLE_PWA=1 vite build",
     "build:pwa": "vite build",
     "build:dev": "vite build --mode development",
+    "cap:sync": "cap sync ios",
+    "cap:ios": "cap open ios",
+    "ios:open": "pnpm run build:ios && cap sync ios && cap open ios",
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
@@ -15,7 +19,6 @@
   },
   "dependencies": {
     "@capacitor/android": "^8.0.2",
-    "@capacitor/cli": "^8.0.2",
     "@capacitor/clipboard": "^8.0.0",
     "@capacitor/core": "^8.0.2",
     "@capacitor/filesystem": "^8.1.0",
@@ -85,6 +88,7 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.0.2",
     "@eslint/js": "^9.32.0",
     "@tailwindcss/typography": "^0.5.16",
     "@testing-library/jest-dom": "^6.6.0",
