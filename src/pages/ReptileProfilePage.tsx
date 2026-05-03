@@ -5,6 +5,7 @@ import { ArrowLeft, Trash2, Edit, Calendar, Utensils, RefreshCw, Pencil, Scale, 
 import { format } from 'date-fns';
 import { PageHeader } from '@/components/PageHeader';
 import { PageMotion } from '@/components/motion/PageMotion';
+import { ProBadge } from '@/components/plan/ProBadge';
 import { EventItem } from '@/components/EventItem';
 import { EmptyState } from '@/components/EmptyState';
 import { Button } from '@/components/ui/button';
@@ -476,9 +477,12 @@ export default function ReptileProfilePage() {
                 Vet PDF
               </Button>
               <Link to={`/ai?reptileId=${id}`}>
-                <Button variant="outline" className="w-full min-h-[44px]">
-                  <Bot className="w-4 h-4 mr-2" />
-                  AI Assistant
+                <Button variant="outline" className="w-full min-h-[44px] justify-center gap-2">
+                  <Bot className="w-4 h-4 shrink-0" />
+                  <span className="flex items-center gap-2 flex-wrap justify-center">
+                    AI Assistant
+                    <ProBadge />
+                  </span>
                 </Button>
               </Link>
             </div>

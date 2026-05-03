@@ -37,6 +37,8 @@ import type { Reptile, Sex } from '@/types';
 import type { CombinedOutcome, GeneticGene } from '@/types/genetics';
 import { formatGeneState } from '@/types/genetics';
 import { cn } from '@/lib/utils';
+import { ProBadge } from '@/components/plan/ProBadge';
+import { FEATURE_ADVANCED_GENETICS_INSIGHTS_PLACEHOLDER } from '@/lib/plan/mockSubscription';
 
 interface BasicGeneticsResult {
   trait: string;
@@ -521,6 +523,19 @@ export default function GeneticsCalculatorPage() {
       />
 
       <div className="p-4 space-y-5 max-w-2xl mx-auto">
+        {FEATURE_ADVANCED_GENETICS_INSIGHTS_PLACEHOLDER && (
+          <div
+            role="note"
+            className="flex items-start gap-2.5 rounded-xl border border-amber-500/25 bg-amber-500/[0.06] px-3 py-2.5"
+          >
+            <ProBadge className="mt-0.5" />
+            <p className="text-xs leading-snug text-muted-foreground">
+              Deeper pedigree and probability views are earmarked for Reptilita Pro — everything here stays available free
+              meanwhile.
+            </p>
+          </div>
+        )}
+
         {/* Actions row */}
         <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:justify-between">
           <div className="flex items-center gap-2 bg-card rounded-xl px-3 py-2.5 border border-border flex-1 min-w-0">

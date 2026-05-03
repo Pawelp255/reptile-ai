@@ -31,7 +31,7 @@ const STEPS: Step[] = [
   {
     icon: <Bot className="w-8 h-8 text-primary" />,
     title: 'AI assistant',
-    description: 'Add your API key in Settings for personalized care advice and quick answers.',
+    description: 'Free includes core workflows everywhere. Upgrade to Pro for smart, collection-aware replies when subscriptions go live.',
   },
   {
     icon: <Share2 className="w-8 h-8 text-primary" />,

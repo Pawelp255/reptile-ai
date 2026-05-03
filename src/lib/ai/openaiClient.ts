@@ -47,7 +47,7 @@ interface StreamEventPayload {
 // Map HTTP status to error type
 function mapErrorStatus(status: number, errorData: OpenAIErrorPayload): OpenAIError {
   if (status === 401) {
-    return { type: 'invalid_key', message: 'Invalid API key. Please check your OpenAI API key in Settings.' };
+    return { type: 'invalid_key', message: 'Assistant could not authorize this session. Try again once Pro access is restored.' };
   }
   if (status === 429) {
     return { type: 'rate_limit', message: 'Rate limit exceeded. Please wait a moment and try again.' };

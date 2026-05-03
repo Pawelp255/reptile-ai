@@ -8,13 +8,9 @@ import {
   Info,
   Trash2,
   Calculator,
-  Key,
-  Eye,
-  EyeOff,
   Bot,
   Share2,
   Sparkles,
-  Globe,
   User,
   LogOut,
   Palette,
@@ -29,7 +25,6 @@ import { PageHeader } from '@/components/PageHeader';
 import { PageMotion } from '@/components/motion/PageMotion';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
-import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
@@ -72,8 +67,11 @@ import { applyReptilitaBackupMerge, parseBackupFileText } from '@/lib/backup/imp
 import { generateICS } from '@/lib/export/ics';
 import { generatePDFReport } from '@/lib/export/pdf';
 import { downloadPromoCard } from '@/lib/export/promoCard';
-import { validateApiKey } from '@/lib/ai/openaiClient';
-import { getApiKey, setApiKey, removeApiKey, isNativePlatform } from '@/lib/ai/secureKey';
+import { ProBadge } from '@/components/plan/ProBadge';
+import {
+  isProUser,
+  FEATURE_SMART_INSIGHTS_PLACEHOLDER,
+} from '@/lib/plan/mockSubscription';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase, isSupabaseConfigured } from '@/integrations/supabase/client';
 import type { AppSettings } from '@/types';
@@ -107,14 +105,6 @@ export default function SettingsPage() {
   const [loadingDemo, setLoadingDemo] = useState(false);
   const [clearDataOpen, setClearDataOpen] = useState(false);
   const [clearingData, setClearingData] = useState(false);
-  
-  // API Key state
-  const [apiKeyInput, setApiKeyInput] = useState('');
-  const [showApiKey, setShowApiKey] = useState(false);
-  const [savingApiKey, setSavingApiKey] = useState(false);
-  const [hasApiKeyState, setHasApiKeyState] = useState(false);
-  const [webConfirmOpen, setWebConfirmOpen] = useState(false);
-  const [pendingKey, setPendingKey] = useState('');
 
   // Auth state
   const { user, loading: authLoading, signOut } = useAuth();
@@ -124,10 +114,6 @@ export default function SettingsPage() {
   // Expo demo mode
   const [seedingExpo, setSeedingExpo] = useState(false);
   const [exportingPromo, setExportingPromo] = useState(false);
-
-  // Share link base URL
-  const [publicBaseUrl, setPublicBaseUrl] = useState('');
-  const [savingPublicUrl, setSavingPublicUrl] = useState(false);
 
   const importInputRef = useRef<HTMLInputElement>(null);
   const [backupBusy, setBackupBusy] = useState(false);
@@ -150,10 +136,6 @@ export default function SettingsPage() {
       try {
         const stored = await getSettings();
         setSettings(stored);
-        setPublicBaseUrl(stored.publicBaseUrl || '');
-        const key = await getApiKey();
-        setHasApiKeyState(!!key);
-        if (key) setApiKeyInput('sk-••••••••••••••••');
       } catch (error) {
         console.error('Failed to load settings:', error);
       } finally {
@@ -195,58 +177,6 @@ export default function SettingsPage() {
       setProfile(null);
     }
   }, [user]);
-
-  const doSaveApiKey = async (key: string) => {
-    setSavingApiKey(true);
-    try {
-      const isValid = await validateApiKey(key);
-      if (!isValid) {
-        toast.error('Invalid API key. Please check and try again.');
-        return;
-      }
-      await setApiKey(key);
-      setHasApiKeyState(true);
-      setApiKeyInput('sk-••••••••••••••••');
-      setShowApiKey(false);
-      toast.success(isNativePlatform() ? 'API key saved in secure storage' : 'API key saved');
-    } catch (error) {
-      console.error('Failed to save API key:', error);
-      toast.error('Failed to save API key');
-    } finally {
-      setSavingApiKey(false);
-    }
-  };
-
-  const handleSaveApiKey = async () => {
-    if (!apiKeyInput || apiKeyInput.startsWith('sk-••')) {
-      toast.error('Please enter a valid API key');
-      return;
-    }
-    if (!isNativePlatform()) {
-      setPendingKey(apiKeyInput);
-      setWebConfirmOpen(true);
-    } else {
-      await doSaveApiKey(apiKeyInput);
-    }
-  };
-
-  const handleWebConfirm = async () => {
-    setWebConfirmOpen(false);
-    await doSaveApiKey(pendingKey);
-    setPendingKey('');
-  };
-
-  const handleRemoveApiKey = async () => {
-    try {
-      await removeApiKey();
-      setHasApiKeyState(false);
-      setApiKeyInput('');
-      toast.success('API key removed');
-    } catch (error) {
-      console.error('Failed to remove API key:', error);
-      toast.error('Failed to remove API key');
-    }
-  };
 
   const handleToggle = async (key: keyof AppSettings) => {
     const newValue = !settings[key];
@@ -608,6 +538,7 @@ export default function SettingsPage() {
   };
 
   const sampleGate = isSampleDatasetEnabled();
+  const viewerIsPro = isProUser();
 
   if (loading || authLoading) {
     return (
@@ -721,16 +652,13 @@ export default function SettingsPage() {
                   )}
                   {user && !isSupabaseConfigured && (
                     <p className="text-sm text-muted-foreground pt-0.5">
-                      Supabase is not configured — cloud sync stays disabled for this build.
+                      Cloud sync isn’t available in this edition of the app.
                     </p>
                   )}
                   {syncControlsEnabled && (
-                    <>
-                      <p className="text-caption pt-1">Changes merge by newest timestamps. Data stays usable offline.</p>
-                      <p className="text-caption text-muted-foreground/90">
-                        This label is only a rough check—it does not detect field-level conflicts across devices.
-                      </p>
-                    </>
+                    <p className="text-caption pt-1">
+                      Changes merge when you reconnect. Your animals stay editable offline.
+                    </p>
                   )}
                 </div>
               </div>
@@ -751,7 +679,7 @@ export default function SettingsPage() {
 
             <Collapsible open={advancedCloudOpen} onOpenChange={setAdvancedCloudOpen} className="border-t border-border/70">
               <CollapsibleTrigger className="flex w-full items-center justify-between gap-3 min-h-[52px] px-4 sm:px-5 py-3 text-left text-sm font-medium text-foreground hover:bg-muted/30 active:bg-muted/40 transition-colors">
-                <span>Advanced cloud options</span>
+                <span>Manual sync</span>
                 {advancedCloudOpen ? (
                   <ChevronUp className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
                 ) : (
@@ -859,69 +787,130 @@ export default function SettingsPage() {
           </div>
         </section>
 
-        {/* AI / Integrations */}
-        <section>
-          <h2 className="section-header mb-2.5">AI / Integrations</h2>
-          <div className="bg-card/95 backdrop-blur-[2px] rounded-[var(--radius-xl)] border border-border/60 shadow-[var(--shadow-card)] overflow-hidden space-y-0">
-            <div className="p-4 sm:p-5 space-y-4">
-              <div className="flex items-center gap-2">
-                <Key className="w-4 h-4 text-primary shrink-0" />
-                <span className="font-medium">OpenAI API Key</span>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                OpenAI credentials and the assistant chat live here. Add an API key to enable the Assistant.{' '}
-                {isNativePlatform()
-                  ? 'Stored securely in device Keychain/Keystore.'
-                  : 'Stored locally on your device.'}
-              </p>
-              <div className="flex gap-2">
-                <div className="relative flex-1 min-w-0">
-                  <Input
-                    type={showApiKey ? 'text' : 'password'}
-                    placeholder="sk-..."
-                    value={apiKeyInput}
-                    onChange={(e) => setApiKeyInput(e.target.value)}
-                    className="pr-10 bg-muted/30"
-                  />
-                  <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-full" onClick={() => setShowApiKey(!showApiKey)}>
-                    {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </Button>
+        {/* AI Assistant */}
+        <section id="reptilita-plans-assistant">
+          <h2 className="section-header mb-2.5">AI Assistant</h2>
+          <div className="premium-surface rounded-[var(--radius-xl)] overflow-hidden divide-y divide-border/70 border border-border/60 shadow-[var(--shadow-card)]">
+            <div className="p-4 sm:p-5">
+              <div className="flex gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                  <Bot className="w-5 h-5" aria-hidden />
                 </div>
-                <Button onClick={handleSaveApiKey} disabled={savingApiKey || !apiKeyInput || apiKeyInput.startsWith('sk-••')} className="shrink-0">
-                  {savingApiKey ? 'Saving…' : 'Save'}
-                </Button>
-              </div>
-              {hasApiKeyState && (
-                <div className="flex items-center justify-between pt-3 border-t border-border">
-                  <span className="text-sm text-muted-foreground">Key configured</span>
-                  <Button variant="ghost" size="sm" onClick={handleRemoveApiKey} className="text-destructive hover:text-destructive hover:bg-destructive/10">
-                    Remove Key
-                  </Button>
+                <div className="min-w-0 flex-1 space-y-2">
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <span className="text-card-title text-foreground">Assistant</span>
+                    {!viewerIsPro && <ProBadge />}
+                  </div>
+                  <p className="text-secondary text-[13px] leading-snug">
+                    {viewerIsPro
+                      ? 'Smart assistant tuned to your collection — personalized answers alongside your journals and schedules.'
+                      : 'Basic assistant available'}
+                  </p>
+                  {!viewerIsPro && (
+                    <p className="text-secondary text-[13px] leading-snug">
+                      Upgrade to unlock smart AI assistant
+                    </p>
+                  )}
+                  {viewerIsPro && FEATURE_SMART_INSIGHTS_PLACEHOLDER && (
+                    <p className="text-muted-foreground text-[13px] leading-snug">
+                      Smart summaries for your herd are rolling out progressively on Pro.
+                    </p>
+                  )}
                 </div>
-              )}
-              {!isNativePlatform() && (
-                <p className="text-xs text-muted-foreground p-3 bg-muted/40 rounded-lg">
-                  ⚠️ On web, your key is stored in browser storage. Use the native app for Keychain/Keystore storage.
-                </p>
-              )}
-              <div className="p-3 bg-muted/40 rounded-lg">
-                <p className="text-xs font-medium text-foreground mb-1">Cost control</p>
-                <p className="text-xs text-muted-foreground">
-                  GPT-4o Mini is cost-efficient. Limit context in the Assistant to reduce usage.
-                </p>
               </div>
             </div>
-            <Separator />
-            <Link to="/ai" className="flex items-center justify-between gap-4 min-h-[56px] px-4 sm:px-5 py-3 hover:bg-muted/20 active:bg-muted/30 transition-colors">
+            <Link
+              to="/ai"
+              className="flex items-center justify-between gap-4 min-h-[56px] px-4 sm:px-5 py-3 hover:bg-muted/25 active:bg-muted/35 transition-colors"
+            >
               <div className="flex items-center gap-3 min-w-0">
-                <Bot className="w-4 h-4 text-primary shrink-0" />
+                <Sparkles className="w-4 h-4 text-primary shrink-0" />
                 <div>
-                  <span className="text-card-title text-foreground block">Open AI Assistant</span>
-                  <span className="text-secondary text-[13px]">AI-powered care advice</span>
+                  <span className="text-card-title text-foreground block">Open assistant</span>
+                  <span className="text-secondary text-[13px]">
+                    {viewerIsPro ? 'Chat with personalized context' : 'General care conversations'}
+                  </span>
                 </div>
               </div>
-              <Button variant="ghost" size="sm">Open</Button>
+              <Button variant="ghost" size="sm">
+                Open
+              </Button>
             </Link>
+          </div>
+        </section>
+
+        {/* Plans (monetization preview — no storefront yet) */}
+        <section id="reptilita-plans">
+          <h2 className="section-header mb-2.5">What’s included</h2>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="premium-surface rounded-[var(--radius-xl)] border border-border/60 p-4 sm:p-5 space-y-3">
+              <p className="text-card-title text-foreground">Free</p>
+              <ul className="space-y-2 text-[13px] text-secondary leading-snug list-none">
+                <li className="flex gap-2">
+                  <span className="text-foreground shrink-0" aria-hidden>
+                    ·
+                  </span>
+                  <span>Care for plenty of animals (limits may apply later).</span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-foreground shrink-0" aria-hidden>
+                    ·
+                  </span>
+                  <span>Full cloud sync when you&apos;re signed in.</span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-foreground shrink-0" aria-hidden>
+                    ·
+                  </span>
+                  <span>Backup, export, and import — keep portable copies anytime.</span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-foreground shrink-0" aria-hidden>
+                    ·
+                  </span>
+                  <span>Basic assistant experiences without a subscription.</span>
+                </li>
+              </ul>
+            </div>
+            <div className="premium-surface-elevated rounded-[var(--radius-xl)] border border-amber-500/25 bg-amber-500/[0.04] p-4 sm:p-5 space-y-3">
+              <div className="flex items-center gap-2">
+                <p className="text-card-title text-foreground">Reptilita Pro</p>
+                <ProBadge />
+              </div>
+              <ul className="space-y-2 text-[13px] text-secondary leading-snug list-none">
+                <li className="flex gap-2">
+                  <span className="text-foreground shrink-0" aria-hidden>
+                    ·
+                  </span>
+                  <span>Smart AI assistant with deep context from your collection.</span>
+                </li>
+                <li className="space-y-1">
+                  <div className="flex gap-2">
+                    <span className="text-foreground shrink-0" aria-hidden>
+                      ·
+                    </span>
+                    <div className="min-w-0 space-y-1">
+                      <span className="inline-flex flex-wrap items-center gap-2">
+                        <span>Advanced genetics insights</span>
+                        <ProBadge className="normal-case tracking-normal px-2 py-0.5 text-[10px]" />
+                      </span>
+                      <p className="text-muted-foreground text-[12px] leading-snug">
+                        Richer lineage and probability tooling — arriving on Pro.
+                      </p>
+                    </div>
+                  </div>
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-foreground shrink-0" aria-hidden>
+                    ·
+                  </span>
+                  <span>Herd-level smart summaries and insights.{FEATURE_SMART_INSIGHTS_PLACEHOLDER ? ' Coming soon.' : ''}</span>
+                </li>
+              </ul>
+              <Button variant="secondary" size="sm" disabled className="w-full opacity-80">
+                Pro checkout — coming soon
+              </Button>
+            </div>
           </div>
         </section>
 
@@ -933,8 +922,8 @@ export default function SettingsPage() {
             app preferences (anything the export includes for your build). Creating and restoring backup files works{' '}
             <span className="text-foreground/90 font-medium">fully offline</span>. When you import, existing rows merge by{' '}
             <span className="text-foreground/90 font-medium">newest timestamps</span> so data from two sources can coexist
-            intelligently—double-check unfamiliar imports. API keys are{' '}
-            <span className="text-foreground/90 font-medium">not included</span> in backup exports. To keep multiple devices
+            intelligently—double-check unfamiliar imports. Private credentials{' '}
+            <span className="text-foreground/90 font-medium">stay on-device</span> and are not placed in backups. To keep multiple devices
             aligned that are signed into the same account, use{' '}
             <span className="text-foreground/90 font-medium">Cloud Sync</span> above in addition to occasional backups.
           </p>
@@ -944,7 +933,7 @@ export default function SettingsPage() {
                 <Database className="w-4 h-4 text-primary shrink-0" />
                 <div>
                   <span className="font-medium block">Full backup (.json)</span>
-                  <span className="text-sm text-muted-foreground">Animals, tasks, journal, breeding, settings (no API keys)</span>
+                  <span className="text-sm text-muted-foreground">Animals, tasks, journal, breeding, settings</span>
                 </div>
               </div>
               <Button variant="ghost" size="sm" onClick={() => void handleBackupExport()} disabled={backupBusy}>
@@ -1005,49 +994,6 @@ export default function SettingsPage() {
           </div>
         </section>
 
-        {/* Sharing */}
-        <section>
-          <h2 className="section-header mb-2.5">Sharing</h2>
-          <div className="glass-panel rounded-[var(--radius-xl)] p-4 sm:p-5">
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <Globe className="w-4 h-4 text-primary" />
-                <span className="font-medium">Share Link Base URL (optional)</span>
-              </div>
-              <p className="text-sm text-muted-foreground mb-3">
-                If you host this web app, set the base URL used in copied links. Animal data is still stored on this device unless you export or share an image.
-              </p>
-              <div className="flex gap-2">
-                <Input
-                  type="url"
-                  placeholder="https://my-reptile-app.example.com"
-                  value={publicBaseUrl}
-                  onChange={(e) => setPublicBaseUrl(e.target.value)}
-                  className="flex-1"
-                />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={savingPublicUrl}
-                  onClick={async () => {
-                    setSavingPublicUrl(true);
-                    try {
-                      await updateSettings({ publicBaseUrl: publicBaseUrl.trim() || undefined });
-                      toast.success(publicBaseUrl.trim() ? 'Share link base URL saved' : 'Share link base URL cleared');
-                    } catch {
-                      toast.error('Failed to save URL');
-                    } finally {
-                      setSavingPublicUrl(false);
-                    }
-                  }}
-                >
-                  {savingPublicUrl ? 'Saving…' : 'Save'}
-                </Button>
-              </div>
-            </div>
-          </div>
-        </section>
-
         {/* Breeding Tools */}
         <section>
           <h2 className="section-header mb-2.5">Breeding Tools</h2>
@@ -1056,8 +1002,8 @@ export default function SettingsPage() {
               <div className="flex items-center gap-3 min-w-0">
                 <Calculator className="w-4 h-4 text-primary shrink-0" />
                 <div>
-                    <span className="text-card-title text-foreground block">Genetics Calculator</span>
-                    <span className="text-secondary text-[13px]">Predicted offspring genetics</span>
+                  <span className="text-card-title text-foreground block">Genetics calculator</span>
+                  <span className="text-secondary text-[13px]">Predict offspring outcomes · deeper tools on Pro</span>
                 </div>
               </div>
               <Button variant="ghost" size="sm">Open</Button>

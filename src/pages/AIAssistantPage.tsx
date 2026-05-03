@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Send, Trash2, Settings, AlertTriangle, Loader2, ChevronDown, ChevronUp, FileText } from 'lucide-react';
+import { Send, Trash2, AlertTriangle, Loader2, ChevronDown, ChevronUp, FileText, Sparkles } from 'lucide-react';
 import { PageHeader } from '@/components/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -19,11 +19,7 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { toast } from 'sonner';
-import {
-  sendStreamingResponse,
-  estimateTokens,
-  type ChatMessage,
-} from '@/lib/ai/openaiClient';
+import { estimateTokens } from '@/lib/ai/openaiClient';
 import { AVAILABLE_MODELS, DEFAULT_MODEL, estimateCostUsd, type ModelId } from '@/lib/ai/models';
 import { REPTILE_CARE_SYSTEM_PROMPT } from '@/lib/ai/systemPrompt';
 import {
@@ -32,7 +28,8 @@ import {
   getPairingOptions,
   type ContextOptions,
 } from '@/lib/ai/contextBuilder';
-import { getApiKey, isNativePlatform } from '@/lib/ai/secureKey';
+import { isProUser } from '@/lib/plan/mockSubscription';
+import { streamProAssistantReply } from '@/lib/ai/proAssistantStream';
 import { extractActions, stripActionBlocks, type AIAction } from '@/lib/ai/actionParser';
 import { downloadVetPdf } from '@/lib/export/vetPdf';
 import { QuickScanButtons } from '@/components/QuickScanButtons';
@@ -49,8 +46,9 @@ export default function AIAssistantPage() {
   const [messages, setMessages] = useState<AIMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [apiKey, setApiKeyState] = useState<string | null>(null);
   const [selectedModel, setSelectedModel] = useState<ModelId>(DEFAULT_MODEL);
+
+  const viewerIsPro = isProUser();
   
   // Context options
   const [contextOpen, setContextOpen] = useState(!!initialReptileId);
@@ -78,12 +76,8 @@ export default function AIAssistantPage() {
   const streamingRef = useRef<string>('');
   const chatContainerRef = useRef<HTMLDivElement>(null);
   
-  // Load API key and options
   useEffect(() => {
     const loadData = async () => {
-      const key = await getApiKey();
-      setApiKeyState(key);
-      
       const [reptiles, pairings, allReptiles] = await Promise.all([
         getReptileOptions(),
         getPairingOptions(),
@@ -95,6 +89,7 @@ export default function AIAssistantPage() {
     };
     loadData();
   }, []);
+
   
   // Token estimation
   useEffect(() => {
@@ -130,11 +125,12 @@ export default function AIAssistantPage() {
   const handleSend = useCallback(async (overrideText?: string) => {
     const text = overrideText || inputText.trim();
     if (!text || isLoading) return;
-    
-    if (!apiKey) {
-      toast.error('Please add your OpenAI API key in Settings first.');
+
+    if (!viewerIsPro) {
+      toast.error('Smart assistant is included with Reptilita Pro.');
       return;
     }
+
     
     const userMessage: AIMessage = {
       id: crypto.randomUUID(),
@@ -171,55 +167,40 @@ export default function AIAssistantPage() {
       };
       
       const context = await buildContext(contextOptions);
-      
-      const apiMessages: ChatMessage[] = [
-        { role: 'system', content: REPTILE_CARE_SYSTEM_PROMPT },
-      ];
-      
-      if (context.text) {
-        apiMessages.push({
-          role: 'system',
-          content: `Current user data context:\n\n${context.text}`,
-        });
-      }
-      
-      // Add conversation history (last 20 messages to stay in budget)
-      const historyMessages = messages.slice(-20);
-      for (const msg of historyMessages) {
-        apiMessages.push({ role: msg.role, content: msg.content });
-      }
-      
-      apiMessages.push({ role: 'user', content: text });
-      
-      await sendStreamingResponse(
-        apiKey,
-        selectedModel,
-        apiMessages,
-        // onChunk
+
+      const animalName =
+        selectedReptile && selectedReptile !== '__none__'
+          ? reptileOptions.find((r) => r.id === selectedReptile)?.name ?? null
+          : null;
+
+      await streamProAssistantReply(
+        {
+          userMessage: text,
+          contextSummary: context.text?.trim(),
+          animalName,
+          animals: reptileOptions.map((r) => ({ id: r.id, name: r.name, species: r.species })),
+          preferEdgeApi: true,
+        },
         (chunk) => {
           streamingRef.current += chunk;
-          setMessages(prev => 
-            prev.map(m => m.id === assistantId 
-              ? { ...m, content: streamingRef.current }
-              : m
-            )
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantId ? { ...m, content: streamingRef.current } : m,
+            ),
           );
         },
-        // onDone
         () => {
           const finalText = streamingRef.current;
-          // Check for proposed actions
-          const allReptileIds = reptileOptions.map(r => r.id);
+          const allReptileIds = reptileOptions.map((r) => r.id);
           const actions = extractActions(finalText, allReptileIds);
           if (actions.length > 0) {
             setPendingActions(actions);
           }
           setIsLoading(false);
         },
-        // onError
-        (error) => {
-          toast.error(error.message);
-          setMessages(prev => prev.filter(m => m.id !== assistantId && m.id !== userMessage.id));
+        (err) => {
+          toast.error(err.message);
+          setMessages((prev) => prev.filter((m) => m.id !== assistantId && m.id !== userMessage.id));
           setIsLoading(false);
         },
       );
@@ -229,7 +210,19 @@ export default function AIAssistantPage() {
       setMessages(prev => prev.filter(m => m.id !== assistantId && m.id !== userMessage.id));
       setIsLoading(false);
     }
-  }, [inputText, isLoading, apiKey, selectedModel, selectedReptile, selectedPairing, includeJournal, includeUpcomingTasks, rangeDays, includeNotes, includeWeights, messages, reptileOptions]);
+  }, [
+    inputText,
+    isLoading,
+    viewerIsPro,
+    selectedReptile,
+    selectedPairing,
+    includeJournal,
+    includeUpcomingTasks,
+    rangeDays,
+    includeNotes,
+    includeWeights,
+    reptileOptions,
+  ]);
 
   const handleQuickScan = useCallback((prompt: string) => {
     if (!selectedReptile) {
@@ -327,36 +320,34 @@ export default function AIAssistantPage() {
         </div>
       </div>
 
-      {/* Web-only security warning */}
-      {!isNativePlatform() && apiKey && (
-        <div className="mx-4 mt-2 p-2 bg-muted border border-border rounded-lg">
-          <p className="text-[11px] text-muted-foreground">
-            ⚠️ Web mode: API key stored in browser storage. Use native app for secure Keychain/Keystore storage.
+      {!viewerIsPro && (
+        <div className="mx-4 mt-4 rounded-[var(--radius-xl)] border border-border/60 bg-muted/25 p-6 text-center shadow-[var(--shadow-card)]">
+          <Sparkles className="w-9 h-9 text-primary mx-auto mb-3 opacity-90" aria-hidden />
+          <p className="text-card-title text-foreground mb-1">Basic assistant available</p>
+          <p className="text-sm font-medium text-foreground/90 mb-2">Upgrade to unlock smart AI assistant</p>
+          <p className="text-sm text-muted-foreground leading-relaxed mb-5">
+            Journals, schedules, and profiles stay with you everywhere. Unlock the assistant that learns your herd with{' '}
+            Reptilita Pro — opens from Plans in Settings whenever you&apos;re ready.
           </p>
-        </div>
-      )}
-      
-      {/* No API Key */}
-      {!apiKey && (
-        <div className="mx-4 mt-2 p-3 bg-muted border border-border rounded-lg">
-          <p className="text-sm text-muted-foreground mb-2">
-            Add your OpenAI API key in Settings to use the AI Assistant.
-          </p>
-          <Link to="/settings">
-            <Button variant="outline" size="sm">
-              <Settings className="w-4 h-4 mr-2" />
-              Go to Settings
-            </Button>
-          </Link>
+          <Button variant="secondary" size="sm" asChild className="min-h-10 px-6">
+            <Link to="/settings#reptilita-plans">View plans</Link>
+          </Button>
         </div>
       )}
 
+      {viewerIsPro && (
+        <>
+      <div className="mx-4 mt-2 rounded-lg border border-border/55 bg-muted/35 px-3 py-2.5">
+        <p className="text-[11px] text-muted-foreground leading-snug">
+          Pro uses Reptilita&apos;s assistant over your signed-in session (server-side OpenAI key). If the service is offline,
+          the app falls back to a short offline preview. Your keys are never sent to this device&apos;s frontend.
+        </p>
+      </div>
+
       {/* Quick Scan */}
-      {apiKey && (
-        <div className="mx-4 mt-2">
-          <QuickScanButtons onScan={handleQuickScan} disabled={isLoading || !apiKey} />
-        </div>
-      )}
+      <div className="mx-4 mt-2">
+        <QuickScanButtons onScan={handleQuickScan} disabled={isLoading} />
+      </div>
       
       {/* Context Options */}
       <Collapsible open={contextOpen} onOpenChange={setContextOpen} className="mx-4 mt-2">
@@ -532,14 +523,16 @@ export default function AIAssistantPage() {
             onKeyDown={handleKeyDown}
             placeholder="Type your message..."
             className="min-h-[44px] max-h-[120px] resize-none"
-            disabled={!apiKey || isLoading}
+            disabled={isLoading}
           />
           
-          <Button onClick={() => handleSend()} disabled={!inputText.trim() || !apiKey || isLoading} size="icon">
+          <Button onClick={() => handleSend()} disabled={!inputText.trim() || isLoading} size="icon">
             <Send className="w-4 h-4" />
           </Button>
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 }

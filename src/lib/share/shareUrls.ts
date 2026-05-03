@@ -1,4 +1,4 @@
-/** Base URL for shareable deep links (Settings → public base or current origin). */
+/** Base URL for shareable deep links (stored `publicBaseUrl` preference or current origin). */
 export function buildShareBase(publicBaseUrl?: string): string {
   return publicBaseUrl ? publicBaseUrl.replace(/\/$/, "") : window.location.origin;
 }
