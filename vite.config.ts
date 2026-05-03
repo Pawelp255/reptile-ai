@@ -1,13 +1,22 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
+import { readFileSync } from "fs";
+import { fileURLToPath } from "url";
 import { VitePWA } from "vite-plugin-pwa";
+
+const pkg = JSON.parse(
+  readFileSync(fileURLToPath(new URL("./package.json", import.meta.url)), "utf8"),
+) as { version: string };
 
 // https://vitejs.dev/config/
 export default defineConfig(() => {
   const disablePwa = process.env.REPTILITA_DISABLE_PWA === "1";
 
   return ({
+  define: {
+    __APP_VERSION__: JSON.stringify(pkg.version),
+  },
   server: {
     host: "::",
     port: 8080,
@@ -26,7 +35,7 @@ export default defineConfig(() => {
           name: "Reptilita",
           short_name: "Reptilita",
           description: "Premium reptile and amphibian care companion",
-          start_url: "/",
+          start_url: "/today",
           scope: "/",
           display: "standalone",
           background_color: "#f7faf9",

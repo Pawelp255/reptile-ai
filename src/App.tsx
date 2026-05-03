@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { ThemeProvider } from "next-themes";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -11,6 +11,8 @@ import { useCapacitor } from "@/hooks/useCapacitor";
 import { OnboardingModal } from "@/components/OnboardingModal";
 import { ErrorBoundary } from "@/components/system/ErrorBoundary";
 import { RouteFallback } from "@/components/RouteFallback";
+import { supabase } from "@/integrations/supabase/client";
+import { syncCurrentUserReptiles } from "@/lib/reptiles/cloudSync";
 
 // Core / frequently used pages — loaded with main bundle
 import AuthPage from "./pages/AuthPage";
@@ -42,6 +44,33 @@ const queryClient = new QueryClient();
 
 function AppContent() {
   useCapacitor();
+
+  useEffect(() => {
+    if (!supabase) return;
+
+    const runSync = (userId?: string) => {
+      void syncCurrentUserReptiles(userId).catch((error) => {
+        console.warn("Cloud reptile sync skipped:", error);
+      });
+    };
+
+    supabase.auth.getSession().then(({ data }) => {
+      const id = data.session?.user?.id;
+      if (id) runSync(id);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      const id = session?.user?.id;
+      if (!id) return;
+      if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "INITIAL_SESSION") {
+        runSync(id);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   return (
     <div className="min-h-screen bg-background">

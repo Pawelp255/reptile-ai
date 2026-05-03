@@ -41,6 +41,105 @@ export type Database = {
         }
         Relationships: []
       }
+      reptiles: {
+        Row: {
+          acquisition_date: string | null
+          birth_date: string | null
+          breeding_status: string
+          created_at: string
+          data: Json
+          diet_type: string
+          estimated_age_months: number | null
+          id: string
+          morph: string | null
+          name: string
+          notes: string | null
+          photo_url: string | null
+          sex: string
+          species: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          acquisition_date?: string | null
+          birth_date?: string | null
+          breeding_status?: string
+          created_at?: string
+          data?: Json
+          diet_type?: string
+          estimated_age_months?: number | null
+          id: string
+          morph?: string | null
+          name: string
+          notes?: string | null
+          photo_url?: string | null
+          sex?: string
+          species: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          acquisition_date?: string | null
+          birth_date?: string | null
+          breeding_status?: string
+          created_at?: string
+          data?: Json
+          diet_type?: string
+          estimated_age_months?: number | null
+          id?: string
+          morph?: string | null
+          name?: string
+          notes?: string | null
+          photo_url?: string | null
+          sex?: string
+          species?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      reptile_care_tasks: {
+        Row: {
+          auto_generated: boolean
+          created_at: string
+          data: Json
+          frequency_days: number
+          id: string
+          last_done_date: string | null
+          next_due_date: string
+          reptile_id: string
+          task_type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          auto_generated?: boolean
+          created_at?: string
+          data?: Json
+          frequency_days: number
+          id: string
+          last_done_date?: string | null
+          next_due_date: string
+          reptile_id: string
+          task_type: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          auto_generated?: boolean
+          created_at?: string
+          data?: Json
+          frequency_days?: number
+          id?: string
+          last_done_date?: string | null
+          next_due_date?: string
+          reptile_id?: string
+          task_type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       public_share_records: {
         Row: {
           created_at: string

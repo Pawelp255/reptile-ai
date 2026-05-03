@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
+import { syncCurrentUserReptiles } from "@/lib/reptiles/cloudSync";
 
 export default function AuthCallbackPage() {
   const navigate = useNavigate();
@@ -30,6 +31,10 @@ export default function AuthCallbackPage() {
         const session = sessionData.session;
 
         if (session) {
+          setStatus("Syncing your animals…");
+          await syncCurrentUserReptiles(session.user.id).catch((e) =>
+            console.warn("[CloudSync] post-OAuth sync:", e),
+          );
           setStatus("Sign-in complete.");
           navigate("/today", { replace: true });
           return;

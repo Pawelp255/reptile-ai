@@ -1,5 +1,6 @@
 // Storage layer exports
 export * from './db';
+export * from './demoAvailability';
 export * from './reptiles';
 export * from './events';
 export * from './schedule';

@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { seedExpoDemo, updateSettings } from '@/lib/storage';
+import { isSampleDatasetEnabled, seedExpoDemo, updateSettings } from '@/lib/storage';
 
 const valueBlocks = [
   {
@@ -41,6 +41,7 @@ const mockTasks = [
 export default function LandingPage() {
   const navigate = useNavigate();
   const [loadingDemo, setLoadingDemo] = useState(false);
+  const sampleOk = isSampleDatasetEnabled();
 
   const openWithSampleData = async () => {
     setLoadingDemo(true);
@@ -51,7 +52,7 @@ export default function LandingPage() {
       navigate('/today');
     } catch (error) {
       console.error('Failed to load sample collection:', error);
-      toast.error('Could not load sample data');
+      toast.error(error instanceof Error && error.message ? error.message : 'Could not load sample data');
     } finally {
       setLoadingDemo(false);
     }
@@ -67,15 +68,27 @@ export default function LandingPage() {
             </span>
             <span className="text-sm font-semibold tracking-tight">Reptilita</span>
           </Link>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={openWithSampleData}
-            disabled={loadingDemo}
-            className="rounded-full bg-card/70"
-          >
-            Open app
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate('/today')}
+              className="rounded-full bg-card/70"
+            >
+              Open app
+            </Button>
+            {sampleOk && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={openWithSampleData}
+                disabled={loadingDemo}
+                className="rounded-full text-muted-foreground"
+              >
+                Try sample dataset
+              </Button>
+            )}
+          </div>
         </nav>
 
         <section className="grid items-center gap-8 lg:grid-cols-[1.02fr_0.98fr] lg:gap-12">

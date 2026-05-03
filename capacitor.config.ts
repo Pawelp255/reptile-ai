@@ -18,7 +18,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 // Note: Capacitor 8 removed `bundledWebRuntime`; the native bridge ships with @capacitor/core.
 
 const config: CapacitorConfig = {
-  appId: 'com.yourcompany.reptilita',
+  appId: 'com.reptilita.app',
   appName: 'Reptilita',
   webDir: 'dist',
   // Only use remote server when explicitly requested (dev/preview). Omit for production.
@@ -35,7 +35,7 @@ const config: CapacitorConfig = {
     SplashScreen: {
       launchShowDuration: 2000,
       launchAutoHide: true,
-      backgroundColor: '#2a9d8f',
+      backgroundColor: '#040605',
       showSpinner: false,
       androidScaleType: 'CENTER_CROP',
       splashFullScreen: true,

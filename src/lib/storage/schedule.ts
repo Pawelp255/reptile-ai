@@ -1,5 +1,5 @@
 // ScheduleItem CRUD operations
-import { getDB, generateId, getToday, addDays, isOverdue, isDueToday, isWithinDays } from './db';
+import { getDB, generateId, getToday, addDays, getNow, isOverdue, isDueToday, isWithinDays } from './db';
 import type { ScheduleItem, TaskType, CareEvent, EventType } from '@/types';
 import { createCareEvent } from './events';
 
@@ -72,6 +72,7 @@ export async function markTaskDone(
     ...item,
     lastDoneDate: today,
     nextDueDate: addDays(today, item.frequencyDays),
+    updatedAt: getNow(),
   };
 
   await db.put('scheduleItems', updatedItem);
@@ -103,10 +104,25 @@ export async function updateScheduleFrequency(
     frequencyDays,
     // Recalculate next due date from today
     nextDueDate: addDays(today, frequencyDays),
+    updatedAt: getNow(),
   };
 
   await db.put('scheduleItems', updated);
   return updated;
+}
+
+/** Backfill `updatedAt` for legacy IndexedDB rows (required for cloud merge). */
+export async function ensureScheduleItemsHaveTimestamps(): Promise<number> {
+  const db = await getDB();
+  const items = await db.getAll('scheduleItems');
+  const ts = getNow();
+  let changed = 0;
+  for (const item of items) {
+    if (item.updatedAt) continue;
+    await db.put('scheduleItems', { ...item, updatedAt: ts });
+    changed++;
+  }
+  return changed;
 }
 
 // Delete a schedule item

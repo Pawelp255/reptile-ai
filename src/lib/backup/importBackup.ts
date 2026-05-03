@@ -1,0 +1,232 @@
+import { getDB } from "@/lib/storage/db";
+import { ensureScheduleItemsHaveTimestamps } from "@/lib/storage/schedule";
+import { updateSettings } from "@/lib/storage/settings";
+import type { AppSettings, CareEvent, Clutch, Offspring, Pairing, Reptile, ScheduleItem } from "@/types";
+import type { ReptilitaBackupV1 } from "./fullBackup";
+
+function parseTs(v: string | undefined | null): number {
+  if (!v) return 0;
+  const t = Date.parse(v);
+  return Number.isNaN(t) ? 0 : t;
+}
+
+function nsKey(r: Pick<Reptile, "name" | "species">): string {
+  return `${r.name.trim().toLowerCase()}|||${r.species.trim().toLowerCase()}`;
+}
+
+function mergeReptile(canonicalId: string, a: Reptile, b: Reptile): Reptile {
+  const winner = parseTs(a.updatedAt) >= parseTs(b.updatedAt) ? a : b;
+  return { ...winner, id: canonicalId };
+}
+
+function mergeSchedule(canonicalId: string, reptileId: string, local: ScheduleItem, incoming: ScheduleItem): ScheduleItem {
+  const at = parseTs(local.updatedAt);
+  const bt = parseTs(incoming.updatedAt);
+  const winner =
+    bt !== at
+      ? bt > at
+        ? incoming
+        : local
+      : parseTs(incoming.nextDueDate) > parseTs(local.nextDueDate)
+        ? incoming
+        : local;
+  return { ...winner, id: canonicalId, reptileId };
+}
+
+function mergeCareEvent(canonicalId: string, reptileId: string, local: CareEvent, incoming: CareEvent): CareEvent {
+  const winner = parseTs(local.createdAt) >= parseTs(incoming.createdAt) ? local : incoming;
+  return { ...winner, id: canonicalId, reptileId };
+}
+
+function mergePairing(canonicalId: string, local: Pairing, incoming: Pairing): Pairing {
+  const winner = parseTs(local.createdAt) >= parseTs(incoming.createdAt) ? local : incoming;
+  return { ...winner, id: canonicalId, parentAId: incoming.parentAId, parentBId: incoming.parentBId };
+}
+
+function mergeClutch(canonicalId: string, local: Clutch, incoming: Clutch): Clutch {
+  const winner = parseTs(local.createdAt) >= parseTs(incoming.createdAt) ? local : incoming;
+  return { ...winner, id: canonicalId, pairingId: incoming.pairingId };
+}
+
+function mergeOffspring(canonicalId: string, local: Offspring, incoming: Offspring): Offspring {
+  const winner = parseTs(local.createdAt) >= parseTs(incoming.createdAt) ? local : incoming;
+  return { ...winner, id: canonicalId, clutchId: incoming.clutchId };
+}
+
+export interface ParsedBackupValidation {
+  ok: true;
+  data: ReptilitaBackupV1;
+}
+
+export interface ParsedBackupError {
+  ok: false;
+  error: string;
+}
+
+export type ParsedBackupResult = ParsedBackupValidation | ParsedBackupError;
+
+export function validateReptilitaBackupJson(raw: unknown): ParsedBackupResult {
+  if (!raw || typeof raw !== "object") return { ok: false, error: "Invalid backup: expected an object." };
+  const obj = raw as Record<string, unknown>;
+  if (obj.format !== "reptilita_backup_v1") {
+    return { ok: false, error: "Unknown backup format. Expected reptilita_backup_v1." };
+  }
+  if (obj.version !== 1) {
+    return { ok: false, error: `Unsupported backup version: ${String(obj.version)}` };
+  }
+  const needArr = ["reptiles", "scheduleItems", "careEvents", "pairings", "clutches", "offspring"] as const;
+  for (const k of needArr) {
+    if (!Array.isArray(obj[k])) return { ok: false, error: `Invalid backup: missing array "${k}".` };
+  }
+  if (!obj.settings || typeof obj.settings !== "object") {
+    return { ok: false, error: "Invalid backup: settings missing." };
+  }
+  const reportsMeta =
+    obj.reportsMeta && typeof obj.reportsMeta === "object"
+      ? obj.reportsMeta
+      : { readme: "Legacy backup without reportsMeta; PDFs regenerate in-app from journal entries." };
+  const data = { ...(obj as ReptilitaBackupV1), reportsMeta };
+  return { ok: true, data };
+}
+
+/** Merge backup into existing IndexedDB: prefer newer `updatedAt` / `createdAt`. Remaps reptile FKs when name+species collides across ids. Never deletes rows. */
+export async function applyReptilitaBackupMerge(data: ReptilitaBackupV1): Promise<{
+  reptileAliases: number;
+  schedulesWritten: number;
+  eventsWritten: number;
+  pairingsWritten: number;
+  clutchesWritten: number;
+  offspringWritten: number;
+}> {
+  const db = await getDB();
+
+  let localReps = await db.getAll("reptiles");
+  function rebuildNsIndex() {
+    const m = new Map<string, string>();
+    for (const r of localReps) {
+      m.set(nsKey(r), r.id);
+    }
+    return m;
+  }
+
+  /** imported reptile uuid -> canonical local uuid */
+  const idMap = new Map<string, string>();
+  let reptileAliases = 0;
+
+  const sortedReps = [...data.reptiles].sort((a, b) => parseTs(a.updatedAt) - parseTs(b.updatedAt));
+
+  for (const imp of sortedReps) {
+    const byNs = rebuildNsIndex();
+    const sameId = localReps.find((r) => r.id === imp.id);
+    const nsCanon = byNs.get(nsKey(imp));
+
+    if (sameId) {
+      const merged = mergeReptile(sameId.id, sameId, imp);
+      localReps = localReps.map((r) => (r.id === merged.id ? merged : r));
+      await db.put("reptiles", merged);
+      idMap.set(imp.id, merged.id);
+      continue;
+    }
+
+    if (nsCanon && nsCanon !== imp.id) {
+      const exist = localReps.find((r) => r.id === nsCanon);
+      if (exist) {
+        const merged = mergeReptile(exist.id, exist, imp);
+        localReps = localReps.map((r) => (r.id === exist.id ? merged : r));
+        await db.put("reptiles", merged);
+        idMap.set(imp.id, merged.id);
+        reptileAliases++;
+        continue;
+      }
+    }
+
+    await db.put("reptiles", imp);
+    localReps.push(imp);
+    idMap.set(imp.id, imp.id);
+  }
+
+  const replaceId = (id: string) => idMap.get(id) ?? id;
+
+  let schedulesWritten = 0;
+  for (const row of data.scheduleItems) {
+    const reptileId = replaceId(row.reptileId);
+    if (!localReps.some((r) => r.id === reptileId)) continue;
+
+    const local = await db.get("scheduleItems", row.id);
+    const incoming: ScheduleItem = { ...row, reptileId };
+    const merged = local ? mergeSchedule(row.id, reptileId, local, incoming) : { ...incoming, id: row.id };
+    await db.put("scheduleItems", merged);
+    schedulesWritten++;
+  }
+
+  let eventsWritten = 0;
+  for (const row of data.careEvents) {
+    const reptileId = replaceId(row.reptileId);
+    if (!localReps.some((r) => r.id === reptileId)) continue;
+
+    const local = await db.get("careEvents", row.id);
+    const incoming: CareEvent = { ...row, reptileId };
+    const merged = local ? mergeCareEvent(row.id, reptileId, local, incoming) : { ...incoming, id: row.id };
+    await db.put("careEvents", merged);
+    eventsWritten++;
+  }
+
+  let pairingsWritten = 0;
+  for (const row of data.pairings) {
+    const parentAId = replaceId(row.parentAId);
+    const parentBId = replaceId(row.parentBId);
+    if (!localReps.some((r) => r.id === parentAId) || !localReps.some((r) => r.id === parentBId)) continue;
+
+    const local = await db.get("pairings", row.id);
+    const incoming: Pairing = { ...row, parentAId, parentBId };
+    const merged = local ? mergePairing(row.id, local, incoming) : incoming;
+    await db.put("pairings", merged);
+    pairingsWritten++;
+  }
+
+  let clutchesWritten = 0;
+  for (const row of data.clutches) {
+    const pairingExists = !!(await db.get("pairings", row.pairingId));
+    if (!pairingExists) continue;
+
+    const local = await db.get("clutches", row.id);
+    const merged = local ? mergeClutch(row.id, local, row) : row;
+    await db.put("clutches", merged);
+    clutchesWritten++;
+  }
+
+  let offspringWritten = 0;
+  for (const row of data.offspring) {
+    const clutchExists = !!(await db.get("clutches", row.clutchId));
+    if (!clutchExists) continue;
+
+    const local = await db.get("offspring", row.id);
+    const merged = local ? mergeOffspring(row.id, local, row) : row;
+    await db.put("offspring", merged);
+    offspringWritten++;
+  }
+
+  const impSettings = data.settings as AppSettings;
+  const { openaiApiKey: _sk, ...rest } = impSettings;
+  await updateSettings(rest);
+
+  await ensureScheduleItemsHaveTimestamps();
+
+  return {
+    reptileAliases,
+    schedulesWritten,
+    eventsWritten,
+    pairingsWritten,
+    clutchesWritten,
+    offspringWritten,
+  };
+}
+
+export function parseBackupFileText(jsonText: string): ParsedBackupResult {
+  try {
+    const parsed: unknown = JSON.parse(jsonText);
+    return validateReptilitaBackupJson(parsed);
+  } catch {
+    return { ok: false, error: "Could not parse JSON." };
+  }
+}

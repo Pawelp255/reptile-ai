@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Plus, Search, Bug } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -10,9 +10,10 @@ import { EmptyState } from '@/components/EmptyState';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
-import { getAllReptiles, getNextFeedingDate, seedExpoDemo, updateSettings } from '@/lib/storage';
+import { getAllReptiles, getNextFeedingDate, isSampleDatasetEnabled, seedExpoDemo, updateSettings } from '@/lib/storage';
 import { ReptileListSkeleton } from '@/components/system/SkeletonLoaders';
 import type { Reptile } from '@/types';
+import { REPTILES_CLOUD_SYNC_EVENT } from '@/lib/reptiles/cloudSync';
 
 interface ReptileWithFeeding {
   reptile: Reptile;
@@ -26,16 +27,15 @@ export default function ReptilesPage() {
   const [typeFilter, setTypeFilter] = useState<'all' | 'reptile' | 'amphibian'>('all');
   const [loadingSample, setLoadingSample] = useState(false);
 
-  const loadReptiles = async () => {
+  const loadReptiles = useCallback(async () => {
     try {
       const allReptiles = await getAllReptiles();
-      
-      // Get next feeding dates for each reptile
+
       const reptilesWithFeeding = await Promise.all(
         allReptiles.map(async (reptile) => ({
           reptile,
           nextFeedingDate: await getNextFeedingDate(reptile.id),
-        }))
+        })),
       );
 
       setReptiles(reptilesWithFeeding);
@@ -44,11 +44,20 @@ export default function ReptilesPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    loadReptiles();
-  }, []);
+    void loadReptiles();
+  }, [loadReptiles]);
+
+  useEffect(() => {
+    const onCloudSyncFinished = (event: Event) => {
+      const detail = (event as CustomEvent<{ ok?: boolean }>).detail;
+      if (detail?.ok) void loadReptiles();
+    };
+    window.addEventListener(REPTILES_CLOUD_SYNC_EVENT, onCloudSyncFinished);
+    return () => window.removeEventListener(REPTILES_CLOUD_SYNC_EVENT, onCloudSyncFinished);
+  }, [loadReptiles]);
 
   const handleLoadSampleData = async () => {
     setLoadingSample(true);
@@ -184,6 +193,7 @@ export default function ReptilesPage() {
                         Add your first animal
                       </Button>
                     </Link>
+                    {isSampleDatasetEnabled() && (
                     <Button
                       type="button"
                       variant="outline"
@@ -193,6 +203,7 @@ export default function ReptilesPage() {
                     >
                       {loadingSample ? 'Loading…' : 'Load sample data'}
                     </Button>
+                    )}
                   </div>
                 }
               />

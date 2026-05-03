@@ -1,4 +1,4 @@
-import { useState, useEffect, Fragment } from 'react';
+import { useState, useEffect, Fragment, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
 import { cn } from '@/lib/utils';
@@ -23,7 +23,9 @@ import {
   isWithinDays,
   seedExpoDemo,
   updateSettings,
+  isSampleDatasetEnabled,
 } from '@/lib/storage';
+import { REPTILES_CLOUD_SYNC_EVENT } from '@/lib/reptiles/cloudSync';
 import type { ScheduleItem, Reptile } from '@/types';
 
 interface TaskWithReptile extends ScheduleItem {
@@ -64,7 +66,7 @@ export default function TodayPage() {
   const [saving, setSaving] = useState(false);
   const [enablingDemo, setEnablingDemo] = useState(false);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       const [scheduleItems, allReptiles] = await Promise.all([
         getAllScheduleItems(),
@@ -87,11 +89,20 @@ export default function TodayPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    loadData();
-  }, []);
+    void loadData();
+  }, [loadData]);
+
+  useEffect(() => {
+    const onCloudSyncFinished = (event: Event) => {
+      const detail = (event as CustomEvent<{ ok?: boolean }>).detail;
+      if (detail?.ok) void loadData();
+    };
+    window.addEventListener(REPTILES_CLOUD_SYNC_EVENT, onCloudSyncFinished);
+    return () => window.removeEventListener(REPTILES_CLOUD_SYNC_EVENT, onCloudSyncFinished);
+  }, [loadData]);
 
   const filteredTasks = tasks.filter(task => {
     const overdue = isOverdue(task.nextDueDate);
@@ -504,6 +515,7 @@ export default function TodayPage() {
                     Add your first animal
                   </Button>
                 </Link>
+                {isSampleDatasetEnabled() && (
                 <Button
                   type="button"
                   variant="outline"
@@ -513,6 +525,7 @@ export default function TodayPage() {
                 >
                   {enablingDemo ? 'Loading…' : 'Load sample data'}
                 </Button>
+                )}
               </div>
             </div>
           )}
