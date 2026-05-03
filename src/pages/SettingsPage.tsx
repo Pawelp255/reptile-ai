@@ -1,6 +1,29 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Download, FileText, Calendar, Database, Info, Trash2, Calculator, Key, Eye, EyeOff, Bot, Share2, Sparkles, Globe, User, LogOut, Palette, Upload, FolderInput, Cloud } from 'lucide-react';
+import {
+  Download,
+  FileText,
+  Calendar,
+  Database,
+  Info,
+  Trash2,
+  Calculator,
+  Key,
+  Eye,
+  EyeOff,
+  Bot,
+  Share2,
+  Sparkles,
+  Globe,
+  User,
+  LogOut,
+  Palette,
+  Upload,
+  FolderInput,
+  Cloud,
+  ChevronDown,
+  ChevronUp,
+} from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { PageHeader } from '@/components/PageHeader';
 import { PageMotion } from '@/components/motion/PageMotion';
@@ -26,6 +49,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 import { toast } from 'sonner';
 import {
   getSettings,
@@ -111,6 +139,8 @@ export default function SettingsPage() {
   const [lastSyncMs, setLastSyncMs] = useState<number | null>(() => readLastSuccessfulCloudSyncMs());
   const [localReptileCount, setLocalReptileCount] = useState(0);
   const [cloudReptileCount, setCloudReptileCount] = useState<number | null>(null);
+  const [advancedCloudOpen, setAdvancedCloudOpen] = useState(false);
+  const [lastCloudSyncHadError, setLastCloudSyncHadError] = useState(false);
   const [offline, setOffline] = useState(() =>
     typeof navigator !== 'undefined' ? !navigator.onLine : false,
   );
@@ -369,7 +399,69 @@ export default function SettingsPage() {
   /** Signed in + Supabase env + navigator online — controls enabled. */
   const syncControlsEnabled =
     !!(user && isSupabaseConfigured && supabase && !offline);
-  const syncStatusLabel = syncControlsEnabled ? 'Cloud connected' : 'Not connected';
+
+  const conservativeCloudStatus = useMemo(() => {
+    if (!syncControlsEnabled) {
+      return {
+        headline: 'Not connected',
+        hint: '',
+        detail:
+          !user || !isSupabaseConfigured || !supabase
+            ? 'Sign in with a configured build to sync.'
+            : 'Connect to the internet to sync.',
+      } as const;
+    }
+    if (lastCloudSyncHadError) {
+      return {
+        headline: 'Needs review',
+        hint: 'Last sync did not finish — try Sync now again.',
+        detail: '',
+      } as const;
+    }
+    if (cloudReptileCount === null) {
+      return {
+        headline: 'Needs review',
+        hint: 'Cloud summary could not be loaded.',
+        detail: 'Check your connection, then tap Sync now.',
+      } as const;
+    }
+    if (lastSyncMs === null) {
+      const hasAny = localReptileCount > 0 || cloudReptileCount > 0;
+      if (!hasAny) {
+        return {
+          headline: 'Up to date',
+          hint: 'Nothing queued on this quick check.',
+          detail: '',
+        } as const;
+      }
+      return {
+        headline: 'Pending changes',
+        hint: 'This device has not completed a sync yet.',
+        detail: '',
+      } as const;
+    }
+    if (localReptileCount !== cloudReptileCount) {
+      return {
+        headline: 'Pending changes',
+        hint: 'Local and cloud animal counts differ on this snapshot.',
+        detail: '',
+      } as const;
+    }
+    return {
+      headline: 'Up to date',
+      hint: '',
+      detail: '',
+    } as const;
+  }, [
+    syncControlsEnabled,
+    user,
+    isSupabaseConfigured,
+    supabase,
+    lastCloudSyncHadError,
+    cloudReptileCount,
+    lastSyncMs,
+    localReptileCount,
+  ]);
 
   const dispatchSyncCompletedUiRefresh = (reptileCountGuess: number) => {
     if (typeof window === 'undefined') return;
@@ -428,12 +520,14 @@ export default function SettingsPage() {
     setCloudBusyAction(busyKind);
     try {
       await fn();
+      setLastCloudSyncHadError(false);
       refreshLastSyncBadge();
       const localLen = await refreshReptileCounts();
       toast.success('Sync completed');
       dispatchSyncCompletedUiRefresh(localLen);
       console.log('[CloudSync UI]', uiName, 'end');
     } catch (error) {
+      setLastCloudSyncHadError(true);
       const message = error instanceof Error ? error.message : String(error);
       toast.error(message);
       console.log('[CloudSync UI]', uiName, 'error:', message);
@@ -595,13 +689,18 @@ export default function SettingsPage() {
                 </div>
                 <div className="min-w-0 flex-1 space-y-2">
                   <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                    <span className="text-card-title text-foreground">{syncStatusLabel}</span>
+                    <span className="text-card-title text-foreground">{conservativeCloudStatus.headline}</span>
                     {offline && (
                       <span className="text-xs font-medium uppercase tracking-wide text-amber-800/85 dark:text-amber-200/85">
                         Offline
                       </span>
                     )}
                   </div>
+                  {[conservativeCloudStatus.hint, conservativeCloudStatus.detail].some(Boolean) && (
+                    <p className="text-secondary text-[13px] leading-snug">
+                      {[conservativeCloudStatus.hint, conservativeCloudStatus.detail].filter(Boolean).join(' ')}
+                    </p>
+                  )}
                   <p className="text-secondary text-[13px]">
                     Last sync: <span className="text-foreground tabular-nums">{formatLastSync(lastSyncMs)}</span>
                   </p>
@@ -628,16 +727,21 @@ export default function SettingsPage() {
                     </p>
                   )}
                   {syncControlsEnabled && (
-                    <p className="text-caption pt-1">Changes merge by newest timestamps. Data stays usable offline.</p>
+                    <>
+                      <p className="text-caption pt-1">Changes merge by newest timestamps. Data stays usable offline.</p>
+                      <p className="text-caption text-muted-foreground/90">
+                        This label is only a rough check—it does not detect field-level conflicts across devices.
+                      </p>
+                    </>
                   )}
                 </div>
               </div>
             </div>
-            <div className="flex items-center justify-between gap-4 min-h-[52px] px-4 sm:px-5 py-3 active:bg-muted/30 transition-colors">
-              <span className="text-sm font-medium text-foreground">Sync now</span>
+            <div className="flex flex-col gap-3 px-4 sm:px-5 py-4">
               <Button
-                variant="secondary"
-                size="sm"
+                className="w-full sm:w-auto sm:self-start"
+                variant="default"
+                size="default"
                 disabled={!syncControlsEnabled || !!cloudBusyAction}
                 onClick={() =>
                   void runSyncedAction('sync now', 'sync', () => syncCurrentUserReptiles(user!.id))
@@ -646,32 +750,55 @@ export default function SettingsPage() {
                 {cloudBusyAction === 'sync' ? 'Working…' : 'Sync now'}
               </Button>
             </div>
-            <div className="flex items-center justify-between gap-4 min-h-[52px] px-4 sm:px-5 py-3 active:bg-muted/30 transition-colors">
-              <span className="text-sm font-medium text-foreground">Upload local data to cloud</span>
-              <Button
-                variant="secondary"
-                size="sm"
-                disabled={!syncControlsEnabled || !!cloudBusyAction}
-                onClick={() =>
-                  void runSyncedAction('upload local to cloud', 'push', () => pushLocalIntoCloud(user!.id))
-                }
-              >
-                {cloudBusyAction === 'push' ? 'Working…' : 'Upload'}
-              </Button>
-            </div>
-            <div className="flex items-center justify-between gap-4 min-h-[52px] px-4 sm:px-5 py-3 active:bg-muted/30 transition-colors">
-              <span className="text-sm font-medium text-foreground">Download cloud data</span>
-              <Button
-                variant="secondary"
-                size="sm"
-                disabled={!syncControlsEnabled || !!cloudBusyAction}
-                onClick={() =>
-                  void runSyncedAction('download cloud data', 'pull', () => pullCloudIntoLocal(user!.id))
-                }
-              >
-                {cloudBusyAction === 'pull' ? 'Working…' : 'Download'}
-              </Button>
-            </div>
+
+            <Collapsible open={advancedCloudOpen} onOpenChange={setAdvancedCloudOpen} className="border-t border-border/70">
+              <CollapsibleTrigger className="flex w-full items-center justify-between gap-3 min-h-[52px] px-4 sm:px-5 py-3 text-left text-sm font-medium text-foreground hover:bg-muted/30 active:bg-muted/40 transition-colors">
+                <span>Advanced cloud options</span>
+                {advancedCloudOpen ? (
+                  <ChevronUp className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+                ) : (
+                  <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+                )}
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <div className="divide-y divide-border/70 border-t border-border/70">
+                  <div className="flex items-center justify-between gap-4 min-h-[52px] px-4 sm:px-5 py-3 active:bg-muted/30 transition-colors">
+                    <span className="text-sm font-medium text-foreground">Upload local data to cloud</span>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      disabled={!syncControlsEnabled || !!cloudBusyAction}
+                      onClick={() =>
+                        void runSyncedAction(
+                          'upload local to cloud',
+                          'push',
+                          () => pushLocalIntoCloud(user!.id),
+                        )
+                      }
+                    >
+                      {cloudBusyAction === 'push' ? 'Working…' : 'Upload'}
+                    </Button>
+                  </div>
+                  <div className="flex items-center justify-between gap-4 min-h-[52px] px-4 sm:px-5 py-3 active:bg-muted/30 transition-colors">
+                    <span className="text-sm font-medium text-foreground">Download cloud data</span>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      disabled={!syncControlsEnabled || !!cloudBusyAction}
+                      onClick={() =>
+                        void runSyncedAction(
+                          'download cloud data',
+                          'pull',
+                          () => pullCloudIntoLocal(user!.id),
+                        )
+                      }
+                    >
+                      {cloudBusyAction === 'pull' ? 'Working…' : 'Download'}
+                    </Button>
+                  </div>
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
           </div>
         </section>
 
@@ -734,9 +861,9 @@ export default function SettingsPage() {
           </div>
         </section>
 
-        {/* AI Assistant */}
+        {/* AI / Integrations */}
         <section>
-          <h2 className="section-header mb-2.5">AI Assistant</h2>
+          <h2 className="section-header mb-2.5">AI / Integrations</h2>
           <div className="bg-card/95 backdrop-blur-[2px] rounded-[var(--radius-xl)] border border-border/60 shadow-[var(--shadow-card)] overflow-hidden space-y-0">
             <div className="p-4 sm:p-5 space-y-4">
               <div className="flex items-center gap-2">
@@ -744,8 +871,9 @@ export default function SettingsPage() {
                 <span className="font-medium">OpenAI API Key</span>
               </div>
               <p className="text-sm text-muted-foreground">
-                Add your API key to use the AI Assistant. {isNativePlatform() 
-                  ? 'Stored securely in device Keychain/Keystore.' 
+                OpenAI credentials and the assistant chat live here. Add an API key to enable the Assistant.{' '}
+                {isNativePlatform()
+                  ? 'Stored securely in device Keychain/Keystore.'
                   : 'Stored locally on your device.'}
               </p>
               <div className="flex gap-2">
@@ -802,8 +930,15 @@ export default function SettingsPage() {
         {/* Backup (offline JSON snapshot) */}
         <section>
           <h2 className="section-header mb-2.5">Backup</h2>
-          <p className="text-caption mb-2 -mt-1">
-            Works fully offline. For account sync across devices use Cloud Sync above.
+          <p className="text-caption mb-2 -mt-1 leading-relaxed">
+            Backup is a portable JSON file of your animals, care tasks and journal entries, breeding notes, reminders, and
+            app preferences (anything the export includes for your build). Creating and restoring backup files works{' '}
+            <span className="text-foreground/90 font-medium">fully offline</span>. When you import, existing rows merge by{' '}
+            <span className="text-foreground/90 font-medium">newest timestamps</span> so data from two sources can coexist
+            intelligently—double-check unfamiliar imports. API keys are{' '}
+            <span className="text-foreground/90 font-medium">not included</span> in backup exports. To keep multiple devices
+            aligned that are signed into the same account, use{' '}
+            <span className="text-foreground/90 font-medium">Cloud Sync</span> above in addition to occasional backups.
           </p>
           <div className="premium-surface rounded-[var(--radius-xl)] overflow-hidden divide-y divide-border/70 mb-6">
             <div className="flex items-center justify-between gap-4 min-h-[52px] px-4 sm:px-5 py-3 active:bg-muted/30 transition-colors">
@@ -1010,11 +1145,11 @@ export default function SettingsPage() {
         )}
 
         {/* Data */}
+        {sampleGate && (
         <section>
           <h2 className="section-header mb-2.5">Data</h2>
           <div className="premium-surface rounded-[var(--radius-xl)] overflow-hidden">
             <div className="divide-y divide-border/70">
-              {sampleGate && (
               <div className="flex items-center justify-between gap-4 min-h-[52px] px-4 sm:px-5 py-3">
                 <div className="flex items-center gap-3 min-w-0">
                   <Database className="w-4 h-4 text-primary shrink-0" />
@@ -1027,16 +1162,34 @@ export default function SettingsPage() {
                   {loadingDemo ? 'Loading…' : 'Load'}
                 </Button>
               </div>
-              )}
-              <div className="flex items-center justify-between gap-4 min-h-[52px] px-4 sm:px-5 py-3">
+            </div>
+          </div>
+        </section>
+        )}
+
+        {/* Danger Zone */}
+        <section>
+          <h2 className="section-header mb-2.5 text-destructive">Danger Zone</h2>
+          <div className="rounded-[var(--radius-xl)] border border-destructive/35 bg-destructive/5 overflow-hidden">
+            <div className="divide-y divide-destructive/20">
+              <div className="flex items-center justify-between gap-4 min-h-[52px] px-4 sm:px-5 py-3 active:bg-muted/30 transition-colors">
                 <div className="flex items-center gap-3 min-w-0">
                   <Trash2 className="w-4 h-4 text-destructive shrink-0" />
                   <div>
                     <span className="font-medium block">Clear All Data</span>
-                    <span className="text-sm text-muted-foreground">Permanently delete everything</span>
+                    <span className="text-sm text-muted-foreground">
+                      Removes reptiles, care events, schedules, and related data stored{' '}
+                      <span className="text-foreground/90">on this device only</span>. Signed-in copies in the cloud are not
+                      deleted by this action.
+                    </span>
                   </div>
                 </div>
-                <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => setClearDataOpen(true)}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-destructive hover:text-destructive hover:bg-destructive/10 shrink-0"
+                  onClick={() => setClearDataOpen(true)}
+                >
                   Clear Data
                 </Button>
               </div>
@@ -1121,9 +1274,19 @@ export default function SettingsPage() {
       <AlertDialog open={clearDataOpen} onOpenChange={setClearDataOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Clear all data?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will permanently delete all your reptiles, care events, and schedules. This action cannot be undone.
+            <AlertDialogTitle>Clear all local data?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-sm text-muted-foreground">
+                <p>
+                  This will permanently erase animals, journal entries, tasks, reminders, and other app data saved in local
+                  storage on <span className="text-foreground font-medium">this device</span>.
+                </p>
+                <p>
+                  Cloud copies linked to your account are <span className="text-foreground font-medium">not</span> deleted
+                  here; use cloud or account tooling separately if your project supports that later. This cannot be undone
+                  locally.
+                </p>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
