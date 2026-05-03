@@ -6,6 +6,7 @@ import { format } from 'date-fns';
 import { PageHeader } from '@/components/PageHeader';
 import { PageMotion } from '@/components/motion/PageMotion';
 import { ProBadge } from '@/components/plan/ProBadge';
+import { usePlanStatus } from '@/hooks/usePlanStatus';
 import { EventItem } from '@/components/EventItem';
 import { EmptyState } from '@/components/EmptyState';
 import { Button } from '@/components/ui/button';
@@ -103,6 +104,7 @@ interface PairingWithPartner extends Pairing {
 export default function ReptileProfilePage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { isPro } = usePlanStatus();
   
   const [reptile, setReptile] = useState<Reptile | null>(null);
   const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
@@ -480,8 +482,8 @@ export default function ReptileProfilePage() {
                 <Button variant="outline" className="w-full min-h-[44px] justify-center gap-2">
                   <Bot className="w-4 h-4 shrink-0" />
                   <span className="flex items-center gap-2 flex-wrap justify-center">
-                    AI Assistant
-                    <ProBadge />
+                    Assistant
+                    {!isPro && <ProBadge />}
                   </span>
                 </Button>
               </Link>

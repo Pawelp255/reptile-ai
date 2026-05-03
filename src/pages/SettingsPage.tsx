@@ -68,10 +68,8 @@ import { generateICS } from '@/lib/export/ics';
 import { generatePDFReport } from '@/lib/export/pdf';
 import { downloadPromoCard } from '@/lib/export/promoCard';
 import { ProBadge } from '@/components/plan/ProBadge';
-import {
-  isProUser,
-  FEATURE_SMART_INSIGHTS_PLACEHOLDER,
-} from '@/lib/plan/mockSubscription';
+import { FEATURE_SMART_INSIGHTS_PLACEHOLDER } from '@/lib/plan/mockSubscription';
+import { usePlanStatus } from '@/hooks/usePlanStatus';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase, isSupabaseConfigured } from '@/integrations/supabase/client';
 import type { AppSettings } from '@/types';
@@ -95,6 +93,7 @@ const THEME_OPTIONS: { value: ThemeValue; label: string }[] = [
 
 export default function SettingsPage() {
   const navigate = useNavigate();
+  const { isPro, isLoadingPlan } = usePlanStatus();
   const { theme, setTheme } = useTheme();
   const [settings, setSettings] = useState<AppSettings>({
     feedingReminders: true,
@@ -538,9 +537,8 @@ export default function SettingsPage() {
   };
 
   const sampleGate = isSampleDatasetEnabled();
-  const viewerIsPro = isProUser();
 
-  if (loading || authLoading) {
+  if (loading || authLoading || (!!user?.id && isSupabaseConfigured && isLoadingPlan)) {
     return (
       <div className="page-container">
         <PageHeader title="Settings" />
@@ -799,19 +797,29 @@ export default function SettingsPage() {
                 <div className="min-w-0 flex-1 space-y-2">
                   <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                     <span className="text-card-title text-foreground">Assistant</span>
-                    {!viewerIsPro && <ProBadge />}
+                    {isPro ? (
+                      <span className="text-[11px] font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-400">
+                        Pro
+                      </span>
+                    ) : (
+                      <ProBadge />
+                    )}
                   </div>
-                  <p className="text-secondary text-[13px] leading-snug">
-                    {viewerIsPro
-                      ? 'Smart assistant tuned to your collection — personalized answers alongside your journals and schedules.'
-                      : 'Basic assistant available'}
+                  <p className="text-caption text-muted-foreground">
+                    Current plan:{' '}
+                    <span className="font-medium text-foreground">{isPro ? 'Pro' : 'Free'}</span>
                   </p>
-                  {!viewerIsPro && (
+                  <p className="text-secondary text-[13px] leading-snug">
+                    {isPro
+                      ? 'Smart AI assistant unlocked — cloud-powered replies when you’re signed in with Pro on your profile.'
+                      : 'Basic assistant summarizes animals, tasks, and journal entries stored on this device — no cloud AI.'}
+                  </p>
+                  {!isPro && (
                     <p className="text-secondary text-[13px] leading-snug">
                       Upgrade to unlock smart AI assistant
                     </p>
                   )}
-                  {viewerIsPro && FEATURE_SMART_INSIGHTS_PLACEHOLDER && (
+                  {isPro && FEATURE_SMART_INSIGHTS_PLACEHOLDER && (
                     <p className="text-muted-foreground text-[13px] leading-snug">
                       Smart summaries for your herd are rolling out progressively on Pro.
                     </p>
@@ -828,7 +836,7 @@ export default function SettingsPage() {
                 <div>
                   <span className="text-card-title text-foreground block">Open assistant</span>
                   <span className="text-secondary text-[13px]">
-                    {viewerIsPro ? 'Chat with personalized context' : 'General care conversations'}
+                    {isPro ? 'Smart assistant with cloud AI' : 'Local basic assistant chat'}
                   </span>
                 </div>
               </div>

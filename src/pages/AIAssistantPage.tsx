@@ -28,8 +28,9 @@ import {
   getPairingOptions,
   type ContextOptions,
 } from '@/lib/ai/contextBuilder';
-import { isProUser } from '@/lib/plan/mockSubscription';
+import { usePlanStatus } from '@/hooks/usePlanStatus';
 import { streamProAssistantReply } from '@/lib/ai/proAssistantStream';
+import { streamBasicAssistantReply } from '@/lib/ai/basicAssistant';
 import { extractActions, stripActionBlocks, type AIAction } from '@/lib/ai/actionParser';
 import { downloadVetPdf } from '@/lib/export/vetPdf';
 import { QuickScanButtons } from '@/components/QuickScanButtons';
@@ -42,13 +43,12 @@ import type { AIMessage, ScheduleItem } from '@/types';
 export default function AIAssistantPage() {
   const [searchParams] = useSearchParams();
   const initialReptileId = searchParams.get('reptileId') || '';
+  const { isPro, isLoadingPlan } = usePlanStatus();
 
   const [messages, setMessages] = useState<AIMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [selectedModel, setSelectedModel] = useState<ModelId>(DEFAULT_MODEL);
-
-  const viewerIsPro = isProUser();
   
   // Context options
   const [contextOpen, setContextOpen] = useState(!!initialReptileId);
@@ -126,12 +126,6 @@ export default function AIAssistantPage() {
     const text = overrideText || inputText.trim();
     if (!text || isLoading) return;
 
-    if (!viewerIsPro) {
-      toast.error('Smart assistant is included with Reptilita Pro.');
-      return;
-    }
-
-    
     const userMessage: AIMessage = {
       id: crypto.randomUUID(),
       role: 'user',
@@ -156,6 +150,33 @@ export default function AIAssistantPage() {
     streamingRef.current = '';
 
     try {
+      if (!isPro) {
+        await streamBasicAssistantReply(
+          text,
+          {
+            focusReptileId:
+              selectedReptile && selectedReptile !== '__none__' ? selectedReptile : undefined,
+          },
+          (chunk) => {
+            streamingRef.current += chunk;
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantId ? { ...m, content: streamingRef.current } : m,
+              ),
+            );
+          },
+          () => {
+            setIsLoading(false);
+          },
+          (err) => {
+            toast.error(err.message);
+            setMessages((prev) => prev.filter((m) => m.id !== assistantId && m.id !== userMessage.id));
+            setIsLoading(false);
+          },
+        );
+        return;
+      }
+
       const contextOptions: ContextOptions = {
         includeReptile: (selectedReptile && selectedReptile !== '__none__') ? selectedReptile : undefined,
         includePairing: (selectedPairing && selectedPairing !== '__none__') ? selectedPairing : undefined,
@@ -213,7 +234,7 @@ export default function AIAssistantPage() {
   }, [
     inputText,
     isLoading,
-    viewerIsPro,
+    isPro,
     selectedReptile,
     selectedPairing,
     includeJournal,
@@ -225,12 +246,13 @@ export default function AIAssistantPage() {
   ]);
 
   const handleQuickScan = useCallback((prompt: string) => {
-    if (!selectedReptile) {
+    if (!isPro) return;
+    if (!selectedReptile || selectedReptile === '__none__') {
       toast.error('Select an animal first to use Quick Scan.');
       return;
     }
     handleSend(prompt);
-  }, [selectedReptile, handleSend]);
+  }, [selectedReptile, handleSend, isPro]);
 
   const handleApplyActions = async () => {
     setApplyingActions(true);
@@ -315,35 +337,47 @@ export default function AIAssistantPage() {
         <div className="flex items-start gap-2">
           <AlertTriangle className="w-4 h-4 text-warning mt-0.5 shrink-0" />
           <p className="text-xs text-foreground/80">
-            <strong>Disclaimer:</strong> AI is for educational purposes only. Not a substitute for veterinary care. Always consult a qualified exotic pet vet for health concerns.
+            <strong>Disclaimer:</strong>{' '}
+            {isPro
+              ? 'Smart assistant answers are educational only — not veterinary advice.'
+              : 'Basic assistant shows local summaries only (no cloud AI). Not a substitute for veterinary care.'}{' '}
+            Always consult a qualified exotic pet vet for health concerns.
           </p>
         </div>
       </div>
 
-      {!viewerIsPro && (
-        <div className="mx-4 mt-4 rounded-[var(--radius-xl)] border border-border/60 bg-muted/25 p-6 text-center shadow-[var(--shadow-card)]">
-          <Sparkles className="w-9 h-9 text-primary mx-auto mb-3 opacity-90" aria-hidden />
-          <p className="text-card-title text-foreground mb-1">Basic assistant available</p>
-          <p className="text-sm font-medium text-foreground/90 mb-2">Upgrade to unlock smart AI assistant</p>
-          <p className="text-sm text-muted-foreground leading-relaxed mb-5">
-            Journals, schedules, and profiles stay with you everywhere. Unlock the assistant that learns your herd with{' '}
-            Reptilita Pro — opens from Plans in Settings whenever you&apos;re ready.
+      {isLoadingPlan ? (
+        <p className="mx-4 mt-3 text-xs text-muted-foreground">Loading plan status…</p>
+      ) : isPro ? (
+        <div className="mx-4 mt-3 rounded-lg border border-border/55 bg-muted/35 px-3 py-2.5 space-y-1.5">
+          <p className="text-[11px] font-medium text-foreground">Smart assistant (Pro)</p>
+          <p className="text-[11px] text-muted-foreground leading-snug">
+            Answers stream from Reptilita&apos;s Edge Function with a server-side model key. If the service is unavailable,
+            you&apos;ll see a short offline fallback. Nothing sensitive is exposed to the browser.
           </p>
-          <Button variant="secondary" size="sm" asChild className="min-h-10 px-6">
-            <Link to="/settings#reptilita-plans">View plans</Link>
+        </div>
+      ) : (
+        <div className="mx-4 mt-3 rounded-[var(--radius-xl)] border border-border/60 bg-muted/25 p-4 shadow-[var(--shadow-card)] space-y-3">
+          <div className="flex gap-2 items-start">
+            <Sparkles className="w-5 h-5 text-primary shrink-0 mt-0.5" aria-hidden />
+            <div className="min-w-0 space-y-1">
+              <p className="text-sm font-medium text-foreground">Basic assistant · Local summary</p>
+              <p className="text-xs text-muted-foreground leading-snug">
+                Replies use only data stored on this device — animals, tasks, and journal entries. No OpenAI calls.
+              </p>
+              <p className="text-xs text-muted-foreground leading-snug">
+                Upgrade to Pro for the Smart assistant when your account has Pro enabled.
+              </p>
+            </div>
+          </div>
+          <Button variant="outline" size="sm" className="w-full sm:w-auto" asChild>
+            <Link to="/settings#reptilita-plans">View plans &amp; Pro features</Link>
           </Button>
         </div>
       )}
 
-      {viewerIsPro && (
+      {isPro ? (
         <>
-      <div className="mx-4 mt-2 rounded-lg border border-border/55 bg-muted/35 px-3 py-2.5">
-        <p className="text-[11px] text-muted-foreground leading-snug">
-          Pro uses Reptilita&apos;s assistant over your signed-in session (server-side OpenAI key). If the service is offline,
-          the app falls back to a short offline preview. Your keys are never sent to this device&apos;s frontend.
-        </p>
-      </div>
-
       {/* Quick Scan */}
       <div className="mx-4 mt-2">
         <QuickScanButtons onScan={handleQuickScan} disabled={isLoading} />
@@ -463,15 +497,37 @@ export default function AIAssistantPage() {
           )}
         </CollapsibleContent>
       </Collapsible>
+        </>
+      ) : (
+        <div className="mx-4 mt-3 space-y-2">
+          <Label className="text-xs text-muted-foreground">Optional focus animal</Label>
+          <Select value={selectedReptile || '__none__'} onValueChange={setSelectedReptile}>
+            <SelectTrigger className="h-10">
+              <SelectValue placeholder="All animals" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__none__">All animals</SelectItem>
+              {reptileOptions.map((r) => (
+                <SelectItem key={r.id} value={r.id}>
+                  {r.name} ({r.species})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
       
       {/* Chat Messages */}
       <div ref={chatContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground">
-            <p className="text-lg font-medium mb-2">Ask me anything about reptile and amphibian care!</p>
+            <p className="text-lg font-medium mb-2">
+              {isPro ? 'Ask about your collection' : 'Ask for a local summary'}
+            </p>
             <p className="text-sm max-w-md">
-              Select an animal and use Quick Scan buttons for instant analysis, or ask your own questions.
-              Use context options to include data from your collection.
+              {isPro
+                ? 'Use Quick Scan with an animal selected, tune context options, or type your own question.'
+                : 'Try: “Summarize my animals”, “What’s due today?”, “What’s overdue?”, “Recent journal entries”, or “help”.'}
             </p>
           </div>
         ) : (
@@ -498,8 +554,8 @@ export default function AIAssistantPage() {
           </div>
         )}
 
-        {/* Actions Review */}
-        {pendingActions.length > 0 && (
+        {/* Actions Review — Pro Smart assistant only */}
+        {isPro && pendingActions.length > 0 && (
           <ActionReviewCard
             actions={pendingActions}
             reptileNames={reptileNameMap}
@@ -521,7 +577,7 @@ export default function AIAssistantPage() {
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Type your message..."
+            placeholder={isPro ? 'Type your message…' : 'Ask about your local data…'}
             className="min-h-[44px] max-h-[120px] resize-none"
             disabled={isLoading}
           />
@@ -531,8 +587,6 @@ export default function AIAssistantPage() {
           </Button>
         </div>
       </div>
-        </>
-      )}
     </div>
   );
 }

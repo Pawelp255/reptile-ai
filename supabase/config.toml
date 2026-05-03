@@ -1,4 +1,5 @@
-project_id = "woynsxeecldvjvusbhei"
+# CLI-linked project ref (matches production web/Capacitor: mkgdgxsrykwmopokvxlx).
+project_id = "mkgdgxsrykwmopokvxlx"
 
 [functions.ai-assistant]
 verify_jwt = true

@@ -1,4 +1,5 @@
 import { supabase, isSupabaseConfigured } from '@/integrations/supabase/client';
+import { resolveSupabaseUrl } from '@/integrations/supabase/env';
 
 const FUNCTIONS_PATH = '/functions/v1/ai-assistant';
 
@@ -68,8 +69,8 @@ export async function streamAiAssistantEdge(
   } = await supabase.auth.getSession();
   if (!session?.access_token) return 'failed';
 
-  const baseUrl = String(import.meta.env.VITE_SUPABASE_URL ?? '').replace(/\/$/, '');
-  const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  const baseUrl = resolveSupabaseUrl().replace(/\/$/, '');
+  const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim();
   if (!baseUrl || !key) return 'failed';
 
   try {

@@ -39,6 +39,7 @@ import { formatGeneState } from '@/types/genetics';
 import { cn } from '@/lib/utils';
 import { ProBadge } from '@/components/plan/ProBadge';
 import { FEATURE_ADVANCED_GENETICS_INSIGHTS_PLACEHOLDER } from '@/lib/plan/mockSubscription';
+import { usePlanStatus } from '@/hooks/usePlanStatus';
 
 interface BasicGeneticsResult {
   trait: string;
@@ -174,6 +175,7 @@ function pairingExistsForParents(
 
 export default function GeneticsCalculatorPage() {
   const navigate = useNavigate();
+  const { isPro } = usePlanStatus();
   const [searchParams] = useSearchParams();
   const resultsRef = useRef<HTMLDivElement>(null);
 
@@ -530,8 +532,9 @@ export default function GeneticsCalculatorPage() {
           >
             <ProBadge className="mt-0.5" />
             <p className="text-xs leading-snug text-muted-foreground">
-              Deeper pedigree and probability views are earmarked for Reptilita Pro — everything here stays available free
-              meanwhile.
+              {isPro
+                ? 'Deeper pedigree and probability tooling is on the roadmap for Pro accounts — this calculator stays fully available meanwhile.'
+                : 'Deeper pedigree and probability views are earmarked for Reptilita Pro — everything here stays available free meanwhile.'}
             </p>
           </div>
         )}

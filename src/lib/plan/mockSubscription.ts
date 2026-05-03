@@ -1,10 +1,12 @@
-/** Mock entitlement until billing is wired. Set `VITE_MOCK_PRO_USER=true` to preview Pro styling. */
-export function isProUser(): boolean {
-  return import.meta.env.VITE_MOCK_PRO_USER === 'true';
-}
+/**
+ * Feature-flag style placeholders for Settings/marketing copy.
+ * For entitlement use `usePlanStatus()` → reads `profiles.is_pro`.
+ *
+ * Local-only Pro UI override: `VITE_MOCK_PRO_USER=true` (handled inside `usePlanStatus`).
+ */
 
-/** Future Pro surface area — UI teaser only (no gated behavior yet). */
+/** Future Pro surface area — UI teaser only */
 export const FEATURE_ADVANCED_GENETICS_INSIGHTS_PLACEHOLDER = true;
 
-/** Placeholder banner for roadmap “smart insights” — Settings copy only for now. */
+/** Placeholder copy for roadmap “smart insights” */
 export const FEATURE_SMART_INSIGHTS_PLACEHOLDER = true;
