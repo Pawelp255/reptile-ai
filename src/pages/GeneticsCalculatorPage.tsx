@@ -17,6 +17,8 @@ import {
 import { PageHeader } from '@/components/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import {
   Collapsible,
   CollapsibleContent,
@@ -173,9 +175,58 @@ function pairingExistsForParents(
   );
 }
 
+type ProDataQuality = 'Structured genes' | 'Morph text only' | 'Mixed';
+
+function collectModeledLocusNames(a: Reptile, b: Reptile): string[] {
+  const s = new Set<string>();
+  for (const g of getActiveStructuredGenes(a)) s.add(g.name.trim());
+  for (const g of getActiveStructuredGenes(b)) s.add(g.name.trim());
+  return [...s].sort((x, y) => x.localeCompare(y));
+}
+
+function proDataQualityForPair(a: Reptile, b: Reptile): ProDataQuality {
+  const aAdv = reptileUsesAdvancedPrediction(a);
+  const bAdv = reptileUsesAdvancedPrediction(b);
+  if (aAdv && bAdv) return 'Structured genes';
+  if (!aAdv && !bAdv) return 'Morph text only';
+  return 'Mixed';
+}
+
+function morphHetWithoutStructured(r: Reptile): boolean {
+  return !reptileUsesAdvancedPrediction(r) && !!(r.morph?.trim() || (r.hets && r.hets.length > 0));
+}
+
+function proConfidenceAndRecommendation(input: {
+  usingAdvanced: boolean;
+  dataQuality: ProDataQuality;
+  hasOrphanMorphHet: boolean;
+  outcomeCount: number;
+}): { confidence: 'High' | 'Medium' | 'Low'; recommended: string } {
+  const { usingAdvanced, dataQuality, hasOrphanMorphHet, outcomeCount } = input;
+
+  if (!usingAdvanced) {
+    return {
+      confidence: 'Low',
+      recommended: 'Add structured genes for better accuracy — open Edit Animal and add modeled genetics.',
+    };
+  }
+
+  let confidence: 'High' | 'Medium' | 'Low' = 'Medium';
+  if (dataQuality === 'Structured genes' && !hasOrphanMorphHet && outcomeCount <= 10) confidence = 'High';
+  else if (dataQuality === 'Morph text only') confidence = 'Low';
+  else if (hasOrphanMorphHet || outcomeCount > 10) confidence = 'Medium';
+
+  const recommended =
+    dataQuality !== 'Structured genes' || hasOrphanMorphHet
+      ? 'Add structured genes for better accuracy — open Edit Animal on parents still using morph/het text only.'
+      : 'Save pairing for tracking — use Save as pairing when you plan to breed this cross.';
+
+  return { confidence, recommended };
+}
+
 export default function GeneticsCalculatorPage() {
   const navigate = useNavigate();
-  const { isPro } = usePlanStatus();
+  const { isPro, isLoadingPlan } = usePlanStatus();
   const [searchParams] = useSearchParams();
   const resultsRef = useRef<HTMLDivElement>(null);
 
@@ -194,6 +245,8 @@ export default function GeneticsCalculatorPage() {
   const [pickerSlot, setPickerSlot] = useState<PickerSlot | null>(null);
   const [savingPairing, setSavingPairing] = useState(false);
   const [explainOpen, setExplainOpen] = useState(false);
+  /** Pro-only UI shell; does not change calculator math. */
+  const [proAdvancedBreakdown, setProAdvancedBreakdown] = useState(false);
 
   const parentA = reptiles.find((r) => r.id === parentAId);
   const parentB = reptiles.find((r) => r.id === parentBId);
@@ -321,9 +374,36 @@ export default function GeneticsCalculatorPage() {
   const hasResults =
     (usingAdvanced && advancedResults.length > 0) || (!usingAdvanced && basicResults.length > 0);
 
+  const proPairInsight = useMemo(() => {
+    if (!parentA || !parentB || parentAId === parentBId) return null;
+    const dataQuality = proDataQualityForPair(parentA, parentB);
+    const modeledLoci = collectModeledLocusNames(parentA, parentB);
+    const hasOrphanMorphHet = morphHetWithoutStructured(parentA) || morphHetWithoutStructured(parentB);
+    const outcomeCount = usingAdvanced ? advancedResults.length : basicResults.length;
+    const { confidence, recommended } = proConfidenceAndRecommendation({
+      usingAdvanced,
+      dataQuality,
+      hasOrphanMorphHet,
+      outcomeCount,
+    });
+    return { dataQuality, modeledLoci, hasOrphanMorphHet, confidence, recommended, outcomeCount };
+  }, [
+    parentA,
+    parentB,
+    parentAId,
+    parentBId,
+    usingAdvanced,
+    advancedResults.length,
+    basicResults.length,
+  ]);
+
   const subtitle = usingAdvanced
-    ? 'Advanced Mendelian predictions (when structured genes exist)'
-    : 'Basic morph / het heuristic';
+    ? isPro
+      ? 'Advanced Mendelian predictions (structured genes, multi-locus rollup)'
+      : 'Advanced Mendelian predictions (when structured genes exist)'
+    : isPro
+      ? 'Basic morph / het heuristic — same math, Pro adds context below'
+      : 'Basic morph / het heuristic';
 
   const handleExport = () => {
     if (!hasResults || !parentA || !parentB) return;
@@ -525,19 +605,36 @@ export default function GeneticsCalculatorPage() {
       />
 
       <div className="p-4 space-y-5 max-w-2xl mx-auto">
-        {FEATURE_ADVANCED_GENETICS_INSIGHTS_PLACEHOLDER && (
-          <div
-            role="note"
-            className="flex items-start gap-2.5 rounded-xl border border-amber-500/25 bg-amber-500/[0.06] px-3 py-2.5"
-          >
-            <ProBadge className="mt-0.5" />
-            <p className="text-xs leading-snug text-muted-foreground">
-              {isPro
-                ? 'Deeper pedigree and probability tooling is on the roadmap for Pro accounts — this calculator stays fully available meanwhile.'
-                : 'Deeper pedigree and probability views are earmarked for Reptilita Pro — everything here stays available free meanwhile.'}
-            </p>
-          </div>
-        )}
+        {!isLoadingPlan &&
+          (isPro ? (
+            <div
+              role="status"
+              className="relative overflow-hidden rounded-xl border border-primary/15 bg-gradient-to-r from-amber-500/[0.07] via-card to-primary/[0.04] pl-3 pr-3 py-2.5 shadow-sm"
+            >
+              <div
+                className="pointer-events-none absolute left-0 top-2 bottom-2 w-[3px] rounded-full bg-gradient-to-b from-amber-400/90 via-primary/70 to-amber-600/50"
+                aria-hidden
+              />
+              <div className="pl-2.5 flex flex-wrap items-center gap-2">
+                <ProBadge className="scale-90" />
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-primary/90">Pro</span>
+                <p className="text-xs text-muted-foreground leading-snug">
+                  Same calculator for everyone — extra walkthrough and insight cards reflect this pairing only.
+                </p>
+              </div>
+            </div>
+          ) : FEATURE_ADVANCED_GENETICS_INSIGHTS_PLACEHOLDER ? (
+            <div
+              role="note"
+              className="flex items-start gap-2.5 rounded-xl border border-border/80 bg-muted/25 px-3 py-2.5"
+            >
+              <ProBadge className="mt-0.5 shrink-0" />
+              <p className="text-xs leading-snug text-muted-foreground">
+                Pro adds on-page context and breakdowns; this calculator stays fully free. Pedigree-grade tools are on
+                the roadmap.
+              </p>
+            </div>
+          ) : null)}
 
         {/* Actions row */}
         <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:justify-between">
@@ -598,19 +695,19 @@ export default function GeneticsCalculatorPage() {
           </CommandList>
         </CommandDialog>
 
-        {/* Disclaimer */}
-        <div className="bg-accent/5 border border-accent/20 rounded-xl p-3 flex gap-3">
-          <Info className="w-4 h-4 text-accent shrink-0 mt-0.5" />
-          <p className="text-xs text-muted-foreground">
+        <div className="flex gap-2 text-xs text-muted-foreground leading-snug">
+          <Info className="w-3.5 h-3.5 shrink-0 mt-0.5 text-muted-foreground/65" aria-hidden />
+          <p>
             {usingAdvanced ? (
               <>
-                Predictions assume textbook Mendelian rules and independence between loci. Real species and allelic
-                interactions can differ—verify important pairings independently.
+                Predictions assume textbook Mendelian rules and independence between loci. Real allelic interactions can
+                differ—verify important pairings independently.
               </>
             ) : (
               <>
-                Basic mode uses shorthand morph text and typed hets—not full genetics models. Add structured genes via{' '}
-                <span className="text-foreground/90 font-medium">Edit Animal</span> whenever you need multi-gene math.
+                Basic mode uses morph text and typed hets as shorthand—not full models. Use{' '}
+                <span className="text-foreground/90 font-medium">Edit Animal</span> to add structured genes when you need
+                multi-gene math.
               </>
             )}
           </p>
@@ -621,6 +718,25 @@ export default function GeneticsCalculatorPage() {
           <ParentPreviewCard slot="A" reptile={parentA} badge="A" badgeClass="bg-primary/10 text-primary" />
           <ParentPreviewCard slot="B" reptile={parentB} badge="B" badgeClass="bg-destructive/10 text-destructive" />
         </div>
+
+        {(!parentAId || !parentBId) && (
+          <div className="rounded-xl border border-border/80 bg-card px-4 py-8 text-center shadow-sm">
+            <Dna className="w-11 h-11 mx-auto mb-3 text-muted-foreground/35" aria-hidden />
+            <p className="font-medium text-foreground text-sm mb-1">Choose two animals to calculate offspring probabilities.</p>
+            <p className="text-muted-foreground text-xs max-w-sm mx-auto">
+              Select Parent A and Parent B above — forecasts stay on-device and use the same free math for every account.
+            </p>
+          </div>
+        )}
+
+        {parentA && parentB && parentAId !== parentBId && !usingAdvanced && (
+          <div className="rounded-lg border border-dashed border-border bg-muted/20 px-3 py-2.5 text-xs text-muted-foreground leading-relaxed">
+            <span className="font-medium text-foreground/90">Structured genes — </span>
+            This pairing uses morph and het text only. Open each animal in{' '}
+            <span className="font-medium text-foreground/90">Edit Animal</span>, then add modeled genes in the genetics
+            section so the advanced Mendelian path can run for those traits.
+          </div>
+        )}
 
         {/* Pair-level trait summary */}
         {parentA && parentB && parentAId !== parentBId ? (
@@ -665,6 +781,85 @@ export default function GeneticsCalculatorPage() {
           </div>
         )}
 
+        {hasResults && parentA && parentB && isPro && !isLoadingPlan && proPairInsight && (
+          <div className="relative overflow-hidden rounded-xl border border-border/90 bg-card pl-3.5 pr-3 py-3 shadow-sm">
+            <div
+              className="pointer-events-none absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b from-amber-400/85 via-primary/70 to-amber-500/45"
+              aria-hidden
+            />
+            <div className="pl-2 space-y-2">
+              <div className="flex items-center justify-between gap-3">
+                <Label
+                  htmlFor="genetics-pro-breakdown"
+                  className="flex cursor-pointer items-center gap-2 text-xs font-medium text-foreground"
+                >
+                  <ProBadge className="scale-90" />
+                  Advanced breakdown
+                </Label>
+                <Switch
+                  id="genetics-pro-breakdown"
+                  checked={proAdvancedBreakdown}
+                  onCheckedChange={setProAdvancedBreakdown}
+                />
+              </div>
+              {proAdvancedBreakdown ? (
+                <ul className="list-disc space-y-1.5 pl-4 text-[11px] text-muted-foreground leading-relaxed">
+                  {usingAdvanced && groupedResults ? (
+                    <>
+                      <li>
+                        <span className="font-medium text-foreground/85">Modeled loci: </span>
+                        {proPairInsight.modeledLoci.length > 0
+                          ? proPairInsight.modeledLoci.join(', ')
+                          : 'None (unexpected in advanced mode).'}
+                      </li>
+                      <li>
+                        <span className="font-medium text-foreground/85">Outcome buckets: </span>
+                        {proPairInsight.outcomeCount} detailed rows roll up into {groupedResults.visuals.length}{' '}
+                        visual-style, {groupedResults.carriers.length} carrier-style, and {groupedResults.normals.length}{' '}
+                        normal-style groups (by presence of visuals / hets in each combo).
+                      </li>
+                      <li>
+                        <span className="font-medium text-foreground/85">Visual vs carrier: </span>
+                        Visual-style rows include at least one fully expressed visual trait in that offspring combo;
+                        carrier-style rows keep het / pos-het information without counting as that full visual slice.
+                      </li>
+                      <li>
+                        <span className="font-medium text-foreground/85">Independent assortment: </span>
+                        Final percentages multiply single-locus odds—linkage, epistasis, and allelic interactions are not
+                        modeled here.
+                      </li>
+                      {proPairInsight.hasOrphanMorphHet ? (
+                        <li className="text-amber-700/90 dark:text-amber-400/90">
+                          Morph or het text on a parent without matching structured genes does not enter this advanced
+                          math; add modeled genes for those traits if they should.
+                        </li>
+                      ) : null}
+                    </>
+                  ) : (
+                    <>
+                      <li>
+                        <span className="font-medium text-foreground/85">Morph / het heuristic: </span>
+                        Morph strings are split on commas; typed hets add recessive-style rows. Each trait uses fixed
+                        template percentages (for example 50/50 or 75/25), not lineage-specific genetics.
+                      </li>
+                      <li>
+                        <span className="font-medium text-foreground/85">Traits in this run: </span>
+                        {basicResults.length} trait row{basicResults.length === 1 ? '' : 's'} from parsed text—not from
+                        structured gene objects.
+                      </li>
+                      <li>
+                        <span className="font-medium text-foreground/85">Confidence: </span>
+                        Lower than advanced mode because templates ignore per-gene inheritance modes and multi-locus
+                        combinations.
+                      </li>
+                    </>
+                  )}
+                </ul>
+              ) : null}
+            </div>
+          </div>
+        )}
+
         {/* Advanced */}
         {usingAdvanced && groupedResults && advancedResults.length > 0 && (
           <div ref={resultsRef} className="bg-card rounded-xl p-4 border border-border space-y-4">
@@ -700,7 +895,9 @@ export default function GeneticsCalculatorPage() {
                         <span className="text-xs text-muted-foreground">
                           ~{expectedCount}/{clutchSize}
                         </span>
-                        <span className={cn('text-sm font-bold', colors.text)}>{outcome.percentage.toFixed(1)}%</span>
+                        <span className={cn('text-sm font-bold', colors.text)}>
+                          {outcome.percentage.toFixed(1)}%{isPro ? ' expected' : ''}
+                        </span>
                       </div>
                     </div>
                     <div className="h-2 bg-background/50 rounded-full overflow-hidden">
@@ -732,7 +929,9 @@ export default function GeneticsCalculatorPage() {
                     <div key={`${oi}-${outcome.label}`} className="space-y-0.5">
                       <div className="flex items-center justify-between text-xs">
                         <span className="text-muted-foreground">{outcome.label}</span>
-                        <span className="font-medium">{outcome.percentage}%</span>
+                        <span className="font-medium">
+                          {outcome.percentage}% {isPro ? '(approx.)' : ''}
+                        </span>
                       </div>
                       <div className="h-2 bg-background/50 rounded-full overflow-hidden">
                         <div
@@ -748,11 +947,45 @@ export default function GeneticsCalculatorPage() {
           </div>
         )}
 
+        {hasResults && parentA && parentB && isPro && !isLoadingPlan && proPairInsight && (
+          <div className="relative overflow-hidden rounded-xl border border-border/90 bg-card pl-3.5 pr-3 py-3 shadow-sm">
+            <div
+              className="pointer-events-none absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b from-amber-400/85 via-primary/70 to-amber-500/45"
+              aria-hidden
+            />
+            <div className="pl-2 space-y-2">
+              <div className="flex items-center gap-2">
+                <ProBadge className="scale-90" />
+                <span className="text-xs font-semibold text-foreground">Pro insight</span>
+              </div>
+              <dl className="grid gap-1.5 text-xs">
+                <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+                  <dt className="text-muted-foreground">Confidence</dt>
+                  <dd className="font-medium text-foreground tabular-nums">{proPairInsight.confidence}</dd>
+                </div>
+                <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+                  <dt className="text-muted-foreground">Data quality</dt>
+                  <dd className="font-medium text-foreground text-right">{proPairInsight.dataQuality}</dd>
+                </div>
+              </dl>
+              <p className="text-[11px] text-muted-foreground leading-snug border-t border-border/60 pt-2">
+                <span className="font-medium text-foreground/85">Recommended next step — </span>
+                {proPairInsight.recommended}
+              </p>
+            </div>
+          </div>
+        )}
+
         {usingAdvanced && advancedResults.length > 0 && advancedResults.length <= 4 && (
           <div className="bg-card rounded-xl p-4 border border-border">
-            <div className="flex items-center gap-2 mb-3">
-              <Calculator className="w-5 h-5 text-primary" />
-              <h3 className="text-sm font-semibold">Probability snapshot</h3>
+            <div className="flex flex-col gap-0.5 mb-3 sm:flex-row sm:items-baseline sm:justify-between sm:gap-2">
+              <div className="flex items-center gap-2">
+                <Calculator className="w-5 h-5 text-primary" />
+                <h3 className="text-sm font-semibold">Probability snapshot</h3>
+              </div>
+              {isPro ? (
+                <p className="text-[10px] text-muted-foreground sm:text-right">Clutch counts scale linearly from your estimate.</p>
+              ) : null}
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {advancedResults.slice(0, 8).map((outcome, i) => {
@@ -816,17 +1049,14 @@ export default function GeneticsCalculatorPage() {
         </Collapsible>
 
         {parentAId && parentBId && parentAId !== parentBId && !hasResults && (
-          <div className="bg-card rounded-xl p-8 border border-border text-center">
-            <FlaskConical className="w-12 h-12 mx-auto mb-3 text-muted-foreground/30" />
-            <p className="text-muted-foreground text-sm">No recognizable traits came from morph, het lists, or modeled genes.</p>
-          </div>
-        )}
-
-        {(!parentAId || !parentBId) && (
-          <div className="bg-card rounded-xl p-8 border border-border text-center">
-            <Dna className="w-12 h-12 mx-auto mb-3 text-muted-foreground/30" />
-            <p className="font-medium text-foreground mb-1">Pick two animals</p>
-            <p className="text-muted-foreground text-sm">Use the parent cards above to forecast offspring percentages.</p>
+          <div className="rounded-xl border border-border/80 bg-card p-8 text-center shadow-sm">
+            <FlaskConical className="w-11 h-11 mx-auto mb-3 text-muted-foreground/35" aria-hidden />
+            <p className="font-medium text-foreground text-sm mb-1">No traits to model from this pair yet</p>
+            <p className="text-muted-foreground text-xs max-w-sm mx-auto leading-relaxed">
+              Add morph text, hets, or modeled genes under{' '}
+              <span className="font-medium text-foreground/90">Edit Animal</span> for each parent, then return here —
+              structured genes unlock the advanced path when you are ready.
+            </p>
           </div>
         )}
       </div>
