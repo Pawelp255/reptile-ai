@@ -455,8 +455,6 @@ export default function SettingsPage() {
   }, [
     syncControlsEnabled,
     user,
-    isSupabaseConfigured,
-    supabase,
     lastCloudSyncHadError,
     cloudReptileCount,
     lastSyncMs,
