@@ -114,7 +114,17 @@ export type AssistantContextBuildResult = {
   animalsMinimal: { id: string; name: string; species: string }[];
 };
 
-function buildImageCapabilitySummary(meta: AssistantAppContextV1['meta'], imageVisionAvailable: boolean): string {
+function buildImageCapabilitySummary(
+  meta: AssistantAppContextV1['meta'],
+  imageVisionAvailable: boolean,
+  visionAttachmentThisMessage: boolean,
+): string {
+  if (visionAttachmentThisMessage && imageVisionAvailable) {
+    return (
+      'User attached exactly one photo with this message; it is sent to the model as image input (compressed). ' +
+      'Analyze only this attachment for pixels. Profile http URLs and other local-only photos in JSON are unchanged; do not assume you saw them unless this attachment covers them.'
+    );
+  }
   if (imageVisionAvailable) {
     return 'Image vision may be available when enabled; follow imageVisionAvailable and snapshot fields.';
   }
@@ -281,7 +291,11 @@ function trimPayloadToMaxChars(ctx: AssistantAppContextV1): AssistantAppContextV
 }
 
 export async function buildAssistantAppContext(
-  options: ContextOptions & { currentPage?: string },
+  options: ContextOptions & {
+    currentPage?: string;
+    /** User attached a photo for this Pro request; snapshot flags vision for this turn only */
+    visionAttachmentThisMessage?: boolean;
+  },
 ): Promise<AssistantContextBuildResult> {
   const [reptiles, events, scheduleItems, pairings, clutches] = await Promise.all([
     getAllReptiles(),
@@ -393,8 +407,13 @@ export async function buildAssistantAppContext(
     reptileNames,
   });
 
-  const imageVisionAvailable = false;
-  const imageCapabilitySummary = buildImageCapabilitySummary(meta, imageVisionAvailable);
+  const visionAttachmentThisMessage = options.visionAttachmentThisMessage === true;
+  const imageVisionAvailable = visionAttachmentThisMessage;
+  const imageCapabilitySummary = buildImageCapabilitySummary(
+    meta,
+    imageVisionAvailable,
+    visionAttachmentThisMessage,
+  );
 
   const raw: AssistantAppContextV1 = {
     version: 1,

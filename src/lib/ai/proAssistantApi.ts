@@ -9,6 +9,19 @@ export type AssistantAnimalPayload = {
   species: string;
 };
 
+export type AssistantVisionImagePayload = {
+  mimeType: string;
+  /** Base64 only, no data: prefix */
+  base64Data: string;
+};
+
+export type AiAssistantEdgeOutcome =
+  | { kind: 'success' }
+  /** Network / 5xx / unparsed errors — caller may fall back to mock */
+  | { kind: 'recoverable' }
+  /** Client/validation errors (e.g. image too large) — do not mock over */
+  | { kind: 'fatal'; message: string };
+
 async function readNdjsonTokenStream(response: Response, onChunk: (s: string) => void): Promise<void> {
   const body = response.body;
   if (!body) throw new Error('Empty response body');
@@ -50,7 +63,6 @@ async function readNdjsonTokenStream(response: Response, onChunk: (s: string) =>
 
 /**
  * Calls Supabase Edge Function `ai-assistant`. OpenAI credentials stay on the server.
- * @returns `'success'` if the assistant returned a usable body; `'failed'` to trigger fallback.
  */
 export type AssistantConversationHistoryItem = {
   role: 'user' | 'assistant';
@@ -66,21 +78,23 @@ export async function streamAiAssistantEdge(
     appContext?: Record<string, unknown>;
     /** Prior turns (this device only). Server-capped; latest message carries full snapshot. */
     conversationHistory?: AssistantConversationHistoryItem[];
+    /** Single user-selected image for this message only (compressed client-side). */
+    image?: AssistantVisionImagePayload;
     /** Default true → NDJSON stream from edge (OpenAI streaming). */
     stream?: boolean;
   },
   onChunk: (chunk: string) => void,
-): Promise<'success' | 'failed'> {
-  if (!isSupabaseConfigured || !supabase) return 'failed';
+): Promise<AiAssistantEdgeOutcome> {
+  if (!isSupabaseConfigured || !supabase) return { kind: 'recoverable' };
 
   const {
     data: { session },
   } = await supabase.auth.getSession();
-  if (!session?.access_token) return 'failed';
+  if (!session?.access_token) return { kind: 'recoverable' };
 
   const baseUrl = resolveSupabaseUrl().replace(/\/$/, '');
   const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim();
-  if (!baseUrl || !key) return 'failed';
+  if (!baseUrl || !key) return { kind: 'recoverable' };
 
   try {
     const response = await fetch(`${baseUrl}${FUNCTIONS_PATH}`, {
@@ -96,34 +110,49 @@ export async function streamAiAssistantEdge(
         animals: params.animals,
         appContext: params.appContext,
         conversationHistory: params.conversationHistory,
+        image: params.image,
         stream: params.stream !== false,
       }),
     });
 
+    const detail = await response.text().catch(() => '');
     if (!response.ok) {
-      const detail = await response.text().catch(() => '');
+      let parsedError = '';
+      try {
+        const j = JSON.parse(detail) as { error?: string };
+        if (typeof j.error === 'string' && j.error.trim()) parsedError = j.error.trim();
+      } catch {
+        /* not JSON */
+      }
       console.warn('[ai-assistant] Edge function error', response.status, detail.slice(0, 300));
-      return 'failed';
+
+      if (response.status === 400 || response.status === 413 || response.status === 422) {
+        return {
+          kind: 'fatal',
+          message: parsedError || `Request was rejected (${response.status}).`,
+        };
+      }
+      return { kind: 'recoverable' };
     }
 
     const ct = response.headers.get('content-type') ?? '';
 
     if (ct.includes('ndjson')) {
       await readNdjsonTokenStream(response, onChunk);
-      return 'success';
+      return { kind: 'success' };
     }
 
     if (ct.includes('application/json')) {
       const parsed = (await response.json()) as { content?: string };
       const text = typeof parsed.content === 'string' ? parsed.content : '';
       if (text) onChunk(text);
-      return 'success';
+      return { kind: 'success' };
     }
 
     await readNdjsonTokenStream(response, onChunk);
-    return 'success';
+    return { kind: 'success' };
   } catch (e) {
     console.warn('[ai-assistant] Request failed', e);
-    return 'failed';
+    return { kind: 'recoverable' };
   }
 }

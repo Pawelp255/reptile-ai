@@ -7,6 +7,7 @@ import {
   streamAiAssistantEdge,
   type AssistantAnimalPayload,
   type AssistantConversationHistoryItem,
+  type AssistantVisionImagePayload,
 } from '@/lib/ai/proAssistantApi';
 
 async function delay(ms: number): Promise<void> {
@@ -30,6 +31,7 @@ function buildMockAssistantBody(params: {
   contextSummary?: string;
   animalName?: string | null;
   appContext?: Record<string, unknown>;
+  hadVisionAttachment?: boolean;
 }): string {
   const topic = params.userMessage.trim().slice(0, 220);
   const header = params.animalName
@@ -70,6 +72,11 @@ function buildMockAssistantBody(params: {
     body += '.';
   }
 
+  if (params.hadVisionAttachment) {
+    body +=
+      '\n\n[Offline preview] Photo analysis needs the cloud assistant; attach the same image again when you are online.';
+  }
+
   return body;
 }
 
@@ -80,6 +87,8 @@ export type ProAssistantStreamParams = {
   animals?: AssistantAnimalPayload[];
   appContext?: Record<string, unknown>;
   conversationHistory?: AssistantConversationHistoryItem[];
+  /** Single compressed attachment for this send only */
+  image?: AssistantVisionImagePayload;
   /** When true (Pro), call Edge Function before mock fallback. */
   preferEdgeApi?: boolean;
 };
@@ -101,12 +110,17 @@ export async function streamProAssistantReply(
         animals: params.animals,
         appContext: params.appContext,
         conversationHistory: params.conversationHistory,
+        image: params.image,
         stream: true,
       },
       onChunk,
     );
-    if (edged === 'success') {
+    if (edged.kind === 'success') {
       onDone();
+      return;
+    }
+    if (edged.kind === 'fatal') {
+      onError(new Error(edged.message));
       return;
     }
     console.warn('[ai-assistant] Using local preview (edge unavailable).');
@@ -118,6 +132,7 @@ export async function streamProAssistantReply(
       contextSummary: params.contextSummary,
       animalName: params.animalName,
       appContext: params.appContext,
+      hadVisionAttachment: Boolean(params.image),
     });
     await streamTextIncremental(full, onChunk);
     onDone();

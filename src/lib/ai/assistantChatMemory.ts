@@ -32,6 +32,11 @@ function trimStoredMessages(messages: AIMessage[]): AIMessage[] {
   return messages.slice(-PRO_AI_CHAT_MAX_STORED_MESSAGES);
 }
 
+/** Never persist inline image data if something leaked into content. */
+function sanitizeContentForStorage(content: string): string {
+  return content.replace(/data:image\/[a-z0-9+.-]+;base64,[a-z0-9+/=\s]+/gi, '[image removed]');
+}
+
 /**
  * Persist Pro assistant messages. Drops empty assistant placeholders.
  */
@@ -42,7 +47,10 @@ export async function saveProAiChatMessages(messages: AIMessage[]): Promise<void
   const cleaned = messages.filter(
     (m) => m.role === 'user' || (m.role === 'assistant' && m.content.trim().length > 0),
   );
-  const trimmed = trimStoredMessages(cleaned);
+  const trimmed = trimStoredMessages(cleaned).map((m) => ({
+    ...m,
+    content: sanitizeContentForStorage(m.content),
+  }));
   try {
     localStorage.setItem(
       storageKey(userId),

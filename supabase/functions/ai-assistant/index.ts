@@ -1,7 +1,8 @@
 /**
  * POST /functions/v1/ai-assistant
  *
- * Body: { message, context?, animals?, appContext?, conversationHistory?, stream? } — appContext is structured JSON (bounded on server).
+ * Body: { message, context?, animals?, appContext?, conversationHistory?, image?, stream? }
+ * - image?: { mimeType, base64Data } — optional, one compressed attachment for this request only.
  *
  * Supabase secrets (never sent to frontend):
  * - OPENAI_API_KEY — required after Pro gate passes.
@@ -25,6 +26,10 @@ const APP_CONTEXT_MAX_CHARS = 22_000;
 const HISTORY_MAX_ITEMS = 12;
 const HISTORY_MAX_CHARS_PER = 2000;
 const HISTORY_MAX_TOTAL = 8000;
+
+/** Max base64 characters for image.base64Data (aligned with client cap). */
+const MAX_IMAGE_BASE64_CHARS = 600_000;
+const ALLOWED_IMAGE_MIMES = new Set(["image/jpeg", "image/jpg", "image/png", "image/webp"]);
 
 function json(status: number, body: Record<string, unknown>): Response {
   return new Response(JSON.stringify(body), {
@@ -99,6 +104,7 @@ function buildUserContent(
   context?: string,
   animals?: unknown,
   appContext?: unknown,
+  hasImage: boolean,
 ): string {
   const trimmedContext = typeof context === "string"
     ? context.slice(0, CONTEXT_MAX_CHARS)
@@ -124,13 +130,19 @@ function buildUserContent(
     }
   }
 
-  const parts: string[] = [`User question:\n${message}`];
+  const parts: string[] = [];
+  if (hasImage) {
+    parts.push(
+      "The user attached exactly ONE image with this request; pixels are in a separate image part of this message. Use the structured JSON for animal names/context; use the image part only for what is visibly in that photo.",
+    );
+  }
+  parts.push(`User question:\n${message}`);
   if (trimmedContext) {
     parts.push(`Additional context exported from the Reptilita app (may be partial):\n${trimmedContext}`);
   }
   if (appContextLine) {
     parts.push(
-      `Structured Reptilita app snapshot (JSON). Fields include: imageVisionAvailable (false means no image pixels for the model), imageCapabilitySummary (honest capability text), insights (computed summaries such as overdue tasks, journal gaps, feeding gaps, weight trends, incomplete profiles, breeding counts), animals, schedules, journal, breeding. Only http(s) URLs under animals[].photo.httpUrl are reference text for the model; local-only photos are not viewable. Do not claim you saw images when imageVisionAvailable is false.\n${appContextLine}`,
+      `Structured Reptilita app snapshot (JSON). Fields include: imageVisionAvailable (true only when this request includes a user image part), imageCapabilitySummary, insights, animals, schedules, journal, breeding. When imageVisionAvailable is false, do not claim you saw profile photos—only text/URLs in JSON exist. When true, you may describe the attached image and must still express uncertainty; never state a veterinary diagnosis as certain.\n${appContextLine}`,
     );
   } else if (animalsLine) {
     parts.push(`Animals referenced / collection snapshot (subset, JSON):\n${animalsLine}`);
@@ -157,6 +169,63 @@ function normalizeConversationHistory(raw: unknown): Array<{ role: "user" | "ass
   }
   return out;
 }
+
+function parseImagePayload(
+  body: Record<string, unknown>,
+):
+  | { ok: true; image: { mimeType: string; base64Data: string } | null }
+  | { ok: false; response: Response } {
+  const raw = body.image;
+  if (raw == null) return { ok: true, image: null };
+  if (typeof raw !== "object" || Array.isArray(raw)) {
+    return { ok: false, response: json(400, { error: "Invalid image payload" }) };
+  }
+  const rec = raw as Record<string, unknown>;
+  let mimeType = typeof rec.mimeType === "string" ? rec.mimeType.trim().toLowerCase() : "";
+  let base64Data = typeof rec.base64Data === "string" ? rec.base64Data.replace(/\s/g, "") : "";
+
+  if (!base64Data && typeof rec.dataUrl === "string") {
+    const m = rec.dataUrl.match(/^data:([^;]+);base64,(.+)$/i);
+    if (m) {
+      mimeType = m[1].trim().toLowerCase();
+      base64Data = m[2].replace(/\s/g, "");
+    }
+  }
+
+  if (!mimeType || !base64Data) {
+    return { ok: false, response: json(400, { error: "Image requires mimeType and base64Data" }) };
+  }
+  if (mimeType === "image/jpg") mimeType = "image/jpeg";
+  if (!ALLOWED_IMAGE_MIMES.has(mimeType)) {
+    return {
+      ok: false,
+      response: json(400, {
+        error: "Unsupported image mimeType (use image/jpeg, image/png, or image/webp)",
+      }),
+    };
+  }
+  if (base64Data.length > MAX_IMAGE_BASE64_CHARS) {
+    return {
+      ok: false,
+      response: json(413, {
+        error:
+          `Image too large after base64 (${base64Data.length} chars; max ${MAX_IMAGE_BASE64_CHARS}). Compress further client-side.`,
+      }),
+    };
+  }
+  if (base64Data.length < 32) {
+    return { ok: false, response: json(400, { error: "Image base64 data is too short or invalid" }) };
+  }
+  if (!/^[A-Za-z0-9+/=_-]+$/.test(base64Data)) {
+    return { ok: false, response: json(400, { error: "Image base64 contains invalid characters" }) };
+  }
+
+  return { ok: true, image: { mimeType, base64Data } };
+}
+
+type OpenAiUserContentPart =
+  | { type: "text"; text: string }
+  | { type: "image_url"; image_url: { url: string; detail: "low" } };
 
 function transformOpenAiSseToNdjson(upstreamBody: ReadableStream<Uint8Array>): ReadableStream<Uint8Array> {
   const reader = upstreamBody.getReader();
@@ -234,16 +303,45 @@ async function handler(req: Request): Promise<Response> {
   const appContext = body.appContext;
   const conversationHistory = normalizeConversationHistory(body.conversationHistory);
 
+  const imageParsed = parseImagePayload(body);
+  if (!imageParsed.ok) return imageParsed.response;
+  const image = imageParsed.image;
+
   const openaiKey = Deno.env.get("OPENAI_API_KEY");
   if (!openaiKey?.trim()) {
     return json(503, { error: "Assistant is not configured (missing OPENAI_API_KEY secret)" });
   }
 
-  const userContent = buildUserContent(message, context, animals, appContext);
-  const messages = [
-    { role: "system" as const, content: REPTILE_CARE_SYSTEM_PROMPT },
-    ...conversationHistory.map((h) => ({ role: h.role as const, content: h.content })),
-    { role: "user" as const, content: userContent },
+  const userText = buildUserContent(message, context, animals, appContext, Boolean(image));
+
+  const historyOpenAi = conversationHistory.map((h) => ({
+    role: h.role as "user" | "assistant",
+    content: h.content,
+  }));
+
+  const finalUserMessage: {
+    role: "user";
+    content: string | OpenAiUserContentPart[];
+  } = image
+    ? {
+      role: "user",
+      content: [
+        { type: "text", text: userText },
+        {
+          type: "image_url",
+          image_url: {
+            url: `data:${image.mimeType};base64,${image.base64Data}`,
+            detail: "low",
+          },
+        },
+      ],
+    }
+    : { role: "user", content: userText };
+
+  const messages: unknown[] = [
+    { role: "system", content: REPTILE_CARE_SYSTEM_PROMPT },
+    ...historyOpenAi,
+    finalUserMessage,
   ];
 
   const upstream = await fetch("https://api.openai.com/v1/chat/completions", {

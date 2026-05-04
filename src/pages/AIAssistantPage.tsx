@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Send, AlertTriangle, Loader2, ChevronDown, ChevronUp, FileText, Sparkles } from 'lucide-react';
+import { Send, AlertTriangle, Loader2, ChevronDown, ChevronUp, FileText, Sparkles, ImagePlus, X } from 'lucide-react';
 import { PageHeader } from '@/components/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -50,6 +50,7 @@ import { createCareEvent } from '@/lib/storage/events';
 import { getDB, generateId, getToday } from '@/lib/storage/db';
 import { getAllReptiles } from '@/lib/storage/reptiles';
 import type { AIMessage, ScheduleItem } from '@/types';
+import { compressImageFileForVision, type VisionImagePayload } from '@/lib/ai/assistantVisionImage';
 
 export default function AIAssistantPage() {
   const [searchParams] = useSearchParams();
@@ -65,6 +66,9 @@ export default function AIAssistantPage() {
     [messages],
   );
   const [inputText, setInputText] = useState('');
+  /** Pro only: one compressed attachment for the next send (not persisted). */
+  const [visionSlot, setVisionSlot] = useState<VisionImagePayload | null>(null);
+  const visionFileInputRef = useRef<HTMLInputElement>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedModel, setSelectedModel] = useState<ModelId>(DEFAULT_MODEL);
   
@@ -94,6 +98,13 @@ export default function AIAssistantPage() {
   // Streaming ref
   const streamingRef = useRef<string>('');
   const chatContainerRef = useRef<HTMLDivElement>(null);
+
+  const clearVisionSlot = useCallback(() => {
+    setVisionSlot((prev) => {
+      if (prev?.previewUrl) URL.revokeObjectURL(prev.previewUrl);
+      return null;
+    });
+  }, []);
   
   useEffect(() => {
     const loadData = async () => {
@@ -126,6 +137,30 @@ export default function AIAssistantPage() {
     if (messages.length === 0) return;
     void saveProAiChatMessages(messages);
   }, [messages, isLoading, isPro]);
+
+  const handleVisionFile = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      e.target.value = '';
+      if (!file) return;
+      if (!isPro) {
+        toast.message('Pro required', {
+          description: 'Photo analysis is available on Pro. Upgrade in Settings → plans.',
+        });
+        return;
+      }
+      try {
+        const compressed = await compressImageFileForVision(file);
+        setVisionSlot((prev) => {
+          if (prev?.previewUrl) URL.revokeObjectURL(prev.previewUrl);
+          return compressed;
+        });
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Could not read image');
+      }
+    },
+    [isPro],
+  );
 
   
   // Token estimation + structured context preview (Pro)
@@ -208,15 +243,29 @@ export default function AIAssistantPage() {
   }, [messages]);
 
   const handleSend = useCallback(async (overrideText?: string) => {
-    const text = overrideText || inputText.trim();
-    if (!text || isLoading) return;
+    if (isLoading) return;
+
+    const visionSnap = visionSlot;
+    const rawInput = (overrideText ?? inputText).trim();
+    const hasVision = Boolean(visionSnap);
+    if (!rawInput && !hasVision) return;
+
+    const userLine = rawInput || (hasVision ? 'Please review this reptile photo.' : '');
+    const userDisplayContent = hasVision ? `${userLine}\n\n[image attached]` : userLine;
+
+    if (!isPro && hasVision) {
+      toast.message('Pro required', {
+        description: 'Photo analysis needs Pro. Open Settings → plans to upgrade.',
+      });
+      return;
+    }
 
     const conversationHistoryForEdge = isPro ? buildConversationHistoryForEdge(messages) : undefined;
 
     const userMessage: AIMessage = {
       id: crypto.randomUUID(),
       role: 'user',
-      content: text,
+      content: userDisplayContent,
       timestamp: new Date().toISOString(),
     };
     
@@ -239,7 +288,7 @@ export default function AIAssistantPage() {
     try {
       if (!isPro) {
         await streamBasicAssistantReply(
-          text,
+          userLine,
           {
             focusReptileId:
               selectedReptile && selectedReptile !== '__none__' ? selectedReptile : undefined,
@@ -285,7 +334,11 @@ export default function AIAssistantPage() {
 
       const [context, { appContext, animalsMinimal }] = await Promise.all([
         buildContext(contextOptions),
-        buildAssistantAppContext({ ...contextOptions, currentPage: 'ai-assistant' }),
+        buildAssistantAppContext({
+          ...contextOptions,
+          currentPage: 'ai-assistant',
+          visionAttachmentThisMessage: Boolean(visionSnap),
+        }),
       ]);
 
       const animalName =
@@ -295,12 +348,15 @@ export default function AIAssistantPage() {
 
       await streamProAssistantReply(
         {
-          userMessage: text,
+          userMessage: userLine,
           contextSummary: context.text?.trim(),
           animalName,
           animals: animalsMinimal,
           appContext: appContext as unknown as Record<string, unknown>,
           conversationHistory: conversationHistoryForEdge,
+          image: visionSnap
+            ? { mimeType: visionSnap.mimeType, base64Data: visionSnap.base64Data }
+            : undefined,
           preferEdgeApi: true,
         },
         (chunk) => {
@@ -318,6 +374,7 @@ export default function AIAssistantPage() {
           if (actions.length > 0) {
             setPendingActions(actions);
           }
+          if (visionSnap) clearVisionSlot();
           setIsLoading(false);
         },
         (err) => {
@@ -335,6 +392,7 @@ export default function AIAssistantPage() {
   }, [
     messages,
     inputText,
+    visionSlot,
     isLoading,
     isPro,
     selectedReptile,
@@ -345,6 +403,7 @@ export default function AIAssistantPage() {
     includeNotes,
     includeWeights,
     reptileOptions,
+    clearVisionSlot,
   ]);
 
   const handleQuickScan = useCallback((prompt: string) => {
@@ -420,6 +479,7 @@ export default function AIAssistantPage() {
   const handleClearChat = () => {
     setMessages([]);
     setPendingActions([]);
+    clearVisionSlot();
     if (isPro) void clearProAiChatStorage();
     toast.success('Chat cleared');
   };
@@ -484,6 +544,9 @@ export default function AIAssistantPage() {
               </p>
               <p className="text-xs text-muted-foreground leading-snug">
                 Upgrade to Pro for the Smart assistant when your account has Pro enabled.
+              </p>
+              <p className="text-[11px] text-muted-foreground leading-snug">
+                Photo analysis requires Pro; the basic assistant stays text-only on this device.
               </p>
             </div>
           </div>
@@ -685,6 +748,75 @@ export default function AIAssistantPage() {
       
       {/* Input Area */}
       <div className="p-4 border-t border-border bg-background safe-area-bottom">
+        <input
+          ref={visionFileInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          aria-hidden
+          onChange={handleVisionFile}
+        />
+        {isPro ? (
+          <div className="mb-2 space-y-1.5">
+            {visionSlot ? (
+              <p className="text-[10px] font-medium text-primary">Vision available for this message</p>
+            ) : (
+              <p className="text-[10px] text-muted-foreground leading-snug">
+                Images stored locally — attach a photo for AI to inspect it
+              </p>
+            )}
+            <div className="flex flex-wrap items-center gap-2">
+              {visionSlot ? (
+                <div className="relative inline-block">
+                  <img
+                    src={visionSlot.previewUrl}
+                    alt=""
+                    className="h-14 w-14 rounded-md object-cover border border-border"
+                  />
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="icon"
+                    className="absolute -right-1.5 -top-1.5 h-6 w-6 rounded-full border shadow-sm"
+                    onClick={() => clearVisionSlot()}
+                    aria-label="Remove photo"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              ) : null}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs"
+                disabled={isLoading}
+                onClick={() => visionFileInputRef.current?.click()}
+              >
+                <ImagePlus className="h-3.5 w-3.5 mr-1.5" aria-hidden />
+                Add photo
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="mb-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 text-xs opacity-60"
+              disabled={isLoading}
+              onClick={() =>
+                toast.message('Pro required', {
+                  description: 'Photo analysis is available on Pro. See Settings → plans.',
+                })
+              }
+            >
+              <ImagePlus className="h-3.5 w-3.5 mr-1.5" aria-hidden />
+              Add photo (Pro)
+            </Button>
+          </div>
+        )}
         <div className="mb-2 flex items-start justify-between gap-3">
           {isPro ? (
             <p className="text-[10px] text-muted-foreground leading-snug pt-0.5">
@@ -715,7 +847,11 @@ export default function AIAssistantPage() {
             disabled={isLoading}
           />
           
-          <Button onClick={() => handleSend()} disabled={!inputText.trim() || isLoading} size="icon">
+          <Button
+            onClick={() => handleSend()}
+            disabled={(isPro ? !inputText.trim() && !visionSlot : !inputText.trim()) || isLoading}
+            size="icon"
+          >
             <Send className="w-4 h-4" />
           </Button>
         </div>
