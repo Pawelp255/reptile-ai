@@ -28,6 +28,10 @@ import {
   getPairingOptions,
   type ContextOptions,
 } from '@/lib/ai/contextBuilder';
+import {
+  buildAssistantAppContext,
+  type AssistantAppContextV1,
+} from '@/lib/ai/assistantAppContext';
 import { usePlanStatus } from '@/hooks/usePlanStatus';
 import { streamProAssistantReply } from '@/lib/ai/proAssistantStream';
 import { streamBasicAssistantReply } from '@/lib/ai/basicAssistant';
@@ -65,8 +69,9 @@ export default function AIAssistantPage() {
   const [pairingOptions, setPairingOptions] = useState<{ id: string; label: string }[]>([]);
   const [reptileNameMap, setReptileNameMap] = useState<Map<string, string>>(new Map());
   
-  // Token estimate
+  // Token estimate + Pro structured snapshot meta (for indicator)
   const [tokenEstimate, setTokenEstimate] = useState(0);
+  const [contextSnapMeta, setContextSnapMeta] = useState<AssistantAppContextV1['meta'] | null>(null);
   
   // Actions
   const [pendingActions, setPendingActions] = useState<AIAction[]>([]);
@@ -91,29 +96,77 @@ export default function AIAssistantPage() {
   }, []);
 
   
-  // Token estimation
+  // Token estimation + structured context preview (Pro)
   useEffect(() => {
     const updateTokenEstimate = async () => {
+      const clientHints = {
+        page: 'AI Assistant',
+        selectedReptileId:
+          selectedReptile && selectedReptile !== '__none__' ? selectedReptile : null,
+        selectedPairingId:
+          selectedPairing && selectedPairing !== '__none__' ? selectedPairing : null,
+      };
+
       const options: ContextOptions = {
-        includeReptile: (selectedReptile && selectedReptile !== '__none__') ? selectedReptile : undefined,
-        includePairing: (selectedPairing && selectedPairing !== '__none__') ? selectedPairing : undefined,
+        includeReptile: selectedReptile && selectedReptile !== '__none__' ? selectedReptile : undefined,
+        includePairing: selectedPairing && selectedPairing !== '__none__' ? selectedPairing : undefined,
         includeJournal,
         includeUpcomingTasks,
         rangeDays,
         includeNotes,
         includeWeights,
+        clientHints,
       };
-      
-      if (selectedReptile || selectedPairing || includeJournal || includeUpcomingTasks) {
+
+      const systemTokens = estimateTokens(REPTILE_CARE_SYSTEM_PROMPT);
+
+      if (!isPro) {
+        setContextSnapMeta(null);
+        if (
+          (selectedReptile && selectedReptile !== '__none__') ||
+          (selectedPairing && selectedPairing !== '__none__') ||
+          includeJournal ||
+          includeUpcomingTasks
+        ) {
+          const context = await buildContext(options);
+          setTokenEstimate(context.estimatedTokens + systemTokens);
+        } else {
+          setTokenEstimate(systemTokens);
+        }
+        return;
+      }
+
+      const { appContext } = await buildAssistantAppContext({
+        ...options,
+        currentPage: 'ai-assistant',
+      });
+      setContextSnapMeta(appContext.meta);
+
+      const hasTextSections =
+        (selectedReptile && selectedReptile !== '__none__') ||
+        (selectedPairing && selectedPairing !== '__none__') ||
+        includeJournal ||
+        includeUpcomingTasks;
+
+      const snapshotTokens = estimateTokens(JSON.stringify(appContext));
+      if (hasTextSections) {
         const context = await buildContext(options);
-        const systemTokens = estimateTokens(REPTILE_CARE_SYSTEM_PROMPT);
-        setTokenEstimate(context.estimatedTokens + systemTokens);
+        setTokenEstimate(context.estimatedTokens + snapshotTokens + systemTokens);
       } else {
-        setTokenEstimate(estimateTokens(REPTILE_CARE_SYSTEM_PROMPT));
+        setTokenEstimate(snapshotTokens + systemTokens);
       }
     };
-    updateTokenEstimate();
-  }, [selectedReptile, selectedPairing, includeJournal, includeUpcomingTasks, rangeDays, includeNotes, includeWeights]);
+    void updateTokenEstimate();
+  }, [
+    isPro,
+    selectedReptile,
+    selectedPairing,
+    includeJournal,
+    includeUpcomingTasks,
+    rangeDays,
+    includeNotes,
+    includeWeights,
+  ]);
   
   // Scroll to bottom
   useEffect(() => {
@@ -177,17 +230,29 @@ export default function AIAssistantPage() {
         return;
       }
 
+      const clientHints = {
+        page: 'AI Assistant',
+        selectedReptileId:
+          selectedReptile && selectedReptile !== '__none__' ? selectedReptile : null,
+        selectedPairingId:
+          selectedPairing && selectedPairing !== '__none__' ? selectedPairing : null,
+      };
+
       const contextOptions: ContextOptions = {
-        includeReptile: (selectedReptile && selectedReptile !== '__none__') ? selectedReptile : undefined,
-        includePairing: (selectedPairing && selectedPairing !== '__none__') ? selectedPairing : undefined,
+        includeReptile: selectedReptile && selectedReptile !== '__none__' ? selectedReptile : undefined,
+        includePairing: selectedPairing && selectedPairing !== '__none__' ? selectedPairing : undefined,
         includeJournal,
         includeUpcomingTasks,
         rangeDays,
         includeNotes,
         includeWeights,
+        clientHints,
       };
-      
-      const context = await buildContext(contextOptions);
+
+      const [context, { appContext, animalsMinimal }] = await Promise.all([
+        buildContext(contextOptions),
+        buildAssistantAppContext({ ...contextOptions, currentPage: 'ai-assistant' }),
+      ]);
 
       const animalName =
         selectedReptile && selectedReptile !== '__none__'
@@ -199,7 +264,8 @@ export default function AIAssistantPage() {
           userMessage: text,
           contextSummary: context.text?.trim(),
           animalName,
-          animals: reptileOptions.map((r) => ({ id: r.id, name: r.name, species: r.species })),
+          animals: animalsMinimal,
+          appContext: appContext as unknown as Record<string, unknown>,
           preferEdgeApi: true,
         },
         (chunk) => {
@@ -355,6 +421,20 @@ export default function AIAssistantPage() {
             Answers stream from Reptilita&apos;s Edge Function with a server-side model key. If the service is unavailable,
             you&apos;ll see a short offline fallback. Nothing sensitive is exposed to the browser.
           </p>
+          {contextSnapMeta ? (
+            <div className="pt-1.5 mt-1.5 border-t border-border/50 space-y-0.5">
+              <p className="text-[10px] font-medium text-foreground/90">Context included (next message)</p>
+              <p className="text-[10px] text-muted-foreground leading-snug">
+                {contextSnapMeta.animalCount} animals · Today {contextSnapMeta.tasksDueToday} · Overdue{' '}
+                {contextSnapMeta.tasksOverdue} · Next 7d {contextSnapMeta.tasksUpcoming7d} · Journal (14d){' '}
+                {contextSnapMeta.journalRecent14d} · Images {contextSnapMeta.imageUrlsAvailable} URL /{' '}
+                {contextSnapMeta.imagesLocalOnly} local-only
+              </p>
+              <p className="text-[10px] text-muted-foreground/85">
+                Journal {includeJournal ? 'on' : 'off'} · Tasks {includeUpcomingTasks ? 'on' : 'off'}
+              </p>
+            </div>
+          ) : null}
         </div>
       ) : (
         <div className="mx-4 mt-3 rounded-[var(--radius-xl)] border border-border/60 bg-muted/25 p-4 shadow-[var(--shadow-card)] space-y-3">

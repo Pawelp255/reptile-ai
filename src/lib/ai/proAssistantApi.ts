@@ -57,6 +57,8 @@ export async function streamAiAssistantEdge(
     message: string;
     context?: string;
     animals?: AssistantAnimalPayload[];
+    /** Structured snapshot (animals, tasks, journal, breeding). Server-truncated. */
+    appContext?: Record<string, unknown>;
     /** Default true → NDJSON stream from edge (OpenAI streaming). */
     stream?: boolean;
   },
@@ -85,6 +87,7 @@ export async function streamAiAssistantEdge(
         message: params.message,
         context: params.context,
         animals: params.animals,
+        appContext: params.appContext,
         stream: params.stream !== false,
       }),
     });

@@ -1,7 +1,7 @@
 /**
  * POST /functions/v1/ai-assistant
  *
- * Body: { message: string, context?: string, animals?: Array<{ id, name?, species? }>, stream?: boolean }
+ * Body: { message, context?, animals?, appContext?, stream? } — appContext is structured JSON (bounded on server).
  *
  * Supabase secrets (never sent to frontend):
  * - OPENAI_API_KEY — required after Pro gate passes.
@@ -21,6 +21,7 @@ const corsHeaders = {
 
 const CONTEXT_MAX_CHARS = 24_000;
 const ANIMALS_JSON_MAX_CHARS = 12_000;
+const APP_CONTEXT_MAX_CHARS = 22_000;
 
 function json(status: number, body: Record<string, unknown>): Response {
   return new Response(JSON.stringify(body), {
@@ -94,6 +95,7 @@ function buildUserContent(
   message: string,
   context?: string,
   animals?: unknown,
+  appContext?: unknown,
 ): string {
   const trimmedContext = typeof context === "string"
     ? context.slice(0, CONTEXT_MAX_CHARS)
@@ -109,11 +111,25 @@ function buildUserContent(
     }
   }
 
+  let appContextLine = "";
+  if (appContext !== undefined && appContext !== null) {
+    try {
+      const serialized = typeof appContext === "string" ? appContext : JSON.stringify(appContext);
+      appContextLine = serialized.slice(0, APP_CONTEXT_MAX_CHARS);
+    } catch {
+      appContextLine = "";
+    }
+  }
+
   const parts: string[] = [`User question:\n${message}`];
   if (trimmedContext) {
-    parts.push(`Additional context exported from the Reptilita app:\n${trimmedContext}`);
+    parts.push(`Additional context exported from the Reptilita app (may be partial):\n${trimmedContext}`);
   }
-  if (animalsLine) {
+  if (appContextLine) {
+    parts.push(
+      `Structured Reptilita app snapshot (JSON). The field imageVisionAvailable indicates whether multimodal vision is enabled (false = cannot see pixels). Only http(s) URLs under animals[].photo.httpUrl are retrievable by the model; local-only markers mean images are not available to the assistant.\n${appContextLine}`,
+    );
+  } else if (animalsLine) {
     parts.push(`Animals referenced / collection snapshot (subset, JSON):\n${animalsLine}`);
   }
 
@@ -193,13 +209,14 @@ async function handler(req: Request): Promise<Response> {
   const stream = Boolean(body.stream);
   const context = typeof body.context === "string" ? body.context : undefined;
   const animals = body.animals;
+  const appContext = body.appContext;
 
   const openaiKey = Deno.env.get("OPENAI_API_KEY");
   if (!openaiKey?.trim()) {
     return json(503, { error: "Assistant is not configured (missing OPENAI_API_KEY secret)" });
   }
 
-  const userContent = buildUserContent(message, context, animals);
+  const userContent = buildUserContent(message, context, animals, appContext);
   const messages = [
     { role: "system" as const, content: REPTILE_CARE_SYSTEM_PROMPT },
     { role: "user" as const, content: userContent },

@@ -25,6 +25,7 @@ function buildMockAssistantBody(params: {
   userMessage: string;
   contextSummary?: string;
   animalName?: string | null;
+  appContext?: Record<string, unknown>;
 }): string {
   const topic = params.userMessage.trim().slice(0, 220);
   const header = params.animalName
@@ -44,6 +45,27 @@ function buildMockAssistantBody(params: {
     body += `\n(When online, your journals and tasks will help tailor cloud replies.${extra})`;
   }
 
+  const meta = params.appContext?.meta as
+    | {
+        animalCount?: number;
+        tasksDueToday?: number;
+        tasksOverdue?: number;
+        journalRecent14d?: number;
+        imageUrlsAvailable?: number;
+        imagesLocalOnly?: number;
+      }
+    | undefined;
+  if (meta && typeof meta.animalCount === 'number') {
+    body += `\n\n[Offline preview] Would sync context: ${meta.animalCount} animals`;
+    if (typeof meta.tasksDueToday === 'number') body += ` · today ${meta.tasksDueToday}`;
+    if (typeof meta.tasksOverdue === 'number') body += ` · overdue ${meta.tasksOverdue}`;
+    if (typeof meta.journalRecent14d === 'number') body += ` · journal(14d) ${meta.journalRecent14d}`;
+    if (typeof meta.imageUrlsAvailable === 'number' && typeof meta.imagesLocalOnly === 'number') {
+      body += ` · images URL ${meta.imageUrlsAvailable} / local-only ${meta.imagesLocalOnly}`;
+    }
+    body += '.';
+  }
+
   return body;
 }
 
@@ -52,6 +74,7 @@ export type ProAssistantStreamParams = {
   contextSummary?: string;
   animalName?: string | null;
   animals?: AssistantAnimalPayload[];
+  appContext?: Record<string, unknown>;
   /** When true (Pro), call Edge Function before mock fallback. */
   preferEdgeApi?: boolean;
 };
@@ -71,6 +94,7 @@ export async function streamProAssistantReply(
         message: params.userMessage,
         context: params.contextSummary,
         animals: params.animals,
+        appContext: params.appContext,
         stream: true,
       },
       onChunk,
@@ -83,7 +107,12 @@ export async function streamProAssistantReply(
   }
 
   try {
-    const full = buildMockAssistantBody(params);
+    const full = buildMockAssistantBody({
+      userMessage: params.userMessage,
+      contextSummary: params.contextSummary,
+      animalName: params.animalName,
+      appContext: params.appContext,
+    });
     await streamTextIncremental(full, onChunk);
     onDone();
   } catch (e) {

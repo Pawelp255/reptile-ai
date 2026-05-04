@@ -20,6 +20,12 @@ export interface ContextOptions {
   rangeDays?: number; // default 30
   includeNotes?: boolean; // default true
   includeWeights?: boolean; // default true
+  /** Optional UI routing hints for the model (duplicated in structured appContext for Pro). */
+  clientHints?: {
+    page: string;
+    selectedReptileId?: string | null;
+    selectedPairingId?: string | null;
+  };
 }
 
 export interface BuiltContext {
@@ -234,6 +240,17 @@ export async function buildContext(options: ContextOptions): Promise<BuiltContex
       sections.push(tasksContext);
       includedSections.tasks = true;
     }
+  }
+
+  if (options.clientHints?.page) {
+    const h = options.clientHints;
+    const lines = [
+      '## UI context',
+      `- Current screen: ${h.page}`,
+      `- Selected reptile filter: ${h.selectedReptileId ?? 'none'}`,
+      `- Selected pairing filter: ${h.selectedPairingId ?? 'none'}`,
+    ];
+    sections.push(lines.join('\n'));
   }
 
   const text = sections.length > 0 
