@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Dna, Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -211,6 +211,24 @@ export default function AuthPage() {
             {isSignUp ? 'Sign in' : 'Sign up'}
           </button>
         </p>
+
+        <nav
+          className="flex flex-wrap items-center justify-center gap-x-5 gap-y-1 pt-4 border-t border-border/60 text-center"
+          aria-label="Legal"
+        >
+          <Link
+            to="/privacy"
+            className="text-xs font-medium text-primary underline-offset-2 hover:underline py-3 px-2 -mx-2 min-h-[44px] inline-flex items-center rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          >
+            Privacy Policy
+          </Link>
+          <Link
+            to="/terms"
+            className="text-xs font-medium text-primary underline-offset-2 hover:underline py-3 px-2 -mx-2 min-h-[44px] inline-flex items-center rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          >
+            Terms of Service
+          </Link>
+        </nav>
       </div>
     </div>
   );

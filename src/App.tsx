@@ -39,6 +39,8 @@ const PassportPage = lazy(() => import("./pages/PassportPage"));
 const PublicSharePage = lazy(() => import("./pages/PublicSharePage"));
 const GrowthPage = lazy(() => import("./pages/GrowthPage"));
 const HealthCheckPage = lazy(() => import("./pages/HealthCheckPage"));
+const PrivacyPolicyPage = lazy(() => import("./pages/PrivacyPolicyPage"));
+const TermsOfServicePage = lazy(() => import("./pages/TermsOfServicePage"));
 
 const queryClient = new QueryClient();
 
@@ -98,6 +100,8 @@ function AppContent() {
           <Route path="/public/:shareType/:slug" element={<PublicSharePage />} />
           <Route path="/growth" element={<GrowthPage />} />
           <Route path="/health-check" element={<HealthCheckPage />} />
+          <Route path="/privacy" element={<PrivacyPolicyPage />} />
+          <Route path="/terms" element={<TermsOfServicePage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Suspense>

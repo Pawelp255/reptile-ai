@@ -65,15 +65,17 @@ export function usePlanStatus(): {
       setIsPro(true);
       setSource('dev_override');
       setIsLoadingPlan(false);
-      console.warn('[usePlanStatus][debug]', {
-        userId: user?.id ?? null,
-        email: user?.email ?? null,
-        profileRow: null,
-        queryError: null,
-        source: 'dev_override' as PlanSource,
-        isPro: true,
-        note: 'VITE_MOCK_PRO_USER forces Pro UI',
-      });
+      if (import.meta.env.DEV) {
+        console.warn('[usePlanStatus][debug]', {
+          userId: user?.id ?? null,
+          email: user?.email ?? null,
+          profileRow: null,
+          queryError: null,
+          source: 'dev_override' as PlanSource,
+          isPro: true,
+          note: 'VITE_MOCK_PRO_USER forces Pro UI',
+        });
+      }
       return () => {
         cancelled = true;
       };
@@ -83,15 +85,17 @@ export function usePlanStatus(): {
       setIsPro(false);
       setSource('no_supabase');
       setIsLoadingPlan(false);
-      console.warn('[usePlanStatus][debug]', {
-        userId: user?.id ?? null,
-        email: user?.email ?? null,
-        profileRow: null,
-        queryError: null,
-        source: 'no_supabase' as PlanSource,
-        isPro: false,
-        note: 'Supabase env not configured in this build',
-      });
+      if (import.meta.env.DEV) {
+        console.warn('[usePlanStatus][debug]', {
+          userId: user?.id ?? null,
+          email: user?.email ?? null,
+          profileRow: null,
+          queryError: null,
+          source: 'no_supabase' as PlanSource,
+          isPro: false,
+          note: 'Supabase env not configured in this build',
+        });
+      }
       return () => {
         cancelled = true;
       };
@@ -109,15 +113,17 @@ export function usePlanStatus(): {
       setIsPro(false);
       setSource('unsigned');
       setIsLoadingPlan(false);
-      console.warn('[usePlanStatus][debug]', {
-        userId: null,
-        email: null,
-        profileRow: null,
-        queryError: null,
-        source: 'unsigned' as PlanSource,
-        isPro: false,
-        note: 'No signed-in user',
-      });
+      if (import.meta.env.DEV) {
+        console.warn('[usePlanStatus][debug]', {
+          userId: null,
+          email: null,
+          profileRow: null,
+          queryError: null,
+          source: 'unsigned' as PlanSource,
+          isPro: false,
+          note: 'No signed-in user',
+        });
+      }
       return () => {
         cancelled = true;
       };
@@ -148,22 +154,24 @@ export function usePlanStatus(): {
           nextPro = Boolean(data.is_pro);
         }
 
-        console.warn('[usePlanStatus][debug]', {
-          userId: uid,
-          email: user?.email ?? null,
-          profileRow: data ?? null,
-          queryError: error?.message ?? null,
-          fetchEpoch,
-          source: nextSource,
-          isPro: nextPro,
-          supabaseHost: (() => {
-            try {
-              return new URL(resolveSupabaseUrl()).host;
-            } catch {
-              return '(invalid-url)';
-            }
-          })(),
-        });
+        if (import.meta.env.DEV) {
+          console.warn('[usePlanStatus][debug]', {
+            userId: uid,
+            email: user?.email ?? null,
+            profileRow: data ?? null,
+            queryError: error?.message ?? null,
+            fetchEpoch,
+            source: nextSource,
+            isPro: nextPro,
+            supabaseHost: (() => {
+              try {
+                return new URL(resolveSupabaseUrl()).host;
+              } catch {
+                return '(invalid-url)';
+              }
+            })(),
+          });
+        }
 
         setIsPro(nextPro);
         setSource(nextSource);

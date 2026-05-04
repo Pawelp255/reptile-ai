@@ -82,6 +82,7 @@ import {
   fetchCloudReptiles,
 } from '@/lib/reptiles/cloudSync';
 import { readLastSuccessfulCloudSyncMs } from '@/lib/sync/syncTelemetry';
+import { REPTILITA_SUPPORT_EMAIL, reptilitaMailto } from '@/lib/reptilitaSupport';
 
 type ThemeValue = 'light' | 'dark' | 'system';
 
@@ -562,28 +563,43 @@ export default function SettingsPage() {
           <div className="premium-surface-elevated rounded-[var(--radius-xl)] overflow-hidden">
             <div className="p-4 sm:p-5">
             {user ? (
-              <div className="flex items-center gap-4">
-                <Avatar className="h-14 w-14 ring-1 ring-border/20">
-                  <AvatarImage src={profile?.avatar_url || undefined} />
-                  <AvatarFallback className="bg-primary/10 text-primary text-lg">
-                    {profile?.display_name?.charAt(0).toUpperCase() || user.email?.charAt(0).toUpperCase() || 'U'}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex-1 min-w-0">
-                  <p className="text-card-title text-foreground truncate">
-                    {profile?.display_name || user.email?.split('@')[0] || 'User'}
-                  </p>
-                  <p className="text-secondary truncate text-[13px]">{user.email}</p>
+              <div className="space-y-4">
+                <div className="flex items-center gap-4">
+                  <Avatar className="h-14 w-14 ring-1 ring-border/20">
+                    <AvatarImage src={profile?.avatar_url || undefined} />
+                    <AvatarFallback className="bg-primary/10 text-primary text-lg">
+                      {profile?.display_name?.charAt(0).toUpperCase() || user.email?.charAt(0).toUpperCase() || 'U'}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-card-title text-foreground truncate">
+                      {profile?.display_name || user.email?.split('@')[0] || 'User'}
+                    </p>
+                    <p className="text-secondary truncate text-[13px]">{user.email}</p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSignOutOpen(true)}
+                    className="shrink-0"
+                  >
+                    <LogOut className="w-4 h-4 mr-2" />
+                    Sign Out
+                  </Button>
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setSignOutOpen(true)}
-                  className="shrink-0"
-                >
-                  <LogOut className="w-4 h-4 mr-2" />
-                  Sign Out
-                </Button>
+                <div className="pt-3 border-t border-border/70 space-y-2">
+                  <p className="text-sm font-medium text-foreground">Delete account and cloud data</p>
+                  <p className="text-secondary text-[13px] leading-snug">
+                    Email{' '}
+                    <a href={reptilitaMailto('Delete my Reptilita account')} className="text-primary font-medium underline">
+                      {REPTILITA_SUPPORT_EMAIL}
+                    </a>{' '}
+                    from the address on this account with the subject line &quot;Delete my Reptilita account&quot;. We verify
+                    ownership, then remove your auth profile and cloud-hosted rows for this app (including synced animals and
+                    schedules). To erase data on this device only, use Clear All Data below — that does not remove cloud
+                    copies by itself.
+                  </p>
+                </div>
               </div>
             ) : (
               <div className="flex items-center justify-between">
@@ -1152,7 +1168,7 @@ export default function SettingsPage() {
         {/* About */}
         <section>
           <h2 className="section-header mb-2.5">About</h2>
-          <div className="premium-surface rounded-[var(--radius-xl)] p-4 sm:p-5">
+          <div className="premium-surface rounded-[var(--radius-xl)] p-4 sm:p-5 space-y-4">
             <div className="flex items-center gap-3">
               <Info className="w-4 h-4 text-primary shrink-0" />
               <div>
@@ -1165,6 +1181,22 @@ export default function SettingsPage() {
                 </p>
               </div>
             </div>
+            <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 text-sm">
+              <Button variant="outline" size="sm" className="justify-start sm:w-auto" asChild>
+                <Link to="/privacy">Privacy Policy</Link>
+              </Button>
+              <Button variant="outline" size="sm" className="justify-start sm:w-auto" asChild>
+                <Link to="/terms">Terms of Service</Link>
+              </Button>
+              <Button variant="outline" size="sm" className="justify-start sm:w-auto" asChild>
+                <a href={reptilitaMailto('Reptilita support')}>Email support</a>
+              </Button>
+            </div>
+            <p className="text-caption">
+              App Store / TestFlight: use Privacy Policy URL{' '}
+              <span className="text-foreground font-mono text-[11px]">https://reptilita.com/privacy</span> once your host
+              serves this SPA route (same origin as the deployed app).
+            </p>
           </div>
         </section>
       </div>
