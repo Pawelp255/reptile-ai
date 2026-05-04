@@ -1,7 +1,7 @@
 /**
  * POST /functions/v1/ai-assistant
  *
- * Body: { message, context?, animals?, appContext?, stream? } — appContext is structured JSON (bounded on server).
+ * Body: { message, context?, animals?, appContext?, conversationHistory?, stream? } — appContext is structured JSON (bounded on server).
  *
  * Supabase secrets (never sent to frontend):
  * - OPENAI_API_KEY — required after Pro gate passes.
@@ -22,6 +22,9 @@ const corsHeaders = {
 const CONTEXT_MAX_CHARS = 24_000;
 const ANIMALS_JSON_MAX_CHARS = 12_000;
 const APP_CONTEXT_MAX_CHARS = 22_000;
+const HISTORY_MAX_ITEMS = 12;
+const HISTORY_MAX_CHARS_PER = 2000;
+const HISTORY_MAX_TOTAL = 8000;
 
 function json(status: number, body: Record<string, unknown>): Response {
   return new Response(JSON.stringify(body), {
@@ -127,13 +130,32 @@ function buildUserContent(
   }
   if (appContextLine) {
     parts.push(
-      `Structured Reptilita app snapshot (JSON). The field imageVisionAvailable indicates whether multimodal vision is enabled (false = cannot see pixels). Only http(s) URLs under animals[].photo.httpUrl are retrievable by the model; local-only markers mean images are not available to the assistant.\n${appContextLine}`,
+      `Structured Reptilita app snapshot (JSON). Fields include: imageVisionAvailable (false means no image pixels for the model), imageCapabilitySummary (honest capability text), insights (computed summaries such as overdue tasks, journal gaps, feeding gaps, weight trends, incomplete profiles, breeding counts), animals, schedules, journal, breeding. Only http(s) URLs under animals[].photo.httpUrl are reference text for the model; local-only photos are not viewable. Do not claim you saw images when imageVisionAvailable is false.\n${appContextLine}`,
     );
   } else if (animalsLine) {
     parts.push(`Animals referenced / collection snapshot (subset, JSON):\n${animalsLine}`);
   }
 
   return parts.join("\n\n");
+}
+
+function normalizeConversationHistory(raw: unknown): Array<{ role: "user" | "assistant"; content: string }> {
+  if (!Array.isArray(raw)) return [];
+  const out: Array<{ role: "user" | "assistant"; content: string }> = [];
+  let total = 0;
+  for (const item of raw.slice(-HISTORY_MAX_ITEMS)) {
+    if (!item || typeof item !== "object") continue;
+    const rec = item as Record<string, unknown>;
+    const role = rec.role;
+    const contentRaw = rec.content;
+    const content = typeof contentRaw === "string" ? contentRaw.trim() : "";
+    if (!content || (role !== "user" && role !== "assistant")) continue;
+    const slice = content.slice(0, HISTORY_MAX_CHARS_PER);
+    if (total + slice.length > HISTORY_MAX_TOTAL) break;
+    out.push({ role, content: slice });
+    total += slice.length;
+  }
+  return out;
 }
 
 function transformOpenAiSseToNdjson(upstreamBody: ReadableStream<Uint8Array>): ReadableStream<Uint8Array> {
@@ -210,6 +232,7 @@ async function handler(req: Request): Promise<Response> {
   const context = typeof body.context === "string" ? body.context : undefined;
   const animals = body.animals;
   const appContext = body.appContext;
+  const conversationHistory = normalizeConversationHistory(body.conversationHistory);
 
   const openaiKey = Deno.env.get("OPENAI_API_KEY");
   if (!openaiKey?.trim()) {
@@ -219,6 +242,7 @@ async function handler(req: Request): Promise<Response> {
   const userContent = buildUserContent(message, context, animals, appContext);
   const messages = [
     { role: "system" as const, content: REPTILE_CARE_SYSTEM_PROMPT },
+    ...conversationHistory.map((h) => ({ role: h.role as const, content: h.content })),
     { role: "user" as const, content: userContent },
   ];
 

@@ -3,7 +3,11 @@
  * falls back to a local chunked mock preview if the network or function fails.
  */
 
-import { streamAiAssistantEdge, type AssistantAnimalPayload } from '@/lib/ai/proAssistantApi';
+import {
+  streamAiAssistantEdge,
+  type AssistantAnimalPayload,
+  type AssistantConversationHistoryItem,
+} from '@/lib/ai/proAssistantApi';
 
 async function delay(ms: number): Promise<void> {
   await new Promise((r) => setTimeout(r, ms));
@@ -75,6 +79,7 @@ export type ProAssistantStreamParams = {
   animalName?: string | null;
   animals?: AssistantAnimalPayload[];
   appContext?: Record<string, unknown>;
+  conversationHistory?: AssistantConversationHistoryItem[];
   /** When true (Pro), call Edge Function before mock fallback. */
   preferEdgeApi?: boolean;
 };
@@ -95,6 +100,7 @@ export async function streamProAssistantReply(
         context: params.contextSummary,
         animals: params.animals,
         appContext: params.appContext,
+        conversationHistory: params.conversationHistory,
         stream: true,
       },
       onChunk,

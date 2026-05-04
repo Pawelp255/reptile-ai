@@ -14,6 +14,7 @@ import {
 import type { Reptile, CareEvent, ScheduleItem, Pairing, Clutch } from '@/types';
 import type { GeneticGene } from '@/types/genetics';
 import type { ContextOptions } from '@/lib/ai/contextBuilder';
+import { buildAssistantInsights, listOverdueTasksForInsights, type AssistantInsightsV1 } from '@/lib/ai/assistantInsights';
 
 const MAX_ANIMALS = 36;
 const MAX_TASKS_PER_BUCKET = 28;
@@ -28,7 +29,11 @@ export type AssistantAppContextV1 = {
   currentPage: string;
   selectedReptileId?: string | null;
   selectedPairingId?: string | null;
-  imageVisionAvailable: false;
+  /** Multimodal vision off until product sends image parts to the model */
+  imageVisionAvailable: boolean;
+  /** Honest, user-facing capability line(s) for the model */
+  imageCapabilitySummary: string;
+  insights: AssistantInsightsV1;
   meta: {
     animalCount: number;
     tasksDueToday: number;
@@ -108,6 +113,23 @@ export type AssistantContextBuildResult = {
   /** Slim list for legacy Edge field + action tooling */
   animalsMinimal: { id: string; name: string; species: string }[];
 };
+
+function buildImageCapabilitySummary(meta: AssistantAppContextV1['meta'], imageVisionAvailable: boolean): string {
+  if (imageVisionAvailable) {
+    return 'Image vision may be available when enabled; follow imageVisionAvailable and snapshot fields.';
+  }
+  const parts: string[] = [];
+  if (meta.imagesLocalOnly > 0) {
+    parts.push('Images stored locally — AI cannot view them yet.');
+  }
+  if (meta.imageUrlsAvailable > 0) {
+    parts.push('Image URLs available — AI can reference URLs only.');
+  }
+  if (parts.length === 0) {
+    parts.push('No http(s) photo URLs in this export; the assistant has no image pixels or URLs to fetch.');
+  }
+  return parts.join(' ');
+}
 
 function todayIso(): string {
   return new Date().toISOString().split('T')[0];
@@ -244,6 +266,17 @@ function trimPayloadToMaxChars(ctx: AssistantAppContextV1): AssistantAppContextV
     clone.animals.pop();
     s = JSON.stringify(clone);
   }
+  while (s.length > MAX_JSON_CHARS && clone.insights) {
+    const ins = clone.insights;
+    if (ins.incompleteProfiles.length > 2) ins.incompleteProfiles.pop();
+    else if (ins.feedingGapAnimals.length > 2) ins.feedingGapAnimals.pop();
+    else if (ins.noJournalRecent14d.length > 2) ins.noJournalRecent14d.pop();
+    else if (ins.overdueTaskAnimals.length > 2) ins.overdueTaskAnimals.pop();
+    else if (ins.weightTrends.length > 2) ins.weightTrends.pop();
+    else if (ins.breedingPairingSummary.highlights.length > 1) ins.breedingPairingSummary.highlights.pop();
+    else break;
+    s = JSON.stringify(clone);
+  }
   return clone;
 }
 
@@ -350,6 +383,19 @@ export async function buildAssistantAppContext(
     imagesLocalOnly,
   };
 
+  const reptileIdSet = new Set(reptiles.map((r) => r.id));
+  const overdueForInsights = listOverdueTasksForInsights(scheduleItems, reptileIdSet);
+  const insights = buildAssistantInsights({
+    reptiles,
+    events,
+    overdueTasks: overdueForInsights,
+    pairings,
+    reptileNames,
+  });
+
+  const imageVisionAvailable = false;
+  const imageCapabilitySummary = buildImageCapabilitySummary(meta, imageVisionAvailable);
+
   const raw: AssistantAppContextV1 = {
     version: 1,
     generatedAt: new Date().toISOString(),
@@ -358,7 +404,9 @@ export async function buildAssistantAppContext(
       options.includeReptile && options.includeReptile !== '__none__' ? options.includeReptile : null,
     selectedPairingId:
       options.includePairing && options.includePairing !== '__none__' ? options.includePairing : null,
-    imageVisionAvailable: false,
+    imageVisionAvailable,
+    imageCapabilitySummary,
+    insights,
     meta,
     animals,
     schedules,

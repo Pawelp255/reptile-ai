@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Send, Trash2, AlertTriangle, Loader2, ChevronDown, ChevronUp, FileText, Sparkles } from 'lucide-react';
+import { Send, AlertTriangle, Loader2, ChevronDown, ChevronUp, FileText, Sparkles } from 'lucide-react';
 import { PageHeader } from '@/components/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -32,6 +32,13 @@ import {
   buildAssistantAppContext,
   type AssistantAppContextV1,
 } from '@/lib/ai/assistantAppContext';
+import {
+  buildConversationHistoryForEdge,
+  loadProAiChatMessages,
+  saveProAiChatMessages,
+  clearProAiChatStorage,
+  PRO_AI_CHAT_MAX_STORED_MESSAGES,
+} from '@/lib/ai/assistantChatMemory';
 import { usePlanStatus } from '@/hooks/usePlanStatus';
 import { streamProAssistantReply } from '@/lib/ai/proAssistantStream';
 import { streamBasicAssistantReply } from '@/lib/ai/basicAssistant';
@@ -50,6 +57,13 @@ export default function AIAssistantPage() {
   const { isPro, isLoadingPlan } = usePlanStatus();
 
   const [messages, setMessages] = useState<AIMessage[]>([]);
+  const memoryMessageCount = useMemo(
+    () =>
+      messages.filter(
+        (m) => m.role === 'user' || (m.role === 'assistant' && m.content.trim().length > 0),
+      ).length,
+    [messages],
+  );
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [selectedModel, setSelectedModel] = useState<ModelId>(DEFAULT_MODEL);
@@ -94,6 +108,24 @@ export default function AIAssistantPage() {
     };
     loadData();
   }, []);
+
+  useEffect(() => {
+    if (!isPro) return;
+    let cancelled = false;
+    void loadProAiChatMessages().then((loaded) => {
+      if (cancelled) return;
+      setMessages((prev) => (prev.length > 0 ? prev : loaded));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [isPro]);
+
+  useEffect(() => {
+    if (!isPro || isLoading) return;
+    if (messages.length === 0) return;
+    void saveProAiChatMessages(messages);
+  }, [messages, isLoading, isPro]);
 
   
   // Token estimation + structured context preview (Pro)
@@ -178,6 +210,8 @@ export default function AIAssistantPage() {
   const handleSend = useCallback(async (overrideText?: string) => {
     const text = overrideText || inputText.trim();
     if (!text || isLoading) return;
+
+    const conversationHistoryForEdge = isPro ? buildConversationHistoryForEdge(messages) : undefined;
 
     const userMessage: AIMessage = {
       id: crypto.randomUUID(),
@@ -266,6 +300,7 @@ export default function AIAssistantPage() {
           animalName,
           animals: animalsMinimal,
           appContext: appContext as unknown as Record<string, unknown>,
+          conversationHistory: conversationHistoryForEdge,
           preferEdgeApi: true,
         },
         (chunk) => {
@@ -298,6 +333,7 @@ export default function AIAssistantPage() {
       setIsLoading(false);
     }
   }, [
+    messages,
     inputText,
     isLoading,
     isPro,
@@ -384,6 +420,7 @@ export default function AIAssistantPage() {
   const handleClearChat = () => {
     setMessages([]);
     setPendingActions([]);
+    if (isPro) void clearProAiChatStorage();
     toast.success('Chat cleared');
   };
   
@@ -648,11 +685,27 @@ export default function AIAssistantPage() {
       
       {/* Input Area */}
       <div className="p-4 border-t border-border bg-background safe-area-bottom">
-        <div className="flex items-end gap-2">
-          <Button variant="outline" size="icon" onClick={handleClearChat} disabled={messages.length === 0} title="Clear chat">
-            <Trash2 className="w-4 h-4" />
+        <div className="mb-2 flex items-start justify-between gap-3">
+          {isPro ? (
+            <p className="text-[10px] text-muted-foreground leading-snug pt-0.5">
+              Memory: last {memoryMessageCount} message{memoryMessageCount === 1 ? '' : 's'} · up to{' '}
+              {PRO_AI_CHAT_MAX_STORED_MESSAGES} stored on this device (not synced)
+            </p>
+          ) : (
+            <span className="text-[10px] text-muted-foreground pt-0.5">Local chat only (not saved)</span>
+          )}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-7 shrink-0 text-xs px-2.5"
+            onClick={handleClearChat}
+            disabled={messages.length === 0}
+          >
+            Clear chat
           </Button>
-          
+        </div>
+        <div className="flex items-end gap-2">
           <Textarea
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}

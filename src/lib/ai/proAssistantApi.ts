@@ -52,6 +52,11 @@ async function readNdjsonTokenStream(response: Response, onChunk: (s: string) =>
  * Calls Supabase Edge Function `ai-assistant`. OpenAI credentials stay on the server.
  * @returns `'success'` if the assistant returned a usable body; `'failed'` to trigger fallback.
  */
+export type AssistantConversationHistoryItem = {
+  role: 'user' | 'assistant';
+  content: string;
+};
+
 export async function streamAiAssistantEdge(
   params: {
     message: string;
@@ -59,6 +64,8 @@ export async function streamAiAssistantEdge(
     animals?: AssistantAnimalPayload[];
     /** Structured snapshot (animals, tasks, journal, breeding). Server-truncated. */
     appContext?: Record<string, unknown>;
+    /** Prior turns (this device only). Server-capped; latest message carries full snapshot. */
+    conversationHistory?: AssistantConversationHistoryItem[];
     /** Default true → NDJSON stream from edge (OpenAI streaming). */
     stream?: boolean;
   },
@@ -88,6 +95,7 @@ export async function streamAiAssistantEdge(
         context: params.context,
         animals: params.animals,
         appContext: params.appContext,
+        conversationHistory: params.conversationHistory,
         stream: params.stream !== false,
       }),
     });
