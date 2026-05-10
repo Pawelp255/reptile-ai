@@ -209,6 +209,8 @@ export interface AppSettings {
   openaiApiKey?: string; // BYOK - stored locally or __secure_storage__ flag
   expoDemoMode?: boolean;
   publicBaseUrl?: string; // Optional base URL for copied share links
+  /** Supabase user ids that already received one-time Apple Review demo data (local only). */
+  appleReviewDemoSeededUserIds?: string[];
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {

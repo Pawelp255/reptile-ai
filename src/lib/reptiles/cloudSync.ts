@@ -3,6 +3,7 @@ import type { Json, TablesInsert, TablesUpdate } from "@/integrations/supabase/t
 import { getDB } from "@/lib/storage/db";
 import { ensureScheduleItemsHaveTimestamps } from "@/lib/storage/schedule";
 import { writeLastSuccessfulCloudSyncMs } from "@/lib/sync/syncTelemetry";
+import { trySeedAppleReviewDemoForSession } from "@/lib/review/appleReviewDemoSeed";
 import type { Reptile, ScheduleItem, TaskType } from "@/types";
 
 type CloudReptileRow = {
@@ -362,6 +363,15 @@ export async function syncCurrentUserReptiles(authenticatedUserId?: string): Pro
     await hydrateLocalCareTasksFromCloud(userId);
     await syncLocalReptilesToCloud(userId);
     await syncLocalCareTasksToCloud(userId);
+
+    const sessionEmail = supabase
+      ? ((await supabase.auth.getSession()).data.session?.user?.email ?? undefined)
+      : undefined;
+    const didSeedReviewDemo = await trySeedAppleReviewDemoForSession(userId, sessionEmail);
+    if (didSeedReviewDemo) {
+      await syncLocalReptilesToCloud(userId);
+      await syncLocalCareTasksToCloud(userId);
+    }
 
     const db = await getDB();
     const reptileCount = (await db.getAll("reptiles")).length;
