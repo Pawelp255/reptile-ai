@@ -15,8 +15,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { getAllReptiles, createCareEvent, getToday } from '@/lib/storage';
+import { getAllReptiles, createCareEvent, getToday, reconcileScheduleAfterManualCareEvent } from '@/lib/storage';
+import { pushCareTasksToCloudByIds } from '@/lib/reptiles/cloudSync';
 import type { Reptile, EventType, CareEventFormData, Supplement } from '@/types';
+import { toast } from 'sonner';
 import { SUPPLEMENT_OPTIONS } from '@/types';
 
 const eventTypeOptions: { value: EventType; label: string; emoji: string }[] = [
@@ -126,7 +128,7 @@ export default function AddEventPage() {
 
     setSaving(true);
     try {
-      await createCareEvent({
+      const created = await createCareEvent({
         ...formData,
         details: formData.details?.trim() || undefined,
         // Only include health metrics for health events
@@ -137,9 +139,20 @@ export default function AddEventPage() {
           ? formData.supplements 
           : undefined,
       });
+
+      const scheduleId = await reconcileScheduleAfterManualCareEvent(
+        formData.reptileId,
+        formData.eventType,
+        created.eventDate,
+      );
+      if (scheduleId) {
+        void pushCareTasksToCloudByIds([scheduleId]).catch(() => {});
+      }
+
       navigate('/journal');
     } catch (error) {
       console.error('Failed to create event:', error);
+      toast.error('Could not save event — try again');
     } finally {
       setSaving(false);
     }

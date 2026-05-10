@@ -16,6 +16,7 @@ import {
 import { GeneEditor } from '@/components/GeneEditor';
 import { PetPhotoPicker } from '@/components/PetPhotoPicker';
 import { getReptileById, updateReptile } from '@/lib/storage';
+import { toast } from 'sonner';
 import type { ReptileFormData, Sex, DietType, BreedingStatus } from '@/types';
 import { BREEDING_STATUS_OPTIONS as breedingStatusOptions } from '@/types';
 import type { GeneticGene } from '@/types/genetics';
@@ -222,6 +223,7 @@ export default function EditReptilePage() {
       navigate(`/reptiles/${id}`);
     } catch (error) {
       console.error('Failed to update reptile:', error);
+      toast.error('Could not save changes — try again');
     } finally {
       setSaving(false);
     }

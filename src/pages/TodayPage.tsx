@@ -25,7 +25,7 @@ import {
   updateSettings,
   isSampleDatasetEnabled,
 } from '@/lib/storage';
-import { REPTILES_CLOUD_SYNC_EVENT } from '@/lib/reptiles/cloudSync';
+import { pushCareTasksToCloudByIds, REPTILES_CLOUD_SYNC_EVENT } from '@/lib/reptiles/cloudSync';
 import type { ScheduleItem, Reptile } from '@/types';
 
 interface TaskWithReptile extends ScheduleItem {
@@ -43,8 +43,6 @@ function focusAnimalCarePhrase(animalName: string, task: TaskWithReptile | undef
       return `${n} could use a fresh enclosure cleanup.`;
     case 'check':
       return `${n} is due for a routine check today.`;
-    case 'shed':
-      return `Keep an eye on ${n}'s shed today.`;
     default:
       return `${n} has care waiting.`;
   }
@@ -119,7 +117,7 @@ export default function TodayPage() {
     const bOverdue = isOverdue(b.nextDueDate);
     if (aOverdue && !bOverdue) return -1;
     if (!aOverdue && bOverdue) return 1;
-    return new Date(a.nextDueDate).getTime() - new Date(b.nextDueDate).getTime();
+    return a.nextDueDate.localeCompare(b.nextDueDate);
   });
 
   // Group tasks by reptile
@@ -145,7 +143,7 @@ export default function TodayPage() {
       const bOverdue = isOverdue(b.nextDueDate);
       if (aOverdue && !bOverdue) return -1;
       if (!aOverdue && bOverdue) return 1;
-      return new Date(a.nextDueDate).getTime() - new Date(b.nextDueDate).getTime();
+      return a.nextDueDate.localeCompare(b.nextDueDate);
     });
   const nextImportantTask = todayImportantTasks[0];
   const reptileList = Array.from(reptiles.values());
@@ -193,12 +191,11 @@ export default function TodayPage() {
     feed: 'Feeding',
     clean: 'Cleaning',
     check: 'Routine check',
-    shed: 'Shedding',
   };
   const focusAnimalNextTask = focusAnimal
     ? tasks
       .filter(task => task.reptileId === focusAnimal.id)
-      .sort((a, b) => new Date(a.nextDueDate).getTime() - new Date(b.nextDueDate).getTime())[0]
+      .sort((a, b) => a.nextDueDate.localeCompare(b.nextDueDate))[0]
     : undefined;
   const focusAnimalCareLine = focusAnimal
     ? focusAnimalCarePhrase(focusAnimal.name, focusAnimalNextTask)
@@ -228,10 +225,14 @@ export default function TodayPage() {
     setSaving(true);
     try {
       await markTaskDone(modalState.task.id, details);
+      void pushCareTasksToCloudByIds([modalState.task.id]).catch(() => {
+        /* local writes already succeeded */
+      });
       await loadData();
       setModalState({ isOpen: false, task: null });
     } catch (error) {
       console.error('Failed to mark task done:', error);
+      toast.error('Could not save task — try again');
     } finally {
       setSaving(false);
     }

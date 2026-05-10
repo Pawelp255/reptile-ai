@@ -28,8 +28,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { format } from 'date-fns';
 import { toast } from 'sonner';
+import { formatLocalDateKey } from '@/lib/date/localDateKey';
 import { stripDemoMarkerForDisplay } from '@/lib/display/stripDemoMarker';
 import { getAllCareEvents, getAllReptiles, deleteCareEvent } from '@/lib/storage';
 import type { CareEvent, Reptile, EventType } from '@/types';
@@ -224,7 +224,11 @@ export default function JournalPage() {
                 <div className="col-span-2">
                   <span className="text-muted-foreground">Date</span>
                   <p className="font-medium">
-                    {format(new Date(selectedEvent.eventDate), 'MMMM d, yyyy')}
+                    {formatLocalDateKey(selectedEvent.eventDate, {
+                      month: 'long',
+                      day: 'numeric',
+                      year: 'numeric',
+                    })}
                   </p>
                 </div>
               </div>

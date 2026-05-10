@@ -2,7 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Trash2, Edit, Calendar, Utensils, RefreshCw, Pencil, Scale, Ruler, Heart, Plus, FileText, FileBadge, Bot, Share2 } from 'lucide-react';
-import { format, isValid } from 'date-fns';
+import { isValid } from 'date-fns';
+import { formatLocalDateKey, parseLocalDateKey } from '@/lib/date/localDateKey';
 import { PageHeader } from '@/components/PageHeader';
 import { PageMotion } from '@/components/motion/PageMotion';
 import { ProBadge } from '@/components/plan/ProBadge';
@@ -41,6 +42,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
+import { pushCareTasksToCloudByIds } from '@/lib/reptiles/cloudSync';
 import { downloadVetPdf } from '@/lib/export/vetPdf';
 import { ProfileSkeleton } from '@/components/system/SkeletonLoaders';
 import { PetProfileShareDialog } from '@/components/PetProfileShareDialog';
@@ -191,6 +193,7 @@ export default function ReptileProfilePage() {
       navigate('/reptiles');
     } catch (error) {
       console.error('Failed to delete reptile:', error);
+      toast.error('Could not delete animal — try again');
     } finally {
       setDeleting(false);
     }
@@ -206,10 +209,12 @@ export default function ReptileProfilePage() {
 
     try {
       await updateScheduleFrequency(itemId, tempFrequency);
+      void pushCareTasksToCloudByIds([itemId]).catch(() => {});
       await loadData();
       setEditingSchedule(null);
     } catch (error) {
       console.error('Failed to update frequency:', error);
+      toast.error('Could not save schedule frequency');
     }
   };
 
@@ -345,10 +350,16 @@ export default function ReptileProfilePage() {
                 <span className="text-muted-foreground">Diet</span>
                 <p className="font-medium">{dietLabels[reptile.dietType] ?? reptile.dietType}</p>
               </div>
-              {reptile.birthDate && isValid(new Date(reptile.birthDate)) && (
+              {reptile.birthDate && isValid(parseLocalDateKey(reptile.birthDate)) && (
                 <div>
                   <span className="text-muted-foreground">Birth Date</span>
-                  <p className="font-medium">{format(new Date(reptile.birthDate), 'MMM d, yyyy')}</p>
+                  <p className="font-medium">
+                    {formatLocalDateKey(reptile.birthDate, {
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric',
+                    })}
+                  </p>
                 </div>
               )}
               {reptile.estimatedAgeMonths && (
@@ -357,10 +368,16 @@ export default function ReptileProfilePage() {
                   <p className="font-medium">{reptile.estimatedAgeMonths} months</p>
                 </div>
               )}
-              {reptile.acquisitionDate && isValid(new Date(reptile.acquisitionDate)) && (
+              {reptile.acquisitionDate && isValid(parseLocalDateKey(reptile.acquisitionDate)) && (
                 <div>
                   <span className="text-muted-foreground">Acquired</span>
-                  <p className="font-medium">{format(new Date(reptile.acquisitionDate), 'MMM d, yyyy')}</p>
+                  <p className="font-medium">
+                    {formatLocalDateKey(reptile.acquisitionDate, {
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric',
+                    })}
+                  </p>
                 </div>
               )}
             </div>
@@ -395,8 +412,12 @@ export default function ReptileProfilePage() {
                 <div>
                   <span className="text-muted-foreground text-sm">Last Feeding</span>
                   <p className="font-medium text-sm">
-                    {lastFeeding 
-                      ? format(new Date(lastFeeding.eventDate), 'MMM d, yyyy')
+                    {lastFeeding
+                      ? formatLocalDateKey(lastFeeding.eventDate, {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric',
+                        })
                       : 'No record'}
                   </p>
                 </div>
@@ -408,8 +429,12 @@ export default function ReptileProfilePage() {
                 <div>
                   <span className="text-muted-foreground text-sm">Last Shedding</span>
                   <p className="font-medium text-sm">
-                    {lastShedding 
-                      ? format(new Date(lastShedding.eventDate), 'MMM d, yyyy')
+                    {lastShedding
+                      ? formatLocalDateKey(lastShedding.eventDate, {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric',
+                        })
                       : 'No record'}
                   </p>
                 </div>
@@ -502,7 +527,12 @@ export default function ReptileProfilePage() {
                       Every {item.frequencyDays} days
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Next: {format(new Date(item.nextDueDate), 'MMM d, yyyy')}
+                      Next:{' '}
+                      {formatLocalDateKey(item.nextDueDate, {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric',
+                      })}
                     </p>
                   </div>
                   
@@ -593,7 +623,12 @@ export default function ReptileProfilePage() {
                           {reptile.name} × {pairing.partner?.name || 'Unknown'}
                         </p>
                         <p className="text-sm text-muted-foreground">
-                          Started {format(new Date(pairing.startDate), 'MMM d, yyyy')}
+                          Started{' '}
+                          {formatLocalDateKey(pairing.startDate, {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric',
+                          })}
                         </p>
                       </div>
                       <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${pairingStatusColors[pairing.status]}`}>
@@ -647,7 +682,11 @@ export default function ReptileProfilePage() {
                 <div>
                   <span className="text-muted-foreground">Date</span>
                   <p className="font-medium">
-                    {format(new Date(selectedEvent.eventDate), 'MMM d, yyyy')}
+                    {formatLocalDateKey(selectedEvent.eventDate, {
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric',
+                    })}
                   </p>
                 </div>
               </div>

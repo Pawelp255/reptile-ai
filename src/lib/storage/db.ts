@@ -1,6 +1,7 @@
 // IndexedDB Storage Layer for Reptilita
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
 import type { Reptile, CareEvent, ScheduleItem, AppSettings, Pairing, Clutch, Offspring } from '@/types';
+import { addDaysLocal, getLocalDateKey } from '@/lib/date/localDateKey';
 
 type StoredAppSettings = AppSettings & { id: string };
 
@@ -125,9 +126,9 @@ export function generateId(): string {
   return crypto.randomUUID();
 }
 
-// Get today's date in ISO format
+// Today's calendar date as YYYY-MM-DD in local timezone
 export function getToday(): string {
-  return new Date().toISOString().split('T')[0];
+  return getLocalDateKey();
 }
 
 // Get current ISO datetime
@@ -135,11 +136,9 @@ export function getNow(): string {
   return new Date().toISOString();
 }
 
-// Add days to a date
+// Add days to a calendar date key (YYYY-MM-DD) in local timezone
 export function addDays(dateStr: string, days: number): string {
-  const date = new Date(dateStr);
-  date.setDate(date.getDate() + days);
-  return date.toISOString().split('T')[0];
+  return addDaysLocal(dateStr, days);
 }
 
 // Check if date is before or equal to today

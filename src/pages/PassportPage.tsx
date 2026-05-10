@@ -39,6 +39,7 @@ import {
   getReptileById,
   getScheduleByReptile,
   getSettings,
+  getToday,
 } from "@/lib/storage";
 import {
   canUseSystemShareLink,
@@ -374,7 +375,7 @@ export default function PassportPage() {
     ].filter(Boolean);
 
     const upcoming = schedule
-      .filter((item) => item.nextDueDate >= new Date().toISOString().split("T")[0])
+      .filter((item) => item.nextDueDate >= getToday())
       .sort((a, b) => a.nextDueDate.localeCompare(b.nextDueDate))
       .slice(0, 3);
 

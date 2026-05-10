@@ -1,6 +1,7 @@
 // Promo Card Generator for Expo Demo Mode
 import { jsPDF } from 'jspdf';
 import QRCode from 'qrcode';
+import { downloadOrShareBlob } from '@/lib/native/blobExport';
 
 export async function generatePromoCard(appUrl?: string): Promise<Blob> {
   const doc = new jsPDF({ unit: 'mm', format: [100, 150], orientation: 'portrait' });
@@ -73,12 +74,6 @@ export async function generatePromoCard(appUrl?: string): Promise<Blob> {
 
 export async function downloadPromoCard(appUrl?: string): Promise<void> {
   const blob = await generatePromoCard(appUrl);
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'reptilita-promo.pdf';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  const ok = await downloadOrShareBlob(blob, 'reptilita-promo.pdf');
+  if (!ok) throw new Error('Promo export failed — try Share from Settings again');
 }

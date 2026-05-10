@@ -1,6 +1,6 @@
 // ICS Calendar Export
 import type { ScheduleItem, Reptile, TaskType } from '@/types';
-import { addDays } from '../storage/db';
+import { addDays, getToday } from '../storage/db';
 
 const taskLabels: Record<TaskType, string> = {
   feed: 'Feeding',
@@ -23,7 +23,7 @@ function escapeICS(text: string): string {
 
 export function generateICS(scheduleItems: ScheduleItem[], reptiles: Reptile[]): string {
   const reptileMap = new Map(reptiles.map(r => [r.id, r]));
-  const today = new Date().toISOString().split('T')[0];
+  const today = getToday();
   
   const lines: string[] = [
     'BEGIN:VCALENDAR',

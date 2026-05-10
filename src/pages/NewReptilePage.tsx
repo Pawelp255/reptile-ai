@@ -16,6 +16,7 @@ import {
 import { GeneEditor } from '@/components/GeneEditor';
 import { PetPhotoPicker } from '@/components/PetPhotoPicker';
 import { createReptile } from '@/lib/storage';
+import { toast } from 'sonner';
 import type { ReptileFormData, Sex, DietType, BreedingStatus } from '@/types';
 import { BREEDING_STATUS_OPTIONS as breedingStatusOptions } from '@/types';
 import type { GeneticGene } from '@/types/genetics';
@@ -152,6 +153,7 @@ export default function NewReptilePage() {
       navigate(`/reptiles/${reptile.id}`, { replace: true });
     } catch (error) {
       console.error('Failed to create reptile:', error);
+      toast.error('Could not create animal — try again');
     } finally {
       setSaving(false);
     }

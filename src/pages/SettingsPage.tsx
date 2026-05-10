@@ -83,6 +83,9 @@ import {
 } from '@/lib/reptiles/cloudSync';
 import { readLastSuccessfulCloudSyncMs } from '@/lib/sync/syncTelemetry';
 import { REPTILITA_SUPPORT_EMAIL, reptilitaMailto } from '@/lib/reptilitaSupport';
+import { downloadOrShareBlob } from '@/lib/native/blobExport';
+import { getLocalDateKey } from '@/lib/date/localDateKey';
+import { isNative } from '@/lib/native/sharing';
 
 type ThemeValue = 'light' | 'dark' | 'system';
 
@@ -221,15 +224,12 @@ export default function SettingsPage() {
       if (scheduleItems.length === 0) { toast.error('No schedule items to export'); return; }
       const icsContent = generateICS(scheduleItems, reptiles);
       const blob = new Blob([icsContent], { type: 'text/calendar' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'reptilita-care-schedule.ics';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      toast.success('Schedule exported successfully');
+      const ok = await downloadOrShareBlob(blob, 'reptilita-care-schedule.ics');
+      if (!ok) {
+        toast.error('Could not export calendar — use Share to Files or try from a browser.');
+        return;
+      }
+      toast.success('Schedule ready — check downloads or the share sheet');
     } catch (error) {
       console.error('Failed to export ICS:', error);
       toast.error('Failed to export schedule');
@@ -250,7 +250,11 @@ export default function SettingsPage() {
         printWindow.document.close();
         toast.success('Report opened in new tab — use Print to save as PDF');
       } else {
-        toast.error('Please allow popups to generate the report');
+        toast.error(
+          isNative()
+            ? 'This report needs a new window. Try opening the app in Safari, or use Backup export from Settings.'
+            : 'Please allow popups to generate the report',
+        );
       }
     } catch (error) {
       console.error('Failed to generate report:', error);
@@ -469,16 +473,13 @@ export default function SettingsPage() {
     try {
       const json = await exportFullBackupJson();
       const blob = new Blob([json], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const date = new Date().toISOString().slice(0, 10);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `reptilita-backup-${date}.json`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      toast.success('Backup file downloaded');
+      const date = getLocalDateKey();
+      const ok = await downloadOrShareBlob(blob, `reptilita-backup-${date}.json`);
+      if (!ok) {
+        toast.error('Could not export backup — use Share to Files or try from a browser.');
+        return;
+      }
+      toast.success('Backup ready — check downloads or the share sheet');
     } catch (e) {
       console.error(e);
       toast.error('Backup export failed');

@@ -1,5 +1,5 @@
 // ScheduleItem CRUD operations
-import { getDB, generateId, getToday, addDays, getNow, isOverdue, isDueToday, isWithinDays } from './db';
+import { getDB, getToday, addDays, getNow, isOverdue, isDueToday, isWithinDays } from './db';
 import type { ScheduleItem, TaskType, CareEvent, EventType } from '@/types';
 import { createCareEvent } from './events';
 
@@ -32,7 +32,7 @@ export async function getUpcomingTasks(days: number): Promise<ScheduleItem[]> {
   const all = await getAllScheduleItems();
   return all
     .filter(item => isWithinDays(item.nextDueDate, days) || isOverdue(item.nextDueDate))
-    .sort((a, b) => new Date(a.nextDueDate).getTime() - new Date(b.nextDueDate).getTime());
+    .sort((a, b) => a.nextDueDate.localeCompare(b.nextDueDate));
 }
 
 // Map task type to event type
@@ -136,4 +136,37 @@ export async function getNextFeedingDate(reptileId: string): Promise<string | un
   const schedules = await getScheduleByReptile(reptileId);
   const feedSchedule = schedules.find(s => s.taskType === 'feed');
   return feedSchedule?.nextDueDate;
+}
+
+/**
+ * When logging feeding/cleaning for *today*, align an existing matching schedule row
+ * (never creates schedules). Conservative: exact calendar match to local today only.
+ */
+export async function reconcileScheduleAfterManualCareEvent(
+  reptileId: string,
+  eventType: EventType,
+  eventDateKey: string,
+): Promise<string | undefined> {
+  let taskType: TaskType | null = null;
+  if (eventType === 'feeding') taskType = 'feed';
+  else if (eventType === 'cleaning') taskType = 'clean';
+
+  if (!taskType) return undefined;
+
+  const today = getToday();
+  if (eventDateKey !== today) return undefined;
+
+  const db = await getDB();
+  const items = await db.getAllFromIndex('scheduleItems', 'by-reptile', reptileId);
+  const match = items.find((i) => i.taskType === taskType);
+  if (!match) return undefined;
+
+  const updated: ScheduleItem = {
+    ...match,
+    lastDoneDate: eventDateKey,
+    nextDueDate: addDays(eventDateKey, match.frequencyDays),
+    updatedAt: getNow(),
+  };
+  await db.put('scheduleItems', updated);
+  return match.id;
 }

@@ -2,6 +2,8 @@
 import { format } from 'date-fns';
 import { stripDemoMarkerForDisplay } from '@/lib/display/stripDemoMarker';
 import type { Reptile, CareEvent, EventType } from '@/types';
+import { formatLocalDateKey, subtractDaysLocal } from '@/lib/date/localDateKey';
+import { getToday } from '@/lib/storage/db';
 
 const eventLabels: Record<EventType, string> = {
   feeding: 'Feeding',
@@ -30,9 +32,7 @@ const dietLabels: Record<string, string> = {
 
 export function generatePDFReport(reptiles: Reptile[], events: CareEvent[]): string {
   const today = new Date();
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-  const cutoffDate = thirtyDaysAgo.toISOString().split('T')[0];
+  const cutoffDate = subtractDaysLocal(getToday(), 30);
 
   // Filter recent events
   const recentEvents = events.filter(e => e.eventDate >= cutoffDate);
@@ -71,7 +71,7 @@ export function generatePDFReport(reptiles: Reptile[], events: CareEvent[]): str
       .slice(0, 10) // Last 10 events
       .map(event => `
         <tr>
-          <td style="padding: 8px; border-bottom: 1px solid #eee;">${format(new Date(event.eventDate), 'MMM d, yyyy')}</td>
+          <td style="padding: 8px; border-bottom: 1px solid #eee;">${formatLocalDateKey(event.eventDate, { month: 'short', day: 'numeric', year: 'numeric' })}</td>
           <td style="padding: 8px; border-bottom: 1px solid #eee;">${eventLabels[event.eventType]}</td>
           <td style="padding: 8px; border-bottom: 1px solid #eee;">${stripDemoMarkerForDisplay(event.details) || '-'}</td>
         </tr>

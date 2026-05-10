@@ -1,6 +1,6 @@
-import { format } from 'date-fns';
 import { AlertCircle, Check, Utensils, Sparkles, ClipboardCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { formatLocalDateKey } from '@/lib/date/localDateKey';
 import { Button } from '@/components/ui/button';
 import type { TaskType } from '@/types';
 
@@ -60,7 +60,8 @@ export function TaskCard({
                 'text-xs font-medium truncate',
                 isOverdue ? 'text-overdue' : 'text-muted-foreground'
               )}>
-                {isOverdue ? 'Overdue' : 'Due'}: {format(new Date(nextDueDate), 'MMM d')}
+                {isOverdue ? 'Overdue' : 'Due'}:{' '}
+                {formatLocalDateKey(nextDueDate, { month: 'short', day: 'numeric' })}
               </span>
             </div>
           </div>

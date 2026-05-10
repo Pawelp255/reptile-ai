@@ -442,3 +442,29 @@ export async function deleteCurrentUserCloudReptile(reptileId: string): Promise<
   if (!userId) return;
   await deleteCloudReptile(userId, reptileId);
 }
+
+/**
+ * Upserts only the given schedule rows to Supabase (no cloud→local hydrate, no full merge).
+ * No-op when unsigned or Supabase unavailable.
+ */
+export async function pushCareTasksToCloudByIds(
+  scheduleItemIds: string[],
+  authenticatedUserId?: string,
+): Promise<void> {
+  if (!supabase || scheduleItemIds.length === 0) return;
+
+  let userId: string | undefined = authenticatedUserId;
+  if (!userId) userId = (await getCurrentUserId()) ?? undefined;
+  if (!userId) return;
+
+  const db = await getDB();
+  await ensureScheduleItemsHaveTimestamps();
+
+  const reptileIds = new Set((await db.getAll("reptiles")).map((r) => r.id));
+
+  for (const id of scheduleItemIds) {
+    const local = await db.get("scheduleItems", id);
+    if (!local || !reptileIds.has(local.reptileId)) continue;
+    await upsertCloudCareTask(userId, local);
+  }
+}

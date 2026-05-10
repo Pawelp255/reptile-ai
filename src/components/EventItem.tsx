@@ -1,5 +1,5 @@
-import { format } from 'date-fns';
 import { Utensils, Sparkles, Heart, Hand, StickyNote, RefreshCw, Image } from 'lucide-react';
+import { formatLocalDateKey } from '@/lib/date/localDateKey';
 import { stripDemoMarkerForDisplay } from '@/lib/display/stripDemoMarker';
 import { cn } from '@/lib/utils';
 import type { EventType } from '@/types';
@@ -77,7 +77,7 @@ export function EventItem({
         </div>
         
         <p className="text-xs text-muted-foreground mb-1">
-          {format(new Date(eventDate), 'MMM d, yyyy')}
+          {formatLocalDateKey(eventDate, { month: 'short', day: 'numeric', year: 'numeric' })}
         </p>
         
         {displayDetails && (

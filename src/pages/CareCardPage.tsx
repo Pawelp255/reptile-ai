@@ -21,6 +21,7 @@ import {
   getScheduleByReptile,
   getLastEventByType,
   getSettings,
+  getToday,
 } from '@/lib/storage';
 import { copyToClipboard, shareImage } from '@/lib/native/sharing';
 import { buildCareCardShareUrl, buildPublicShareUrl } from '@/lib/share/shareUrls';
@@ -161,7 +162,7 @@ export default function CareCardPage() {
     }
   };
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = getToday();
   const upcomingTasks = schedule
     .filter(s => s.nextDueDate >= today)
     .sort((a, b) => a.nextDueDate.localeCompare(b.nextDueDate))
