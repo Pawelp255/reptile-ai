@@ -2,7 +2,17 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 export function ReptileListSkeleton({ count = 3 }: { count?: number }) {
   return (
-    <div className="space-y-2.5">
+    <div className="space-y-3">
+      <div className="glass-panel rounded-[var(--radius-xl)] p-3.5 sm:p-4 space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <div className="space-y-2">
+            <Skeleton className="h-3 w-20" />
+            <Skeleton className="h-3 w-36" />
+          </div>
+          <Skeleton className="h-6 w-10 rounded-full" />
+        </div>
+        <Skeleton className="h-10 w-full rounded-[var(--radius-lg)]" />
+      </div>
       {Array.from({ length: count }).map((_, i) => (
         <div key={i} className="reptile-card">
           <Skeleton className="w-12 h-12 rounded-[var(--radius-xl)] shrink-0" />
@@ -21,6 +31,20 @@ export function ReptileListSkeleton({ count = 3 }: { count?: number }) {
 export function TodayTasksSkeleton({ count = 3 }: { count?: number }) {
   return (
     <div className="space-y-5">
+      <div className="premium-surface-elevated rounded-[var(--radius-xl)] p-4 sm:p-5 space-y-4">
+        <div className="flex items-center justify-between gap-4">
+          <div className="space-y-2">
+            <Skeleton className="h-3 w-28" />
+            <Skeleton className="h-3 w-40" />
+          </div>
+          <Skeleton className="h-14 w-14 rounded-full" />
+        </div>
+        <div className="grid grid-cols-3 gap-2.5">
+          <Skeleton className="h-14 w-full rounded-lg" />
+          <Skeleton className="h-14 w-full rounded-lg" />
+          <Skeleton className="h-14 w-full rounded-lg" />
+        </div>
+      </div>
       <div className="space-y-2.5">
         <Skeleton className="h-4 w-24 rounded" />
         {Array.from({ length: count }).map((_, i) => (

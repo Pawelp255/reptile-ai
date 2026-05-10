@@ -1,9 +1,9 @@
 import { motion, useReducedMotion } from 'framer-motion';
 
 const pageTransition = {
-  initial: { opacity: 0, y: 14 },
-  animate: { opacity: 1, y: 0 },
-  transition: { duration: 0.28, ease: [0.25, 0.1, 0.25, 1] },
+  initial: { opacity: 0, y: 8, filter: 'blur(2px)' },
+  animate: { opacity: 1, y: 0, filter: 'blur(0px)' },
+  transition: { duration: 0.24, ease: [0.22, 0.1, 0.2, 1] },
 };
 
 const pageTransitionReduced = {

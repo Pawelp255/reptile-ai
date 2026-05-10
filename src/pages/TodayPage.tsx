@@ -13,6 +13,7 @@ import { MarkDoneModal } from '@/components/MarkDoneModal';
 import { TodayTasksSkeleton } from '@/components/system/SkeletonLoaders';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
+import { lightHaptic, mediumHaptic } from '@/lib/native/haptics';
 import {
   getAllScheduleItems,
   getAllReptiles,
@@ -230,6 +231,10 @@ export default function TodayPage() {
       await markTaskDone(modalState.task.id, details);
       void pushCareTasksToCloudByIds([modalState.task.id], { notifyOnError: true });
       await loadData();
+      await lightHaptic();
+      toast.success('Task saved locally', {
+        description: 'Marked complete and synced when available.',
+      });
       setModalState({ isOpen: false, task: null });
     } catch (error) {
       console.error('Failed to mark task done:', error);
@@ -245,7 +250,10 @@ export default function TodayPage() {
     try {
       await seedExpoDemo();
       await updateSettings({ expoDemoMode: true });
-      toast.success('Starter setup ready');
+      await mediumHaptic();
+      toast.success('Starter setup ready', {
+        description: 'Sample data was loaded on this device.',
+      });
       navigate('/today', { replace: true });
       await loadData();
     } catch (error) {
@@ -333,7 +341,13 @@ export default function TodayPage() {
                     ))}
                   </ul>
                   <div className="mt-8 flex flex-col gap-2.5 max-w-[20rem] mx-auto">
-                    <Link to="/reptiles/new" className="w-full tap-feedback">
+                    <Link
+                      to="/reptiles/new"
+                      className="w-full tap-feedback"
+                      onClick={() => {
+                        void lightHaptic();
+                      }}
+                    >
                       <Button className="w-full min-h-[48px] text-[15px] font-medium rounded-[var(--radius-lg)] shadow-sm">
                         Add your first animal
                       </Button>
@@ -354,7 +368,7 @@ export default function TodayPage() {
               </motion.div>
               <motion.div className="rounded-[var(--radius-lg)] border border-border/60 bg-card/60 px-3 py-2.5" {...motionSettings}>
                 <div className="flex items-center justify-between gap-3">
-                  <p className="text-xs text-muted-foreground">Local-first: data stays on this device unless you sync or export.</p>
+                  <p className="text-xs text-muted-foreground">Local-first: changes save on this iPhone first, then sync if you choose.</p>
                   <Link to="/settings" className="text-xs inline-flex items-center gap-1 text-primary tap-feedback whitespace-nowrap">
                     Settings
                     <ArrowUpRight className="w-3.5 h-3.5" />
@@ -553,17 +567,32 @@ export default function TodayPage() {
           </div>
 
           <div className="relative z-10 mt-4 grid grid-cols-3 gap-2">
-            <Link to="/reptiles/new">
+            <Link
+              to="/reptiles/new"
+              onClick={() => {
+                void lightHaptic();
+              }}
+            >
               <Button variant="outline" className="w-full min-h-[40px] tap-feedback">
                 Add Animal
               </Button>
             </Link>
-            <Link to="/add-event">
+            <Link
+              to="/add-event"
+              onClick={() => {
+                void lightHaptic();
+              }}
+            >
               <Button variant="outline" className="w-full min-h-[40px] tap-feedback">
                 Add Care Event
               </Button>
             </Link>
-            <Link to="/genetics">
+            <Link
+              to="/genetics"
+              onClick={() => {
+                void lightHaptic();
+              }}
+            >
               <Button
                 variant="outline"
                 className="w-full min-h-[40px] tap-feedback"
@@ -577,7 +606,7 @@ export default function TodayPage() {
 
         <motion.div className="rounded-[var(--radius-lg)] border border-border/60 bg-card/60 px-3 py-2.5" {...motionSettings}>
           <div className="flex items-center justify-between gap-3">
-            <p className="text-xs text-muted-foreground">Local-first: data stored on this device.</p>
+            <p className="text-xs text-muted-foreground">Saved locally first. Cloud sync only runs when available.</p>
             <Link to="/settings" className="text-xs inline-flex items-center gap-1 text-primary">
               Settings
               <ArrowUpRight className="w-3.5 h-3.5" />

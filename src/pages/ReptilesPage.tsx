@@ -37,6 +37,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { Plus, Search, Bug, GripVertical } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { PageHeader } from '@/components/PageHeader';
+import { lightHaptic, mediumHaptic } from '@/lib/native/haptics';
 
 interface ReptileWithFeeding {
   reptile: Reptile;
@@ -122,7 +123,10 @@ export default function ReptilesPage() {
     try {
       await seedExpoDemo();
       await updateSettings({ expoDemoMode: true });
-      toast.success('Starter setup ready');
+      await mediumHaptic();
+      toast.success('Starter setup ready', {
+        description: 'Sample animals were added locally on this device.',
+      });
       await loadReptiles();
     } catch (e) {
       console.error('Failed to load sample data:', e);
@@ -189,7 +193,12 @@ export default function ReptilesPage() {
             className="tap-feedback shrink-0 min-h-[40px] px-3.5 rounded-full glass-shell text-sm font-medium shadow-[var(--surface-shadow)]"
             asChild
           >
-            <Link to="/reptiles/new">
+            <Link
+              to="/reptiles/new"
+              onClick={() => {
+                void lightHaptic();
+              }}
+            >
               <Plus className="w-4 h-4 mr-1.5" />
               Add
             </Link>

@@ -31,6 +31,7 @@ import {
   type WaterRequirement,
   type HandlingProfile,
 } from '@/lib/animals/taxonomy';
+import { mediumHaptic } from '@/lib/native/haptics';
 
 const CUSTOM_PRESET_VALUE = '__custom__';
 
@@ -149,6 +150,10 @@ export default function NewReptilePage() {
         geneticsNotes: formData.geneticsNotes?.trim() || undefined,
         genes: formData.genes.length > 0 ? formData.genes : undefined,
         photoUrl: formData.photoUrl,
+      });
+      await mediumHaptic();
+      toast.success('Animal saved locally', {
+        description: 'Profile created on this device.',
       });
       navigate(`/reptiles/${reptile.id}`, { replace: true });
     } catch (error) {

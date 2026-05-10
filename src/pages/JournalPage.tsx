@@ -34,6 +34,7 @@ import { formatLocalDateKey } from '@/lib/date/localDateKey';
 import { stripDemoMarkerForDisplay } from '@/lib/display/stripDemoMarker';
 import { getAllCareEvents, getAllReptiles, deleteCareEvent, getToday } from '@/lib/storage';
 import type { CareEvent, Reptile, EventType } from '@/types';
+import { lightHaptic, mediumHaptic } from '@/lib/native/haptics';
 
 interface EventWithReptile extends CareEvent {
   reptile?: Reptile;
@@ -100,11 +101,14 @@ export default function JournalPage() {
 
     setDeletingEvent(true);
     try {
+      await mediumHaptic();
       await deleteCareEvent(selectedEvent.id);
       await loadData();
       setDeleteEventOpen(false);
       setSelectedEvent(null);
-      toast.success('Event deleted');
+      toast.success('Event removed', {
+        description: 'This update was saved locally on your device.',
+      });
     } catch (error) {
       console.error('Failed to delete event:', error);
       toast.error('Failed to delete event');
@@ -378,7 +382,10 @@ export default function JournalPage() {
                 <Button 
                   variant="destructive" 
                   className="w-full"
-                  onClick={() => setDeleteEventOpen(true)}
+                  onClick={() => {
+                    void lightHaptic();
+                    setDeleteEventOpen(true);
+                  }}
                 >
                   <Trash2 className="w-4 h-4 mr-2" />
                   Delete Event

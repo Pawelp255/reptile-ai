@@ -20,6 +20,7 @@ import { pushCareTasksToCloudByIds } from '@/lib/reptiles/cloudSync';
 import type { Reptile, EventType, CareEventFormData, Supplement } from '@/types';
 import { toast } from 'sonner';
 import { SUPPLEMENT_OPTIONS } from '@/types';
+import { lightHaptic, mediumHaptic } from '@/lib/native/haptics';
 
 const eventTypeOptions: { value: EventType; label: string; emoji: string }[] = [
   { value: 'feeding', label: 'Feeding', emoji: '🍽️' },
@@ -149,6 +150,10 @@ export default function AddEventPage() {
         void pushCareTasksToCloudByIds([scheduleId], { notifyOnError: true });
       }
 
+      await mediumHaptic();
+      toast.success('Event saved locally', {
+        description: 'Your journal updates instantly and syncs when available.',
+      });
       navigate('/journal');
     } catch (error) {
       console.error('Failed to create event:', error);
@@ -163,7 +168,7 @@ export default function AddEventPage() {
       <div className="page-container">
         <PageHeader title="Add Event" />
         <div className="page-content page-content-top loading-min-height flex items-center justify-center">
-          <div className="animate-pulse text-sm text-muted-foreground">Loading…</div>
+          <div className="animate-pulse text-sm text-muted-foreground">Loading your animals…</div>
         </div>
       </div>
     );
@@ -179,7 +184,13 @@ export default function AddEventPage() {
             title="No animals yet"
             description="Add an animal from My Animals first, then you can log events here."
             action={
-              <Button className="w-full" onClick={() => navigate('/reptiles/new')}>
+              <Button
+                className="w-full"
+                onClick={() => {
+                  void lightHaptic();
+                  navigate('/reptiles/new');
+                }}
+              >
                 Add Animal
               </Button>
             }
