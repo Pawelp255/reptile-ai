@@ -19,6 +19,7 @@ type CloudReptileRow = {
   breeding_status: string;
   notes: string | null;
   photo_url: string | null;
+  sort_order: number | null;
   data: Json;
   created_at: string;
   updated_at: string;
@@ -45,6 +46,7 @@ function toCloudRecord(userId: string, reptile: Reptile): TablesInsert<"reptiles
     breeding_status: reptile.breedingStatus,
     notes: reptile.notes ?? null,
     photo_url: reptile.photoUrl ?? null,
+    sort_order: typeof reptile.sortOrder === "number" ? reptile.sortOrder : null,
     data: reptile as unknown as Json,
     created_at: reptile.createdAt,
     updated_at: reptile.updatedAt,
@@ -70,6 +72,12 @@ function fromCloudRecord(row: CloudReptileRow): Reptile {
     breedingStatus: payload.breedingStatus ?? (row.breeding_status as Reptile["breedingStatus"]),
     notes: payload.notes ?? row.notes ?? undefined,
     photoUrl: payload.photoUrl ?? row.photo_url ?? undefined,
+    sortOrder:
+      typeof payload.sortOrder === "number"
+        ? payload.sortOrder
+        : row.sort_order != null
+          ? row.sort_order
+          : undefined,
     createdAt: payload.createdAt ?? row.created_at,
     updatedAt: payload.updatedAt ?? row.updated_at,
   };

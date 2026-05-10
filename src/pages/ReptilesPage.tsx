@@ -1,8 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
-import { motion } from 'framer-motion';
-import { Plus, Search, Bug } from 'lucide-react';
-import { Link } from 'react-router-dom';
-import { PageHeader } from '@/components/PageHeader';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { PageMotion } from '@/components/motion/PageMotion';
 import { StaggerList, StaggerItem } from '@/components/motion/StaggerList';
 import { ReptileCard } from '@/components/ReptileCard';
@@ -10,14 +6,67 @@ import { EmptyState } from '@/components/EmptyState';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
-import { getAllReptiles, getNextFeedingDate, isSampleDatasetEnabled, seedExpoDemo, updateSettings } from '@/lib/storage';
+import {
+  getAllReptiles,
+  getNextFeedingDate,
+  isSampleDatasetEnabled,
+  persistReptilesDisplayOrder,
+  seedExpoDemo,
+  updateSettings,
+} from '@/lib/storage';
 import { ReptileListSkeleton } from '@/components/system/SkeletonLoaders';
 import type { Reptile } from '@/types';
 import { REPTILES_CLOUD_SYNC_EVENT } from '@/lib/reptiles/cloudSync';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { Plus, Search, Bug, GripVertical } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { PageHeader } from '@/components/PageHeader';
 
 interface ReptileWithFeeding {
   reptile: Reptile;
   nextFeedingDate?: string;
+}
+
+function SortableReptileRow({ reptile, nextFeedingDate }: { reptile: Reptile; nextFeedingDate?: string }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: reptile.id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+  return (
+    <div ref={setNodeRef} style={style} className={isDragging ? 'relative z-20 opacity-90' : undefined}>
+      <div className="flex min-w-0 items-stretch gap-2">
+        <button
+          type="button"
+          className="mt-0.5 flex h-11 w-9 shrink-0 touch-none items-center justify-center rounded-lg border border-border bg-muted/40 text-muted-foreground hover:bg-muted/70"
+          {...attributes}
+          {...listeners}
+          aria-label="Hold and drag to reorder"
+        >
+          <GripVertical className="h-4 w-4" aria-hidden />
+        </button>
+        <div className="min-w-0 flex-1">
+          <ReptileCard reptile={reptile} nextFeedingDate={nextFeedingDate} />
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function ReptilesPage() {
@@ -26,6 +75,15 @@ export default function ReptilesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<'all' | 'reptile' | 'amphibian'>('all');
   const [loadingSample, setLoadingSample] = useState(false);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { delay: 220, tolerance: 8 },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
+  );
 
   const loadReptiles = useCallback(async () => {
     try {
@@ -74,19 +132,40 @@ export default function ReptilesPage() {
     }
   };
 
-  const filteredReptiles = reptiles.filter(({ reptile }) => {
-    if (!searchQuery.trim()) return true;
-    const query = searchQuery.toLowerCase();
-    return (
-      reptile.name.toLowerCase().includes(query) ||
-      reptile.species.toLowerCase().includes(query) ||
-      (reptile.morph?.toLowerCase().includes(query) ?? false)
-    );
-  }).filter(({ reptile }) => {
-    if (typeFilter === 'all') return true;
-    const cls = reptile.animalClass ?? (reptile.isAmphibian ? 'amphibian' : 'reptile');
-    return typeFilter === 'amphibian' ? cls === 'amphibian' : cls === 'reptile';
-  });
+  const filteredReptiles = useMemo(
+    () =>
+      reptiles
+        .filter(({ reptile }) => {
+          if (!searchQuery.trim()) return true;
+          const query = searchQuery.toLowerCase();
+          return (
+            reptile.name.toLowerCase().includes(query) ||
+            reptile.species.toLowerCase().includes(query) ||
+            (reptile.morph?.toLowerCase().includes(query) ?? false)
+          );
+        })
+        .filter(({ reptile }) => {
+          if (typeFilter === 'all') return true;
+          const cls = reptile.animalClass ?? (reptile.isAmphibian ? 'amphibian' : 'reptile');
+          return typeFilter === 'amphibian' ? cls === 'amphibian' : cls === 'reptile';
+        }),
+    [reptiles, searchQuery, typeFilter],
+  );
+
+  const reorderEnabled = !searchQuery.trim() && typeFilter === 'all' && reptiles.length > 1;
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    setReptiles((items) => {
+      const oldIndex = items.findIndex((x) => x.reptile.id === active.id);
+      const newIndex = items.findIndex((x) => x.reptile.id === over.id);
+      if (oldIndex < 0 || newIndex < 0) return items;
+      const next = arrayMove(items, oldIndex, newIndex);
+      void persistReptilesDisplayOrder(next.map((x) => x.reptile.id));
+      return next;
+    });
+  };
 
   if (loading) {
     return (
@@ -101,8 +180,8 @@ export default function ReptilesPage() {
 
   return (
     <PageMotion className="page-container">
-      <PageHeader 
-        title="My Animals" 
+      <PageHeader
+        title="My Animals"
         subtitle={`${reptiles.length} animal${reptiles.length !== 1 ? 's' : ''}`}
         rightContent={
           <Link to="/reptiles/new">
@@ -122,9 +201,7 @@ export default function ReptilesPage() {
           <div className="glass-panel rounded-[var(--radius-xl)] p-3.5 sm:p-4 mb-5 space-y-3">
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
-                <p className="text-xs font-medium tracking-[0.18em] uppercase text-muted-foreground/80">
-                  Animals
-                </p>
+                <p className="text-xs font-medium tracking-[0.18em] uppercase text-muted-foreground/80">Animals</p>
                 <p className="text-sm text-muted-foreground truncate">
                   {filteredReptiles.length} match
                   {filteredReptiles.length === 1 ? '' : 'es'} · {reptiles.length} total
@@ -175,6 +252,15 @@ export default function ReptilesPage() {
                 Amphibians
               </Button>
             </div>
+            {reorderEnabled ? (
+              <p className="text-[11px] text-muted-foreground leading-snug">
+                Hold the handle, then drag to reorder. Order is saved on this device and syncs when you are signed in.
+              </p>
+            ) : reptiles.length > 1 ? (
+              <p className="text-[11px] text-muted-foreground leading-snug">
+                Set filter to All and clear search to drag and reorder your list.
+              </p>
+            ) : null}
           </div>
         )}
 
@@ -194,15 +280,15 @@ export default function ReptilesPage() {
                       </Button>
                     </Link>
                     {isSampleDatasetEnabled() && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="w-full min-h-[44px] text-muted-foreground sm:w-auto"
-                      disabled={loadingSample}
-                      onClick={handleLoadSampleData}
-                    >
-                      {loadingSample ? 'Loading…' : 'Load sample data'}
-                    </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full min-h-[44px] text-muted-foreground sm:w-auto"
+                        disabled={loadingSample}
+                        onClick={handleLoadSampleData}
+                      >
+                        {loadingSample ? 'Loading…' : 'Load sample data'}
+                      </Button>
                     )}
                   </div>
                 }
@@ -217,14 +303,21 @@ export default function ReptilesPage() {
               description="Try a different name or species."
             />
           </div>
+        ) : reorderEnabled ? (
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={reptiles.map((r) => r.reptile.id)} strategy={verticalListSortingStrategy}>
+              <div className="space-y-2.5 overflow-x-hidden">
+                {reptiles.map(({ reptile, nextFeedingDate }) => (
+                  <SortableReptileRow key={reptile.id} reptile={reptile} nextFeedingDate={nextFeedingDate} />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
         ) : (
           <StaggerList className="space-y-2.5 overflow-x-hidden">
             {filteredReptiles.map(({ reptile, nextFeedingDate }) => (
               <StaggerItem key={reptile.id}>
-                <ReptileCard
-                  reptile={reptile}
-                  nextFeedingDate={nextFeedingDate}
-                />
+                <ReptileCard reptile={reptile} nextFeedingDate={nextFeedingDate} />
               </StaggerItem>
             ))}
           </StaggerList>

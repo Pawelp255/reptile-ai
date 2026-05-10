@@ -98,7 +98,7 @@ export const SPECIES_PRESET_GROUPS: SpeciesPresetGroup[] = [
       { id: 'hognose-snake', commonName: 'Hognose Snake', scientificName: 'Heterodon nasicus', category: 'snake', speciesGroup: 'Colubrid', dietType: 'rodents', habitatType: 'terrestrial', humidityPreference: 'low', uvbRequirement: 'optional', waterRequirement: 'bowl', handlingProfile: 'tolerant' },
       { id: 'kingsnake', commonName: 'Kingsnake', scientificName: 'Lampropeltis getula', category: 'snake', speciesGroup: 'Colubrid', dietType: 'rodents', habitatType: 'terrestrial', humidityPreference: 'moderate', uvbRequirement: 'optional', waterRequirement: 'bowl', handlingProfile: 'tolerant' },
       { id: 'milk-snake', commonName: 'Milk Snake', scientificName: 'Lampropeltis triangulum', category: 'snake', speciesGroup: 'Colubrid', dietType: 'rodents', habitatType: 'terrestrial', humidityPreference: 'moderate', uvbRequirement: 'optional', waterRequirement: 'bowl', handlingProfile: 'tolerant' },
-      { id: 'boa-constrictor', commonName: 'Boa Constrictor', scientificName: 'Boa imperator', category: 'snake', speciesGroup: 'Boid', dietType: 'rodents', habitatType: 'terrestrial', humidityPreference: 'high', uvbRequirement: 'optional', waterRequirement: 'bowl', handlingProfile: 'tolerant' },
+      { id: 'boa-constrictor', commonName: 'Boa Constrictor', scientificName: 'Boa imperator', category: 'snake', speciesGroup: 'Boa / Python group', dietType: 'rodents', habitatType: 'terrestrial', humidityPreference: 'high', uvbRequirement: 'optional', waterRequirement: 'bowl', handlingProfile: 'tolerant' },
       { id: 'carpet-python', commonName: 'Carpet Python', scientificName: 'Morelia spilota', category: 'snake', speciesGroup: 'Python', dietType: 'rodents', habitatType: 'arboreal', humidityPreference: 'moderate', uvbRequirement: 'optional', waterRequirement: 'bowl', handlingProfile: 'cautious' },
     ],
   },
@@ -165,8 +165,14 @@ export const SPECIES_PRESET_GROUPS: SpeciesPresetGroup[] = [
     category: 'frog',
     presets: [
       { id: 'whites-tree-frog', commonName: "White's Tree Frog", scientificName: 'Ranoidea caerulea', category: 'frog', speciesGroup: 'Tree Frog', dietType: 'insects', habitatType: 'arboreal', humidityPreference: 'high', uvbRequirement: 'optional', waterRequirement: 'bowl', handlingProfile: 'tolerant', isAmphibian: true },
-      { id: 'pacman-frog', commonName: 'Pacman Frog', scientificName: 'Ceratophrys ornata', category: 'frog', speciesGroup: 'Frog', dietType: 'insects', habitatType: 'terrestrial', humidityPreference: 'high', uvbRequirement: 'optional', waterRequirement: 'bowl', handlingProfile: 'not-recommended', isAmphibian: true },
+      { id: 'pacman-frog', commonName: 'Pac-Man Frog', scientificName: 'Ceratophrys ornata', category: 'frog', speciesGroup: 'Frog', dietType: 'insects', habitatType: 'terrestrial', humidityPreference: 'high', uvbRequirement: 'optional', waterRequirement: 'bowl', handlingProfile: 'not-recommended', isAmphibian: true },
       { id: 'dart-frog', commonName: 'Dart Frog', scientificName: 'Dendrobatidae', category: 'frog', speciesGroup: 'Dart Frog', dietType: 'insects', habitatType: 'terrestrial', humidityPreference: 'very-high', uvbRequirement: 'optional', waterRequirement: 'minimal', handlingProfile: 'not-recommended', isAmphibian: true },
+      { id: 'tomato-frog', commonName: 'Tomato Frog', scientificName: 'Dyscophus guineti', category: 'frog', speciesGroup: 'Frog', dietType: 'insects', habitatType: 'terrestrial', humidityPreference: 'high', uvbRequirement: 'optional', waterRequirement: 'bowl', handlingProfile: 'not-recommended', isAmphibian: true },
+      { id: 'african-bullfrog', commonName: 'African Bullfrog', scientificName: 'Pyxicephalus adspersus', category: 'frog', speciesGroup: 'Frog', dietType: 'insects', habitatType: 'terrestrial', humidityPreference: 'moderate', uvbRequirement: 'optional', waterRequirement: 'bowl', handlingProfile: 'not-recommended', isAmphibian: true },
+      { id: 'budgetts-frog', commonName: "Budgett's Frog", scientificName: 'Lepidobatrachus laevis', category: 'frog', speciesGroup: 'Frog', dietType: 'insects', habitatType: 'aquatic', humidityPreference: 'very-high', uvbRequirement: 'optional', waterRequirement: 'swim-area', handlingProfile: 'not-recommended', isAmphibian: true },
+      { id: 'amazon-milk-frog', commonName: 'Amazon Milk Frog', scientificName: 'Trachycephalus resinifictrix', category: 'frog', speciesGroup: 'Tree Frog', dietType: 'insects', habitatType: 'arboreal', humidityPreference: 'high', uvbRequirement: 'optional', waterRequirement: 'bowl', handlingProfile: 'tolerant', isAmphibian: true },
+      { id: 'fire-bellied-toad', commonName: 'Fire-bellied Toad', scientificName: 'Bombina orientalis', category: 'frog', speciesGroup: 'Toad', dietType: 'insects', habitatType: 'semi-aquatic', humidityPreference: 'very-high', uvbRequirement: 'optional', waterRequirement: 'bowl', handlingProfile: 'not-recommended', isAmphibian: true },
+      { id: 'american-green-tree-frog', commonName: 'American Green Tree Frog', scientificName: 'Dryophytes cinereus', category: 'frog', speciesGroup: 'Tree Frog', dietType: 'insects', habitatType: 'arboreal', humidityPreference: 'high', uvbRequirement: 'optional', waterRequirement: 'bowl', handlingProfile: 'tolerant', isAmphibian: true },
     ],
   },
   {
@@ -236,6 +242,26 @@ export const CATEGORY_EMOJI: Record<AnimalCategory, string> = {
   'other-reptile': '🦎',
   'other-amphibian': '🐸',
 };
+
+/** Preset / manual values that describe snake taxonomy — hidden on non-snake animals when stale. */
+const SNAKE_TAXONOMIC_SPECIES_GROUPS = new Set<string>(['Python', 'Colubrid', 'Boid', 'Boa / Python group']);
+
+/**
+ * User-facing species group line (Passport, exports). Hides snake-only groups when the animal type is not a snake,
+ * and renames legacy "Boid" to clearer wording.
+ */
+export function getSpeciesGroupDisplayValue(
+  speciesGroup: string | undefined,
+  animalCategory: AnimalCategory | undefined,
+): string | undefined {
+  const raw = speciesGroup?.trim();
+  if (!raw) return undefined;
+  if (animalCategory && animalCategory !== 'snake' && SNAKE_TAXONOMIC_SPECIES_GROUPS.has(raw)) {
+    return undefined;
+  }
+  if (raw === 'Boid') return 'Boa / Python group';
+  return raw;
+}
 
 export function getCategoryMeta(category: AnimalCategory | undefined): AnimalCategoryMeta | undefined {
   if (!category) return undefined;

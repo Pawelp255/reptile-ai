@@ -50,7 +50,7 @@ import {
 import { buildPassportShareUrl, buildPublicShareUrl } from "@/lib/share/shareUrls";
 import { stripDemoMarkerForDisplay } from "@/lib/display/stripDemoMarker";
 import { getPublicShareForAnimal, type PublicShareRecord } from "@/lib/share/publicShare";
-import { getCategoryLabel, getDisplayEmoji } from "@/lib/animals/taxonomy";
+import { getCategoryLabel, getDisplayEmoji, getSpeciesGroupDisplayValue } from "@/lib/animals/taxonomy";
 import type { CareEvent, Reptile, ScheduleItem } from "@/types";
 
 const SEX_LABELS: Record<string, string> = {
@@ -427,7 +427,7 @@ export default function PassportPage() {
 
   const hasHandling = reptile.handlingProfile || stripDemoMarkerForDisplay(reptile.notes);
   const hasHealth = passportData.cautionNotes.length > 0 || passportData.healthSummary || passportData.upcoming.length > 0;
-  const hasTransfer = reptile.acquisitionDate || reptile.breedingStatus;
+  const hasTransfer = Boolean(formatDateSafe(reptile.acquisitionDate)) || reptile.breedingStatus;
 
   return (
     <PageMotion className="min-h-screen bg-background p-4 sm:p-5">
@@ -555,7 +555,7 @@ export default function PassportPage() {
                 { label: "Species", value: reptile.species },
                 { label: "Common name", value: reptile.commonName },
                 { label: "Category", value: passportData.categoryLabel },
-                { label: "Group", value: reptile.speciesGroup },
+                { label: "Group", value: getSpeciesGroupDisplayValue(reptile.speciesGroup, reptile.animalCategory) },
                 { label: "Sex", value: SEX_LABELS[reptile.sex] },
                 { label: "Age", value: passportData.age },
                 { label: "Hatch date", value: formatDateSafe(reptile.birthDate) },

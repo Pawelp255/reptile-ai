@@ -201,7 +201,7 @@ export default function EditReptilePage() {
         sex: formData.sex,
         birthDate: formData.birthDate || undefined,
         estimatedAgeMonths: formData.estimatedAgeMonths || undefined,
-        acquisitionDate: formData.acquisitionDate || undefined,
+        acquisitionDate: formData.acquisitionDate?.trim() ? formData.acquisitionDate : undefined,
         dietType: formData.dietType,
         breedingStatus: formData.breedingStatus,
         notes: formData.notes?.trim() || undefined,
@@ -312,6 +312,7 @@ export default function EditReptilePage() {
                   animalCategory: value,
                   animalClass: meta?.class ?? prev.animalClass,
                   isAmphibian: meta?.class === 'amphibian',
+                  speciesGroup: '',
                 }));
               }}
             >
@@ -401,7 +402,12 @@ export default function EditReptilePage() {
           </div>
 
           <div>
-            <Label htmlFor="speciesGroup">Species Group</Label>
+            <Label htmlFor="speciesGroup">Species group</Label>
+            {formData.animalCategory === 'snake' ? (
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Optional taxonomy hint (e.g. Colubrid, Boa / Python group).
+              </p>
+            ) : null}
             <Input
               id="speciesGroup"
               placeholder="e.g., Colubrid, Tree Frog, Tortoise"
@@ -587,15 +593,28 @@ export default function EditReptilePage() {
             </div>
           </div>
 
-          <div>
-            <Label htmlFor="acquisitionDate">Acquisition Date</Label>
-            <Input
-              id="acquisitionDate"
-              type="date"
-              value={formData.acquisitionDate}
-              onChange={(e) => setFormData({ ...formData, acquisitionDate: e.target.value })}
-              className="mt-1.5"
-            />
+          <div className="space-y-1.5">
+            <Label htmlFor="acquisitionDate">Acquisition date</Label>
+            <p className="text-xs text-muted-foreground">Optional. Clear if you opened the date picker by mistake.</p>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <Input
+                id="acquisitionDate"
+                type="date"
+                value={formData.acquisitionDate}
+                onChange={(e) => setFormData({ ...formData, acquisitionDate: e.target.value })}
+                className="mt-0 sm:flex-1"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="shrink-0 self-start sm:self-auto"
+                disabled={!formData.acquisitionDate}
+                onClick={() => setFormData((prev) => ({ ...prev, acquisitionDate: '' }))}
+              >
+                Clear date
+              </Button>
+            </div>
           </div>
 
           <div>

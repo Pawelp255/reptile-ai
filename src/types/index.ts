@@ -52,6 +52,8 @@ export interface Reptile {
   // Phase 3: Advanced genetics
   genes?: GeneticGene[]; // Structured gene data
   photoUrl?: string;
+  /** Display order on My Animals; lower first. Assigned on create / migration / reorder. */
+  sortOrder?: number;
   createdAt: string; // ISO datetime
   updatedAt: string; // ISO datetime
 }

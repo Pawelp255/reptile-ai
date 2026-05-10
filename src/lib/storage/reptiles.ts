@@ -67,11 +67,44 @@ function syncReptileDeleteInBackground(reptileId: string): void {
   });
 }
 
+function compareReptilesDisplayOrder(a: Reptile, b: Reptile): number {
+  const ao = a.sortOrder;
+  const bo = b.sortOrder;
+  if (typeof ao === 'number' && typeof bo === 'number' && ao !== bo) return ao - bo;
+  if (typeof ao === 'number' && typeof bo !== 'number') return -1;
+  if (typeof ao !== 'number' && typeof bo === 'number') return 1;
+  const byCreated = a.createdAt.localeCompare(b.createdAt);
+  if (byCreated !== 0) return byCreated;
+  return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+}
+
+/** Assigns contiguous `sortOrder` when legacy rows are missing it (one-time per device). */
+async function ensureReptilesHaveSortOrderAssigned(db: Awaited<ReturnType<typeof getDB>>): Promise<void> {
+  const all = await db.getAll('reptiles');
+  if (all.length === 0) return;
+  if (all.every((r) => typeof r.sortOrder === 'number')) return;
+
+  const sorted = [...all].sort(compareReptilesDisplayOrder);
+  const now = getNow();
+  const tx = db.transaction('reptiles', 'readwrite');
+  for (let i = 0; i < sorted.length; i++) {
+    const r = sorted[i];
+    await tx.store.put({ ...r, sortOrder: i, updatedAt: now });
+    syncReptileUpsertInBackground({ ...r, sortOrder: i, updatedAt: now });
+  }
+  await tx.done;
+}
+
 // Create a new reptile with auto-generated schedule
 export async function createReptile(data: ReptileFormData): Promise<Reptile> {
   const db = await getDB();
   const now = getNow();
-  
+  const existing = await db.getAll('reptiles');
+  const maxOrder = existing.reduce(
+    (m, r) => Math.max(m, typeof r.sortOrder === 'number' ? r.sortOrder : -1),
+    -1,
+  );
+
   const reptile: Reptile = {
     id: generateId(),
     name: data.name,
@@ -85,7 +118,7 @@ export async function createReptile(data: ReptileFormData): Promise<Reptile> {
     sex: data.sex,
     birthDate: data.birthDate,
     estimatedAgeMonths: data.estimatedAgeMonths,
-    acquisitionDate: data.acquisitionDate,
+    acquisitionDate: data.acquisitionDate?.trim() ? data.acquisitionDate : undefined,
     dietType: data.dietType,
     breedingStatus: data.breedingStatus || 'pet',
     notes: data.notes,
@@ -102,6 +135,7 @@ export async function createReptile(data: ReptileFormData): Promise<Reptile> {
     hets: data.hets,
     genes: data.genes,
     photoUrl: data.photoUrl?.trim() || undefined,
+    sortOrder: maxOrder + 1,
     createdAt: now,
     updatedAt: now,
   };
@@ -125,7 +159,23 @@ export async function createReptile(data: ReptileFormData): Promise<Reptile> {
 // Get all reptiles
 export async function getAllReptiles(): Promise<Reptile[]> {
   const db = await getDB();
-  return db.getAll('reptiles');
+  await ensureReptilesHaveSortOrderAssigned(db);
+  const all = await db.getAll('reptiles');
+  return [...all].sort(compareReptilesDisplayOrder);
+}
+
+/** Persist My Animals order after drag-and-drop (`orderedIds` is the full list, index 0 = top). */
+export async function persistReptilesDisplayOrder(orderedIds: string[]): Promise<void> {
+  const db = await getDB();
+  const now = getNow();
+  for (let i = 0; i < orderedIds.length; i++) {
+    const id = orderedIds[i];
+    const r = await db.get('reptiles', id);
+    if (!r) continue;
+    const next: Reptile = { ...r, sortOrder: i, updatedAt: now };
+    await db.put('reptiles', next);
+    syncReptileUpsertInBackground(next);
+  }
 }
 
 // Get a single reptile by ID
@@ -146,6 +196,9 @@ export async function updateReptile(id: string, data: Partial<ReptileFormData>):
     ...data,
     updatedAt: getNow(),
   };
+  if ('acquisitionDate' in data) {
+    updated.acquisitionDate = data.acquisitionDate?.trim() ? data.acquisitionDate : undefined;
+  }
 
   await db.put('reptiles', updated);
   syncReptileUpsertInBackground(updated);

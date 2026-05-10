@@ -1,6 +1,6 @@
 import { ChevronRight, Utensils } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { format } from 'date-fns';
+import { format, isValid } from 'date-fns';
 import type { Reptile } from '@/types';
 import { getDisplayEmoji, getCategoryLabel } from '@/lib/animals/taxonomy';
 
@@ -49,7 +49,7 @@ export function ReptileCard({ reptile, nextFeedingDate }: ReptileCardProps) {
               </span>
             )}
           </div>
-          {nextFeedingDate && (
+          {nextFeedingDate && isValid(new Date(nextFeedingDate)) && (
             <div className="flex items-center gap-2 mt-2 min-w-0">
               <Utensils className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
               <span className="text-xs text-muted-foreground truncate">

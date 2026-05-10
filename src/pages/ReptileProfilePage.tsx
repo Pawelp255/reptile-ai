@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Trash2, Edit, Calendar, Utensils, RefreshCw, Pencil, Scale, Ruler, Heart, Plus, FileText, FileBadge, Bot, Share2 } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, isValid } from 'date-fns';
 import { PageHeader } from '@/components/PageHeader';
 import { PageMotion } from '@/components/motion/PageMotion';
 import { ProBadge } from '@/components/plan/ProBadge';
@@ -345,7 +345,7 @@ export default function ReptileProfilePage() {
                 <span className="text-muted-foreground">Diet</span>
                 <p className="font-medium">{dietLabels[reptile.dietType] ?? reptile.dietType}</p>
               </div>
-              {reptile.birthDate && (
+              {reptile.birthDate && isValid(new Date(reptile.birthDate)) && (
                 <div>
                   <span className="text-muted-foreground">Birth Date</span>
                   <p className="font-medium">{format(new Date(reptile.birthDate), 'MMM d, yyyy')}</p>
@@ -357,7 +357,7 @@ export default function ReptileProfilePage() {
                   <p className="font-medium">{reptile.estimatedAgeMonths} months</p>
                 </div>
               )}
-              {reptile.acquisitionDate && (
+              {reptile.acquisitionDate && isValid(new Date(reptile.acquisitionDate)) && (
                 <div>
                   <span className="text-muted-foreground">Acquired</span>
                   <p className="font-medium">{format(new Date(reptile.acquisitionDate), 'MMM d, yyyy')}</p>
