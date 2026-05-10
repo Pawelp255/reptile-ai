@@ -14,7 +14,7 @@ export function ReptileCard({ reptile, nextFeedingDate }: ReptileCardProps) {
   const categoryLabel = reptile.animalCategory ? getCategoryLabel(reptile.animalCategory) : null;
 
   return (
-    <Link to={`/reptiles/${reptile.id}`} className="block min-h-[44px]">
+    <Link to={`/reptiles/${reptile.id}`} className="block min-h-[44px] tap-feedback rounded-[calc(var(--radius-xl)+2px)]">
       <div className="reptile-card premium-surface">
         <div className="flex items-center justify-center w-12 h-12 rounded-[var(--radius-xl)] bg-secondary/80 text-2xl shrink-0 overflow-hidden border border-border/40">
           {reptile.photoUrl ? (

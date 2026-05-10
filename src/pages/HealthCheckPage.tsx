@@ -7,14 +7,17 @@ export default function HealthCheckPage() {
   return (
     <PageMotion className="page-container">
       <PageHeader title="Photo Health Check" subtitle="Preview visual analysis" />
-      <div className="page-content page-content-top space-y-3">
+      <div className="page-content page-content-top space-y-3 pb-28">
         <div className="premium-surface rounded-[var(--radius-xl)] p-3 sm:p-4 border border-warning/25">
           <div className="flex items-center gap-2 text-warning">
             <Sparkles className="w-4 h-4 shrink-0" />
             <span className="text-xs font-semibold uppercase tracking-[0.12em]">Preview / Coming soon</span>
           </div>
-          <p className="text-xs text-muted-foreground mt-2">
-            Local-first: data stored on this device.
+          <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
+            Not veterinary advice — for planning and notes only.
+          </p>
+          <p className="text-xs text-muted-foreground mt-1.5 opacity-90">
+            Local-first: images used here stay on this device.
           </p>
         </div>
         <PhotoHealthCheck />

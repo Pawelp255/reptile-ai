@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Trash2, Edit, Calendar, Utensils, RefreshCw, Pencil, Scale, Ruler, Heart, Plus, FileText, FileBadge, Bot, Share2 } from 'lucide-react';
@@ -34,6 +34,7 @@ import {
   getLastEventByType,
   deleteCareEvent,
   getPairingsByReptile,
+  getToday,
 } from '@/lib/storage';
 import {
   Dialog,
@@ -184,6 +185,25 @@ export default function ReptileProfilePage() {
     loadData();
   }, [loadData]);
 
+  const nextCareHighlight = useMemo(() => {
+    if (!schedule.length) return null;
+    const sorted = [...schedule].sort((a, b) => a.nextDueDate.localeCompare(b.nextDueDate));
+    const task = sorted[0];
+    if (!task) return null;
+    const today = getToday();
+    const overdue = task.nextDueDate < today;
+    const dueToday = task.nextDueDate === today;
+    let status: string;
+    if (overdue) status = 'Overdue';
+    else if (dueToday) status = 'Due today';
+    else status = 'Upcoming';
+    return {
+      ...task,
+      statusLabel: status,
+      overdue,
+    };
+  }, [schedule]);
+
   const handleDelete = async () => {
     if (!id) return;
 
@@ -284,32 +304,83 @@ export default function ReptileProfilePage() {
         reptile={reptile}
       />
 
-      <div className="page-content pt-4 pb-0 animate-in-slide-up">
-        <div className="mx-auto w-full max-w-[280px]">
-          <div className="aspect-square rounded-[var(--radius-xl)] overflow-hidden border border-border/70 shadow-[var(--shadow-card)] bg-secondary/40">
-            {reptile.photoUrl ? (
-              <img
-                src={reptile.photoUrl}
-                alt={reptile.name}
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-7xl bg-gradient-to-br from-secondary/60 to-secondary/30">
-                {getDisplayEmoji(reptile.animalCategory, reptile.species)}
-              </div>
-            )}
+      <div className="page-content pt-4 pb-0 animate-in-slide-up space-y-3">
+        <div className="mx-auto w-full max-w-[288px] sm:max-w-[300px]">
+          <div className="rounded-[calc(var(--radius-xl)+4px)] p-[4px] bg-gradient-to-br from-primary/35 via-transparent to-accent/28 shadow-[var(--surface-shadow-deep)] ring-2 ring-background">
+            <div className="aspect-square rounded-[var(--radius-xl)] overflow-hidden shadow-[var(--shadow-elevated)] bg-secondary/50">
+              {reptile.photoUrl ? (
+                <img src={reptile.photoUrl} alt={reptile.name} className="w-full h-full object-cover" />
+              ) : (
+                <div className="relative w-full h-full flex flex-col items-center justify-center gap-3 bg-gradient-to-br from-secondary/95 via-muted/85 to-secondary/65">
+                  <div
+                    className="pointer-events-none absolute inset-0 opacity-[0.15]"
+                    aria-hidden
+                    style={{
+                      backgroundImage: `radial-gradient(circle at 30% 20%, hsl(var(--primary) / 0.55), transparent 55%)`,
+                    }}
+                  />
+                  <span className="relative text-[4.75rem] leading-none drop-shadow-sm select-none" aria-hidden>
+                    {getDisplayEmoji(reptile.animalCategory, reptile.species)}
+                  </span>
+                  <span className="relative text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground/90">
+                    No photo
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Hero area — breeding badge */}
-      {reptile.breedingStatus && (
-        <div className="page-content pt-1 pb-0 animate-in-slide-up">
-          <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium ${breedingStatusColors[reptile.breedingStatus] || breedingStatusColors.pet}`}>
-            {breedingStatusLabels[reptile.breedingStatus] || 'Pet'}
+        <div className="flex flex-wrap justify-center gap-2 px-1">
+          <span className="inline-flex items-center rounded-full border border-border/60 bg-background/80 px-3 py-1 text-[11px] font-semibold tracking-wide text-foreground/90 shadow-[var(--shadow-card)]">
+            {sexLabels[reptile.sex]}
           </span>
+          <span className="inline-flex items-center rounded-full border border-border/60 bg-secondary/60 px-3 py-1 text-[11px] font-medium text-secondary-foreground">
+            {dietLabels[reptile.dietType] ?? reptile.dietType}
+          </span>
+          {reptile.breedingStatus && (
+            <span
+              className={`inline-flex items-center rounded-full border border-transparent px-3 py-1 text-[11px] font-semibold ${breedingStatusColors[reptile.breedingStatus] || breedingStatusColors.pet}`}
+            >
+              {breedingStatusLabels[reptile.breedingStatus] || 'Pet'}
+            </span>
+          )}
         </div>
-      )}
+
+        {nextCareHighlight && (
+          <div
+            className={`rounded-[var(--radius-xl)] border p-3.5 sm:p-4 flex gap-3 items-start shadow-[var(--shadow-card)] ${
+              nextCareHighlight.overdue
+                ? 'border-destructive/35 bg-destructive/[0.06]'
+                : 'border-primary/20 bg-primary/[0.05]'
+            }`}
+          >
+            <div
+              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--radius-lg)] ${
+                nextCareHighlight.overdue ? 'bg-destructive/12 text-destructive' : 'bg-primary/12 text-primary'
+              }`}
+            >
+              <Calendar className="h-5 w-5" aria-hidden />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                {nextCareHighlight.statusLabel}
+              </p>
+              <p className="text-sm font-semibold text-foreground mt-0.5">
+                {taskLabels[nextCareHighlight.taskType]}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {nextCareHighlight.overdue ? 'Was due ' : 'Due '}
+                {formatLocalDateKey(nextCareHighlight.nextDueDate, {
+                  month: 'short',
+                  day: 'numeric',
+                  year: 'numeric',
+                })}
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
 
       <Tabs defaultValue="overview" className="page-content pt-5 animate-in-slide-up">
         <TabsList className="grid w-full grid-cols-4 h-11 min-h-[44px] gap-1 p-1 rounded-[var(--radius-lg)] glass-panel">
@@ -724,7 +795,9 @@ export default function ReptileProfilePage() {
               {stripDemoMarkerForDisplay(selectedEvent.details) && (
                 <div>
                   <span className="text-muted-foreground text-sm">Details</span>
-                  <p className="mt-1 text-sm">{stripDemoMarkerForDisplay(selectedEvent.details)}</p>
+                  <p className="mt-1 text-sm break-words [overflow-wrap:anywhere] leading-snug whitespace-pre-wrap max-h-[min(40vh,12rem)] overflow-y-auto">
+                    {stripDemoMarkerForDisplay(selectedEvent.details)}
+                  </p>
                 </div>
               )}
 

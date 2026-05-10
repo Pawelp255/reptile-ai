@@ -11,6 +11,8 @@ interface EventItemProps {
   reptileName?: string;
   photoDataUrl?: string;
   showReptileName?: boolean;
+  /** When a parent shows a date heading, hide the duplicate date line */
+  hideDate?: boolean;
   onClick?: () => void;
 }
 
@@ -48,6 +50,7 @@ export function EventItem({
   reptileName,
   photoDataUrl,
   showReptileName = false,
+  hideDate = false,
   onClick,
 }: EventItemProps) {
   const displayDetails = stripDemoMarkerForDisplay(details);
@@ -58,30 +61,34 @@ export function EventItem({
   return (
     <div 
       className={cn(
-        'event-item cursor-pointer',
-        onClick && 'hover:bg-muted/50'
+        'event-item cursor-pointer min-w-0',
+        onClick && 'hover:bg-muted/50 tap-feedback-soft rounded-lg -mx-1 px-1 py-0.5'
       )}
       onClick={onClick}
     >
       <div className={cn('event-dot', colorClass)} />
       
-      <div className="ml-2">
-        <div className="flex items-center gap-2 mb-0.5">
-          <Icon className="w-4 h-4 text-muted-foreground" />
+      <div className="ml-2 min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2 mb-0.5 min-w-0">
+          <Icon className="w-4 h-4 text-muted-foreground shrink-0" />
           <span className="font-medium text-sm text-foreground">{label}</span>
           {showReptileName && reptileName && (
-            <span className="text-xs px-2 py-0.5 bg-secondary rounded-full text-secondary-foreground">
+            <span className="text-xs px-2 py-0.5 bg-secondary rounded-full text-secondary-foreground max-w-[12rem] truncate">
               {reptileName}
             </span>
           )}
         </div>
         
-        <p className="text-xs text-muted-foreground mb-1">
-          {formatLocalDateKey(eventDate, { month: 'short', day: 'numeric', year: 'numeric' })}
-        </p>
+        {!hideDate && (
+          <p className="text-xs text-muted-foreground mb-1">
+            {formatLocalDateKey(eventDate, { month: 'short', day: 'numeric', year: 'numeric' })}
+          </p>
+        )}
         
         {displayDetails && (
-          <p className="text-sm text-foreground/80 line-clamp-2">{displayDetails}</p>
+          <p className="text-sm text-foreground/80 break-words [overflow-wrap:anywhere] leading-snug line-clamp-4">
+            {displayDetails}
+          </p>
         )}
         
         {photoDataUrl && (

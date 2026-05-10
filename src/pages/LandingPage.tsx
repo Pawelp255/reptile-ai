@@ -40,11 +40,11 @@ const mockTasks = [
 
 export default function LandingPage() {
   const navigate = useNavigate();
-  const [loadingDemo, setLoadingDemo] = useState(false);
+  const [loadingSample, setLoadingSample] = useState(false);
   const sampleOk = isSampleDatasetEnabled();
 
   const openWithSampleData = async () => {
-    setLoadingDemo(true);
+    setLoadingSample(true);
     try {
       await seedExpoDemo();
       await updateSettings({ expoDemoMode: true });
@@ -54,7 +54,7 @@ export default function LandingPage() {
       console.error('Failed to load sample collection:', error);
       toast.error(error instanceof Error && error.message ? error.message : 'Could not load sample data');
     } finally {
-      setLoadingDemo(false);
+      setLoadingSample(false);
     }
   };
 
@@ -82,7 +82,7 @@ export default function LandingPage() {
                 variant="ghost"
                 size="sm"
                 onClick={openWithSampleData}
-                disabled={loadingDemo}
+                disabled={loadingSample}
                 className="rounded-full text-muted-foreground"
               >
                 Try sample dataset
@@ -105,15 +105,14 @@ export default function LandingPage() {
               so nothing gets missed.
             </p>
             <div className="mt-7 flex flex-col gap-3 sm:flex-row">
-              <Button onClick={openWithSampleData} disabled={loadingDemo} size="lg" className="rounded-full">
-                {loadingDemo ? 'Loading…' : 'Try it with sample data'}
+              <Button onClick={openWithSampleData} disabled={loadingSample} size="lg" className="rounded-full">
+                {loadingSample ? 'Loading…' : 'Try it with sample data'}
                 <ChevronRight className="h-4 w-4" aria-hidden />
               </Button>
               <Button
                 variant="outline"
                 size="lg"
-                onClick={openWithSampleData}
-                disabled={loadingDemo}
+                onClick={() => navigate('/today')}
                 className="w-full rounded-full bg-card/70 sm:w-auto"
               >
                 Open app
@@ -176,8 +175,8 @@ export default function LandingPage() {
           <p className="mx-auto mt-3 max-w-lg text-secondary">
             Load realistic animals, care schedules, events, pairings, and clutch data locally on this device.
           </p>
-          <Button onClick={openWithSampleData} disabled={loadingDemo} size="lg" className="mt-6 rounded-full">
-            {loadingDemo ? 'Loading…' : 'Load sample collection'}
+          <Button onClick={openWithSampleData} disabled={loadingSample} size="lg" className="mt-6 rounded-full">
+            {loadingSample ? 'Loading…' : 'Load sample collection'}
           </Button>
         </section>
 
@@ -187,7 +186,7 @@ export default function LandingPage() {
             <button type="button" onClick={openWithSampleData} className="text-foreground hover:text-primary">
               Open with sample data
             </button>
-            <button type="button" onClick={openWithSampleData} className="text-foreground hover:text-primary">
+            <button type="button" onClick={() => navigate('/today')} className="text-foreground hover:text-primary">
               Go to app
             </button>
           </div>

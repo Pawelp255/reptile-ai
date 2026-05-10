@@ -184,15 +184,16 @@ export default function ReptilesPage() {
         title="My Animals"
         subtitle={`${reptiles.length} animal${reptiles.length !== 1 ? 's' : ''}`}
         rightContent={
-          <Link to="/reptiles/new">
-            <Button
-              size="sm"
-              className="min-h-[40px] px-3.5 rounded-full glass-shell text-sm font-medium shadow-[var(--surface-shadow)] transition-transform duration-200 ease-premium active:scale-[0.97]"
-            >
+          <Button
+            size="sm"
+            className="tap-feedback shrink-0 min-h-[40px] px-3.5 rounded-full glass-shell text-sm font-medium shadow-[var(--surface-shadow)]"
+            asChild
+          >
+            <Link to="/reptiles/new">
               <Plus className="w-4 h-4 mr-1.5" />
               Add
-            </Button>
-          </Link>
+            </Link>
+          </Button>
         }
       />
 
@@ -273,17 +274,17 @@ export default function ReptilesPage() {
                 description="Add your first animal to track feeding, health checks, and care schedules."
                 action={
                   <div className="flex w-full max-w-sm flex-col gap-2 sm:flex-row sm:justify-center">
-                    <Link to="/reptiles/new" className="w-full sm:w-auto">
-                      <Button className="w-full min-h-[44px]">
+                    <Button className="w-full min-h-[48px] tap-feedback sm:w-auto" asChild>
+                      <Link to="/reptiles/new" className="w-full sm:inline-flex sm:justify-center">
                         <Plus className="w-4 h-4 mr-2" />
                         Add your first animal
-                      </Button>
-                    </Link>
+                      </Link>
+                    </Button>
                     {isSampleDatasetEnabled() && (
                       <Button
                         type="button"
                         variant="outline"
-                        className="w-full min-h-[44px] text-muted-foreground sm:w-auto"
+                        className="w-full min-h-[44px] text-muted-foreground sm:w-auto tap-feedback"
                         disabled={loadingSample}
                         onClick={handleLoadSampleData}
                       >
@@ -297,11 +298,25 @@ export default function ReptilesPage() {
           </div>
         ) : filteredReptiles.length === 0 ? (
           <div className="animate-in-fade">
-            <EmptyState
-              icon={<Search className="w-12 h-12" />}
-              title="No matches"
-              description="Try a different name or species."
-            />
+            <div className="premium-surface-elevated rounded-[var(--radius-xl)] p-6 sm:p-8 text-center border border-border/50">
+              <EmptyState
+                icon={<Search className="w-12 h-12" />}
+                title="Nothing matches filters"
+                description="Clear search or widen the reptile/amphibian filter to see your list again."
+                action={
+                  <Button
+                    type="button"
+                    className="w-full max-w-[280px] mx-auto min-h-[48px] tap-feedback"
+                    onClick={() => {
+                      setSearchQuery('');
+                      setTypeFilter('all');
+                    }}
+                  >
+                    Reset search & filters
+                  </Button>
+                }
+              />
+            </div>
           </div>
         ) : reorderEnabled ? (
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>

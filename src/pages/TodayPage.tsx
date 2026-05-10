@@ -2,7 +2,7 @@ import { useState, useEffect, Fragment, useCallback, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
 import { cn } from '@/lib/utils';
-import { ArrowUpRight, Bug } from 'lucide-react';
+import { ArrowUpRight, Bug, Check, ListChecks, NotebookPen, UserPlus } from 'lucide-react';
 import { getDisplayEmoji } from '@/lib/animals/taxonomy';
 import { PageHeader } from '@/components/PageHeader';
 import { PageMotion } from '@/components/motion/PageMotion';
@@ -62,7 +62,7 @@ export default function TodayPage() {
     task: TaskWithReptile | null;
   }>({ isOpen: false, task: null });
   const [saving, setSaving] = useState(false);
-  const [enablingDemo, setEnablingDemo] = useState(false);
+  const [loadingSample, setLoadingSample] = useState(false);
   const markDoneInFlightRef = useRef(false);
 
   const loadData = useCallback(async () => {
@@ -240,8 +240,8 @@ export default function TodayPage() {
     }
   };
 
-  const handleEnableDemoMode = async () => {
-    setEnablingDemo(true);
+  const handleLoadSampleData = async () => {
+    setLoadingSample(true);
     try {
       await seedExpoDemo();
       await updateSettings({ expoDemoMode: true });
@@ -249,10 +249,10 @@ export default function TodayPage() {
       navigate('/today', { replace: true });
       await loadData();
     } catch (error) {
-      console.error('Failed to enable demo mode:', error);
+      console.error('Failed to load sample data:', error);
       toast.error('Could not load sample data');
     } finally {
-      setEnablingDemo(false);
+      setLoadingSample(false);
     }
   };
 
@@ -268,6 +268,7 @@ export default function TodayPage() {
   }
 
   const hasNoTasks = filteredTasks.length === 0;
+  const showFirstRunOnboarding = reptiles.size === 0;
 
   return (
     <PageMotion className="page-container relative">
@@ -289,6 +290,80 @@ export default function TodayPage() {
         />
 
         <div className="page-content page-content-top space-y-5 !pt-2 sm:!pt-2.5">
+          {showFirstRunOnboarding ? (
+            <>
+              <motion.div
+                className="premium-surface-elevated relative overflow-hidden rounded-[var(--radius-xl)] p-5 sm:p-6 shadow-[var(--surface-shadow-deep),0_0_48px_-16px_hsl(var(--primary)/0.14)] dark:shadow-[var(--surface-shadow-deep),0_0_56px_-14px_hsl(var(--primary)/0.2)] border border-primary/10"
+                {...motionSettings}
+              >
+                <div
+                  className="pointer-events-none absolute inset-0 opacity-80"
+                  aria-hidden
+                  style={{
+                    background:
+                      'radial-gradient(120% 80% at 10% 0%, hsl(var(--primary) / 0.12) 0%, transparent 58%), radial-gradient(100% 70% at 100% 100%, hsl(var(--accent) / 0.08) 0%, transparent 62%)',
+                  }}
+                />
+                <div className="relative z-10 text-center sm:text-left">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-primary/85">Get started</p>
+                  <h2 className="mt-2 text-xl font-semibold tracking-tight text-foreground sm:text-[1.35rem]">
+                    Welcome to Reptilita
+                  </h2>
+                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground max-w-md mx-auto sm:mx-0">
+                    Your local-first companion for daily reptile &amp; amphibian care.
+                  </p>
+                  <ul className="mt-6 space-y-4 text-left max-w-[20rem] mx-auto">
+                    {[
+                      { icon: UserPlus, title: 'Add your animals', body: 'Name, species, and photos live on this device.' },
+                      { icon: ListChecks, title: 'Track care tasks', body: 'See what’s due today and mark chores done.' },
+                      { icon: NotebookPen, title: 'Keep records over time', body: 'Journal feedings, sheds, and notes in one timeline.' },
+                    ].map(({ icon: Icon, title, body }) => (
+                      <li key={title} className="flex gap-3 tap-feedback-soft">
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/12 text-primary ring-1 ring-primary/15">
+                          <Icon className="h-[18px] w-[18px]" aria-hidden />
+                        </span>
+                        <div className="min-w-0 pt-0.5">
+                          <p className="text-sm font-medium text-foreground flex items-center gap-1.5">
+                            <Check className="h-3.5 w-3.5 text-teal-600 dark:text-teal-400 shrink-0" aria-hidden />
+                            {title}
+                          </p>
+                          <p className="mt-1 text-[13px] leading-snug text-muted-foreground">{body}</p>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="mt-8 flex flex-col gap-2.5 max-w-[20rem] mx-auto">
+                    <Link to="/reptiles/new" className="w-full tap-feedback">
+                      <Button className="w-full min-h-[48px] text-[15px] font-medium rounded-[var(--radius-lg)] shadow-sm">
+                        Add your first animal
+                      </Button>
+                    </Link>
+                    {isSampleDatasetEnabled() && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full min-h-[48px] text-muted-foreground tap-feedback rounded-[var(--radius-lg)]"
+                        onClick={handleLoadSampleData}
+                        disabled={loadingSample}
+                      >
+                        {loadingSample ? 'Loading…' : 'Load sample data'}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+              <motion.div className="rounded-[var(--radius-lg)] border border-border/60 bg-card/60 px-3 py-2.5" {...motionSettings}>
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-xs text-muted-foreground">Local-first: data stays on this device unless you sync or export.</p>
+                  <Link to="/settings" className="text-xs inline-flex items-center gap-1 text-primary tap-feedback whitespace-nowrap">
+                    Settings
+                    <ArrowUpRight className="w-3.5 h-3.5" />
+                  </Link>
+                </div>
+              </motion.div>
+            </>
+          ) : (
+            <>
           {/* Collection hero */}
           <motion.div
             className="premium-surface-elevated relative overflow-hidden rounded-[var(--radius-xl)] p-4 sm:p-5 shadow-[var(--surface-shadow-deep),0_0_48px_-16px_hsl(var(--primary)/0.14)] dark:shadow-[var(--surface-shadow-deep),0_0_56px_-14px_hsl(var(--primary)/0.2)]"
@@ -399,9 +474,7 @@ export default function TodayPage() {
                     )}
                   </p>
                   <p className="text-xs text-muted-foreground/90 pt-1">
-                    {reptiles.size === 0
-                      ? 'No collection loaded yet.'
-                      : `${animalsClearTodayCount} of ${reptiles.size} with no overdue or due-today tasks.`}
+                    {`${animalsClearTodayCount} of ${reptiles.size} with no overdue or due-today tasks.`}
                   </p>
                 </div>
               </div>
@@ -481,57 +554,25 @@ export default function TodayPage() {
 
           <div className="relative z-10 mt-4 grid grid-cols-3 gap-2">
             <Link to="/reptiles/new">
-              <Button
-                variant="outline"
-                className="w-full min-h-[40px] transition-transform duration-150 motion-safe:active:scale-[0.97]"
-              >
+              <Button variant="outline" className="w-full min-h-[40px] tap-feedback">
                 Add Animal
               </Button>
             </Link>
             <Link to="/add-event">
-              <Button
-                variant="outline"
-                className="w-full min-h-[40px] transition-transform duration-150 motion-safe:active:scale-[0.97]"
-              >
+              <Button variant="outline" className="w-full min-h-[40px] tap-feedback">
                 Add Care Event
               </Button>
             </Link>
             <Link to="/genetics">
               <Button
                 variant="outline"
-                className="w-full min-h-[40px] transition-transform duration-150 motion-safe:active:scale-[0.97]"
+                className="w-full min-h-[40px] tap-feedback"
               >
                 Open Genetics
               </Button>
             </Link>
           </div>
 
-          {reptiles.size === 0 && (
-            <div className="relative z-10 mt-4 rounded-lg border border-border/60 bg-card/80 px-3 py-3">
-              <p className="text-sm font-medium text-foreground">Add your first animal</p>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                Track feeding, sheds, weights, and schedules in one place.
-              </p>
-              <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
-                <Link to="/reptiles/new">
-                  <Button className="min-h-[40px] w-full sm:w-auto transition-transform duration-150 motion-safe:active:scale-[0.97]">
-                    Add your first animal
-                  </Button>
-                </Link>
-                {isSampleDatasetEnabled() && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="min-h-[40px] w-full sm:w-auto text-muted-foreground transition-transform duration-150 motion-safe:active:scale-[0.97]"
-                  onClick={handleEnableDemoMode}
-                  disabled={enablingDemo}
-                >
-                  {enablingDemo ? 'Loading…' : 'Load sample data'}
-                </Button>
-                )}
-              </div>
-            </div>
-          )}
         </motion.div>
 
         <motion.div className="rounded-[var(--radius-lg)] border border-border/60 bg-card/60 px-3 py-2.5" {...motionSettings}>
@@ -584,14 +625,38 @@ export default function TodayPage() {
         <Fragment key={filterMode}>
           {hasNoTasks ? (
             <div className="animate-in-fade">
-              <div className="premium-surface-elevated rounded-[var(--radius-xl)] p-6 sm:p-7 text-center">
+              <div className="premium-surface-elevated rounded-[var(--radius-xl)] p-6 sm:p-8 text-center border border-border/50">
                 <EmptyState
-                  icon={<Bug className="w-16 h-16" />}
+                  icon={<Bug className="w-16 h-16 opacity-90" />}
                   title="All caught up"
                   description={
                     filterMode === 'today'
-                      ? "No tasks due today. Switch to Next 7 Days to see what’s coming up."
-                      : "No tasks in the next week. Add reptiles and set schedules to get reminders."
+                      ? 'Nothing due today. Log a quick event anytime, or peek at the week ahead.'
+                      : 'Nothing scheduled in this window yet. Tasks appear when schedules are due.'
+                  }
+                  action={
+                    <Link to="/add-event" className="block w-full max-w-[280px] mx-auto tap-feedback">
+                      <Button className="w-full min-h-[48px]" variant="default">
+                        Log care event
+                      </Button>
+                    </Link>
+                  }
+                  secondaryAction={
+                    <>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="min-h-[44px] px-5 tap-feedback"
+                        onClick={() => setFilterMode(filterMode === 'today' ? 'week' : 'today')}
+                      >
+                        {filterMode === 'today' ? 'View next 7 days' : 'Back to due today'}
+                      </Button>
+                      <Link to="/reptiles">
+                        <Button type="button" variant="ghost" className="min-h-[44px] text-muted-foreground tap-feedback">
+                          Browse animals
+                        </Button>
+                      </Link>
+                    </>
                   }
                 />
               </div>
@@ -633,6 +698,8 @@ export default function TodayPage() {
             </StaggerList>
           )}
         </Fragment>
+            </>
+          )}
       </div>
       </div>
 

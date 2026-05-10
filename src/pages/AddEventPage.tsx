@@ -193,7 +193,7 @@ export default function AddEventPage() {
     <div className="page-container">
       <PageHeader title="Add Event" subtitle="Log a care event" />
 
-      <form id="add-event-form" onSubmit={handleSubmit} className="page-content page-content-top space-y-6 pb-28">
+      <form id="add-event-form" onSubmit={handleSubmit} className="page-content page-content-top space-y-6 pb-32 scroll-pb-32">
         {/* Reptile Selection */}
         <div>
           <Label htmlFor="reptile">Reptile *</Label>
@@ -374,7 +374,7 @@ export default function AddEventPage() {
         <Button
           form="add-event-form"
           type="submit"
-          className="w-full min-h-[48px]"
+          className="w-full min-h-[48px] tap-feedback"
           disabled={saving || !formData.reptileId}
         >
           {saving ? 'Saving…' : 'Save Event'}

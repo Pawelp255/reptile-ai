@@ -38,7 +38,7 @@ export function TaskCard({
 
   return (
     <div className={cn(
-      'task-card animate-fade-in',
+      'task-card tap-feedback-soft animate-fade-in',
       isOverdue ? 'task-card-overdue' : 'task-card-due'
     )}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Heart } from 'lucide-react';
 import { PageHeader } from '@/components/PageHeader';
 import { EmptyState } from '@/components/EmptyState';
@@ -93,18 +93,30 @@ export default function CreatePairingPage() {
   if (reptiles.length < 2) {
     return (
       <div className="page-container">
-        <PageHeader title="Create Pairing" />
+        <PageHeader title="Create Pairing" subtitle="Log a breeding pair and track lineage" />
         <div className="page-content page-content-top">
-          <EmptyState
-            icon={<Heart className="w-16 h-16" />}
-            title="Need at least 2 reptiles"
-            description="Add another animal in My Animals, then you can create a pairing here."
-            action={
-              <Button className="w-full" onClick={() => navigate('/reptiles/new')}>
-                Add animal
-              </Button>
-            }
-          />
+          <div className="premium-surface-elevated rounded-[var(--radius-xl)] p-6 sm:p-8 text-center border border-border/50">
+            <EmptyState
+              icon={<Heart className="w-16 h-16" />}
+              title="You need two animals"
+              description="Breeding pairs link two reptiles together. Add another animal, then choose parents A and B."
+              action={
+                <Button
+                  className="w-full max-w-[280px] min-h-[48px] mx-auto tap-feedback"
+                  onClick={() => navigate('/reptiles/new')}
+                >
+                  Add animal
+                </Button>
+              }
+              secondaryAction={
+                reptiles.length === 1 ? (
+                  <Button variant="outline" className="min-h-[44px] tap-feedback" asChild>
+                    <Link to="/reptiles">Browse My Animals</Link>
+                  </Button>
+                ) : undefined
+              }
+            />
+          </div>
         </div>
       </div>
     );
@@ -123,7 +135,7 @@ export default function CreatePairingPage() {
         }
       />
 
-      <form onSubmit={handleSubmit} className="p-4 space-y-6">
+      <form id="create-pairing-form" onSubmit={handleSubmit} className="p-4 space-y-6 pb-32">
         {/* Parent A Selection */}
         <div>
           <Label htmlFor="parentA">Parent A *</Label>
@@ -210,16 +222,18 @@ export default function CreatePairingPage() {
           />
         </div>
 
-        <div className="pt-4">
-          <Button 
-            type="submit" 
-            className="w-full touch-button" 
-            disabled={saving || !formData.parentAId || !formData.parentBId || formData.parentAId === formData.parentBId}
-          >
-            {saving ? 'Creating...' : 'Create Pairing'}
-          </Button>
-        </div>
       </form>
+
+      <div className="sticky-bottom-actions">
+        <Button
+          form="create-pairing-form"
+          type="submit"
+          className="w-full min-h-[48px] tap-feedback"
+          disabled={saving || !formData.parentAId || !formData.parentBId || formData.parentAId === formData.parentBId}
+        >
+          {saving ? 'Creating...' : 'Create Pairing'}
+        </Button>
+      </div>
     </div>
   );
 }

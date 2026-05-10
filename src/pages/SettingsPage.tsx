@@ -271,7 +271,7 @@ export default function SettingsPage() {
       toast.success('Extended sample data loaded — refreshing…');
       setTimeout(() => window.location.reload(), 1000);
     } catch (error) {
-      console.error('Failed to load demo data:', error);
+      console.error('Failed to load sample data:', error);
       toast.error('Failed to load sample data');
     } finally {
       setLoadingDemo(false);
@@ -1028,7 +1028,9 @@ export default function SettingsPage() {
                 <Calculator className="w-4 h-4 text-primary shrink-0" />
                 <div>
                   <span className="text-card-title text-foreground block">Genetics calculator</span>
-                  <span className="text-secondary text-[13px]">Predict offspring outcomes · deeper tools on Pro</span>
+                  <span className="text-secondary text-[13px]">
+                    Rough trait-combination estimates · deeper tools on Pro
+                  </span>
                 </div>
               </div>
               <Button variant="ghost" size="sm">Open</Button>

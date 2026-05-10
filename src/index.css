@@ -603,7 +603,7 @@
     }
   }
 
-  /* Sticky bottom action bar — premium glass, safe-area aware */
+  /* Sticky bottom action bar — sits above tab bar (aligned with .page-container bottom padding) */
   .sticky-bottom-actions {
     background: hsl(var(--glass-bg) / var(--glass-bg-opacity));
     backdrop-filter: saturate(var(--glass-saturate)) blur(var(--glass-blur));
@@ -614,7 +614,17 @@
     padding-left: max(var(--space-page), env(safe-area-inset-left));
     padding-right: max(var(--space-page), env(safe-area-inset-right));
     padding-top: 0.75rem;
-    @apply sticky bottom-0 left-0 right-0 z-40;
+    @apply sticky left-0 right-0 z-40;
+    bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  /** Light tap feedback — use with motion-safe: respects prefers-reduced-motion */
+  .tap-feedback {
+    @apply transition-transform duration-150 ease-out motion-safe:active:scale-[0.97];
+  }
+
+  .tap-feedback-soft {
+    @apply transition-[transform,opacity] duration-150 ease-out motion-safe:active:scale-[0.992];
   }
 
 

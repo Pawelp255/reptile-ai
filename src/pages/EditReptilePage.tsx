@@ -252,7 +252,7 @@ export default function EditReptilePage() {
         }
       />
 
-      <form onSubmit={handleSubmit} className="p-4 space-y-6">
+      <form id="edit-reptile-form" onSubmit={handleSubmit} className="p-4 space-y-6 pb-32">
         {/* Required fields */}
         <div className="space-y-4">
           <div>
@@ -670,16 +670,18 @@ export default function EditReptilePage() {
           </div>
         </div>
 
-        <div className="pt-4">
-          <Button 
-            type="submit" 
-            className="w-full touch-button" 
-            disabled={saving || !formData.name.trim() || !formData.species.trim()}
-          >
-            {saving ? 'Saving...' : 'Save Changes'}
-          </Button>
-        </div>
       </form>
+
+      <div className="sticky-bottom-actions">
+        <Button
+          form="edit-reptile-form"
+          type="submit"
+          className="w-full min-h-[48px] tap-feedback"
+          disabled={saving || !formData.name.trim() || !formData.species.trim()}
+        >
+          {saving ? 'Saving...' : 'Save Changes'}
+        </Button>
+      </div>
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft,
   Info,
@@ -14,6 +14,7 @@ import {
   BookOpen,
 } from 'lucide-react';
 import { PageHeader } from '@/components/PageHeader';
+import { EmptyState } from '@/components/EmptyState';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -633,6 +634,42 @@ export default function GeneticsCalculatorPage() {
         <PageHeader title="Genetics Calculator" />
         <div className="flex items-center justify-center h-64">
           <div className="animate-pulse text-muted-foreground">Loading...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (reptiles.length === 0) {
+    return (
+      <div className="page-container">
+        <PageHeader
+          title="Genetics Calculator"
+          subtitle="Offspring probabilities from your records"
+          rightContent={
+            <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
+              <ArrowLeft className="w-4 h-4 mr-1" />
+              Back
+            </Button>
+          }
+        />
+        <div className="page-content page-content-top p-4">
+          <div className="premium-surface-elevated rounded-[var(--radius-xl)] p-6 sm:p-8 text-center border border-border/50 max-w-xl mx-auto">
+            <EmptyState
+              icon={<Dna className="w-16 h-16" />}
+              title="No animals yet"
+              description="Add at least two animals with morph information to explore rough breeding outcomes. On-device calculator only."
+              action={
+                <Button className="block w-full max-w-[280px] mx-auto min-h-[48px] tap-feedback" asChild>
+                  <Link to="/reptiles/new">Add your first animal</Link>
+                </Button>
+              }
+              secondaryAction={
+                <Button variant="outline" className="min-h-[44px] tap-feedback" asChild>
+                  <Link to="/reptiles">Browse My Animals</Link>
+                </Button>
+              }
+            />
+          </div>
         </div>
       </div>
     );

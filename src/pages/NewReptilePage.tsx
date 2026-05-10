@@ -171,7 +171,7 @@ export default function NewReptilePage() {
         }
       />
 
-      <form onSubmit={handleSubmit} className="p-4 space-y-6">
+      <form id="new-reptile-form" onSubmit={handleSubmit} className="p-4 space-y-6 pb-32">
         {/* Required fields */}
         <div className="space-y-4">
           <div>
@@ -586,16 +586,18 @@ export default function NewReptilePage() {
           </div>
         </div>
 
-        <div className="pt-4">
-          <Button 
-            type="submit" 
-            className="w-full touch-button" 
-            disabled={saving || !formData.name.trim() || !formData.species.trim()}
-          >
-            {saving ? 'Creating...' : 'Create Reptile'}
-          </Button>
-        </div>
       </form>
+
+      <div className="sticky-bottom-actions">
+        <Button
+          form="new-reptile-form"
+          type="submit"
+          className="w-full min-h-[48px] tap-feedback"
+          disabled={saving || !formData.name.trim() || !formData.species.trim()}
+        >
+          {saving ? 'Creating...' : 'Create Reptile'}
+        </Button>
+      </div>
     </div>
   );
 }

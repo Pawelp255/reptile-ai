@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { BookOpen, Filter, Trash2 } from 'lucide-react';
 import { PageHeader } from '@/components/PageHeader';
 import { EventItem } from '@/components/EventItem';
@@ -31,7 +32,7 @@ import {
 import { toast } from 'sonner';
 import { formatLocalDateKey } from '@/lib/date/localDateKey';
 import { stripDemoMarkerForDisplay } from '@/lib/display/stripDemoMarker';
-import { getAllCareEvents, getAllReptiles, deleteCareEvent } from '@/lib/storage';
+import { getAllCareEvents, getAllReptiles, deleteCareEvent, getToday } from '@/lib/storage';
 import type { CareEvent, Reptile, EventType } from '@/types';
 
 interface EventWithReptile extends CareEvent {
@@ -122,6 +123,29 @@ export default function JournalPage() {
     return true;
   });
 
+  const sortedFilteredEvents = useMemo(() => {
+    return [...filteredEvents].sort((a, b) => {
+      const byDate = b.eventDate.localeCompare(a.eventDate);
+      if (byDate !== 0) return byDate;
+      return b.createdAt.localeCompare(a.createdAt);
+    });
+  }, [filteredEvents]);
+
+  const journalDateBuckets = useMemo(() => {
+    const keys = [...new Set(sortedFilteredEvents.map((e) => e.eventDate))].sort((a, b) =>
+      b.localeCompare(a),
+    );
+    const multiDay = keys.length > 1;
+    if (!multiDay) return { multiDay: false as const, groups: [] as { dateKey: string; items: typeof sortedFilteredEvents }[] };
+    return {
+      multiDay: true as const,
+      groups: keys.map((dateKey) => ({
+        dateKey,
+        items: sortedFilteredEvents.filter((e) => e.eventDate === dateKey),
+      })),
+    };
+  }, [sortedFilteredEvents]);
+
   if (loading) {
     return (
       <div className="page-container">
@@ -174,20 +198,87 @@ export default function JournalPage() {
         )}
 
         {events.length === 0 ? (
-          <EmptyState
-            icon={<BookOpen className="w-16 h-16" />}
-            title="No events yet"
-            description="Log feedings, sheds, and health checks from Add Event to build your history."
-          />
+          <div className="premium-surface-elevated rounded-[var(--radius-xl)] p-6 sm:p-8 text-center border border-border/50">
+            <EmptyState
+              icon={<BookOpen className="w-16 h-16" />}
+              title="No entries yet"
+              description="Journal is your care timeline — log feeds, sheds, enclosures, handling, and weigh-ins."
+              action={
+                <Button className="w-full max-w-[280px] mx-auto min-h-[48px] tap-feedback block" asChild>
+                  <Link to="/add-event">Log care event</Link>
+                </Button>
+              }
+              secondaryAction={
+                <Button variant="outline" className="min-h-[44px] tap-feedback" asChild>
+                  <Link to="/reptiles">Browse animals</Link>
+                </Button>
+              }
+            />
+          </div>
         ) : filteredEvents.length === 0 ? (
-          <EmptyState
-            icon={<Filter className="w-12 h-12" />}
-            title="No matching events"
-            description="Change the reptile or event type filter to see more."
-          />
+          <div className="premium-surface-elevated rounded-[var(--radius-xl)] p-6 sm:p-8 text-center border border-border/50">
+            <EmptyState
+              icon={<Filter className="w-12 h-12" />}
+              title="No matching events"
+              description="Try another animal or event type, or clear filters to see everything in your journal."
+              action={
+                <Button
+                  type="button"
+                  className="w-full max-w-[280px] mx-auto min-h-[48px] tap-feedback"
+                  variant="default"
+                  onClick={() => {
+                    setFilterReptile('all');
+                    setFilterType('all');
+                  }}
+                >
+                  Clear filters
+                </Button>
+              }
+              secondaryAction={
+                <Button variant="ghost" className="min-h-[44px] text-muted-foreground tap-feedback" asChild>
+                  <Link to="/add-event">Log new event</Link>
+                </Button>
+              }
+            />
+          </div>
+        ) : journalDateBuckets.multiDay ? (
+          <div className="space-y-6">
+            {journalDateBuckets.groups.map(({ dateKey, items }) => (
+              <section key={dateKey} className="relative">
+                <div className="sticky top-0 z-10 mb-3 flex items-center justify-between gap-2 border-b border-border/60 bg-background/90 backdrop-blur-md py-2 -mx-1 px-1">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                    {formatLocalDateKey(dateKey, {
+                      weekday: 'short',
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric',
+                    })}
+                  </p>
+                  {dateKey === getToday() && (
+                    <span className="text-[10px] font-semibold uppercase tracking-wide text-primary">Today</span>
+                  )}
+                </div>
+                <div className="space-y-2 border-l-2 border-border/50 pl-3 ml-1">
+                  {items.map((event) => (
+                    <EventItem
+                      key={event.id}
+                      eventType={event.eventType}
+                      eventDate={event.eventDate}
+                      details={event.details}
+                      reptileName={event.reptile?.name}
+                      photoDataUrl={event.photoDataUrl}
+                      showReptileName
+                      hideDate
+                      onClick={() => setSelectedEvent(event)}
+                    />
+                  ))}
+                </div>
+              </section>
+            ))}
+          </div>
         ) : (
-          <div className="space-y-2">
-            {filteredEvents.map((event) => (
+          <div className="space-y-2 border-l-2 border-border/50 pl-3 ml-1">
+            {sortedFilteredEvents.map((event) => (
               <EventItem
                 key={event.id}
                 eventType={event.eventType}
@@ -266,7 +357,9 @@ export default function JournalPage() {
               {stripDemoMarkerForDisplay(selectedEvent.details) && (
                 <div>
                   <span className="text-muted-foreground text-sm">Details</span>
-                  <p className="mt-1 text-sm">{stripDemoMarkerForDisplay(selectedEvent.details)}</p>
+                  <p className="mt-1 text-sm break-words [overflow-wrap:anywhere] leading-snug whitespace-pre-wrap max-h-[min(40vh,12rem)] overflow-y-auto">
+                    {stripDemoMarkerForDisplay(selectedEvent.details)}
+                  </p>
                 </div>
               )}
 
