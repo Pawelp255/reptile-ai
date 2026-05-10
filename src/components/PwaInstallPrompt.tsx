@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { X } from "lucide-react";
+import { Capacitor } from "@capacitor/core";
 
 type DeferredPromptEvent = Event & {
   prompt: () => Promise<void>;
@@ -15,6 +16,7 @@ const isStandalone = () =>
 const isiOS = () => /iphone|ipad|ipod/i.test(window.navigator.userAgent);
 
 export function PwaInstallPrompt() {
+  const isNativePlatform = Capacitor.isNativePlatform();
   const [deferredPrompt, setDeferredPrompt] = useState<DeferredPromptEvent | null>(null);
   const [visible, setVisible] = useState(false);
 
@@ -24,7 +26,7 @@ export function PwaInstallPrompt() {
   }, []);
 
   useEffect(() => {
-    if (isStandalone() || shouldSuppress) {
+    if (isNativePlatform || isStandalone() || shouldSuppress) {
       return;
     }
 
@@ -44,7 +46,7 @@ export function PwaInstallPrompt() {
     return () => {
       window.removeEventListener("beforeinstallprompt", onBeforeInstallPrompt);
     };
-  }, [shouldSuppress]);
+  }, [isNativePlatform, shouldSuppress]);
 
   const dismiss = () => {
     window.localStorage.setItem(DISMISS_KEY, String(Date.now()));
@@ -59,7 +61,7 @@ export function PwaInstallPrompt() {
     setVisible(false);
   };
 
-  if (!visible || isStandalone()) {
+  if (isNativePlatform || !visible || isStandalone()) {
     return null;
   }
 
