@@ -1,7 +1,11 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Json, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
+import { toast } from "sonner";
 import { getDB } from "@/lib/storage/db";
-import { ensureScheduleItemsHaveTimestamps } from "@/lib/storage/schedule";
+import {
+  ensureScheduleItemsHaveTimestamps,
+  ensureScheduleItemsHaveTimestampsForIds,
+} from "@/lib/storage/schedule";
 import { writeLastSuccessfulCloudSyncMs } from "@/lib/sync/syncTelemetry";
 import { trySeedAppleReviewDemoForSession } from "@/lib/review/appleReviewDemoSeed";
 import type { Reptile, ScheduleItem, TaskType } from "@/types";
@@ -443,28 +447,53 @@ export async function deleteCurrentUserCloudReptile(reptileId: string): Promise<
   await deleteCloudReptile(userId, reptileId);
 }
 
+export type PushCareTasksToCloudByIdsOpts = {
+  authenticatedUserId?: string;
+  /** User-initiated flows: brief info toast on failure (local save already succeeded). */
+  notifyOnError?: boolean;
+};
+
 /**
  * Upserts only the given schedule rows to Supabase (no cloud→local hydrate, no full merge).
- * No-op when unsigned or Supabase unavailable.
+ * No-op when unsigned or Supabase unavailable. Errors are caught; use `notifyOnError` for UX hints.
+ *
+ * Second argument may be a user id string (legacy) or an options object.
  */
 export async function pushCareTasksToCloudByIds(
   scheduleItemIds: string[],
-  authenticatedUserId?: string,
+  authenticatedUserIdOrOpts?: string | PushCareTasksToCloudByIdsOpts,
 ): Promise<void> {
-  if (!supabase || scheduleItemIds.length === 0) return;
+  let authenticatedUserId: string | undefined;
+  let notifyOnError = false;
+  if (typeof authenticatedUserIdOrOpts === "string") {
+    authenticatedUserId = authenticatedUserIdOrOpts;
+  } else if (authenticatedUserIdOrOpts && typeof authenticatedUserIdOrOpts === "object") {
+    authenticatedUserId = authenticatedUserIdOrOpts.authenticatedUserId;
+    notifyOnError = !!authenticatedUserIdOrOpts.notifyOnError;
+  }
 
-  let userId: string | undefined = authenticatedUserId;
-  if (!userId) userId = (await getCurrentUserId()) ?? undefined;
-  if (!userId) return;
+  const ids = [...new Set(scheduleItemIds)].filter(Boolean);
+  if (!supabase || ids.length === 0) return;
 
-  const db = await getDB();
-  await ensureScheduleItemsHaveTimestamps();
+  try {
+    let userId: string | undefined = authenticatedUserId;
+    if (!userId) userId = (await getCurrentUserId()) ?? undefined;
+    if (!userId) return;
 
-  const reptileIds = new Set((await db.getAll("reptiles")).map((r) => r.id));
+    const db = await getDB();
+    await ensureScheduleItemsHaveTimestampsForIds(ids);
 
-  for (const id of scheduleItemIds) {
-    const local = await db.get("scheduleItems", id);
-    if (!local || !reptileIds.has(local.reptileId)) continue;
-    await upsertCloudCareTask(userId, local);
+    const reptileIds = new Set((await db.getAll("reptiles")).map((r) => r.id));
+
+    for (const id of ids) {
+      const local = await db.get("scheduleItems", id);
+      if (!local || !reptileIds.has(local.reptileId)) continue;
+      await upsertCloudCareTask(userId, local);
+    }
+  } catch (error) {
+    console.warn("[CloudSync] narrow care task push failed:", error);
+    if (notifyOnError) {
+      toast.info("Saved on this device. Account sync may catch up shortly.", { duration: 3200 });
+    }
   }
 }

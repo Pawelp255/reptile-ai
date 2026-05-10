@@ -1,4 +1,4 @@
-import { useState, useEffect, Fragment, useCallback } from 'react';
+import { useState, useEffect, Fragment, useCallback, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
 import { cn } from '@/lib/utils';
@@ -63,6 +63,7 @@ export default function TodayPage() {
   }>({ isOpen: false, task: null });
   const [saving, setSaving] = useState(false);
   const [enablingDemo, setEnablingDemo] = useState(false);
+  const markDoneInFlightRef = useRef(false);
 
   const loadData = useCallback(async () => {
     try {
@@ -221,19 +222,20 @@ export default function TodayPage() {
 
   const handleConfirmDone = async (details?: string) => {
     if (!modalState.task) return;
+    if (markDoneInFlightRef.current) return;
+    markDoneInFlightRef.current = true;
 
     setSaving(true);
     try {
       await markTaskDone(modalState.task.id, details);
-      void pushCareTasksToCloudByIds([modalState.task.id]).catch(() => {
-        /* local writes already succeeded */
-      });
+      void pushCareTasksToCloudByIds([modalState.task.id], { notifyOnError: true });
       await loadData();
       setModalState({ isOpen: false, task: null });
     } catch (error) {
       console.error('Failed to mark task done:', error);
       toast.error('Could not save task — try again');
     } finally {
+      markDoneInFlightRef.current = false;
       setSaving(false);
     }
   };

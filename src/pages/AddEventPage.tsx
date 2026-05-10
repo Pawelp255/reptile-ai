@@ -146,7 +146,7 @@ export default function AddEventPage() {
         created.eventDate,
       );
       if (scheduleId) {
-        void pushCareTasksToCloudByIds([scheduleId]).catch(() => {});
+        void pushCareTasksToCloudByIds([scheduleId], { notifyOnError: true });
       }
 
       navigate('/journal');

@@ -125,6 +125,23 @@ export async function ensureScheduleItemsHaveTimestamps(): Promise<number> {
   return changed;
 }
 
+/** Same as `ensureScheduleItemsHaveTimestamps` but only for the given ids (e.g. narrow cloud upsert). */
+export async function ensureScheduleItemsHaveTimestampsForIds(scheduleItemIds: string[]): Promise<number> {
+  const unique = [...new Set(scheduleItemIds)].filter(Boolean);
+  if (unique.length === 0) return 0;
+
+  const db = await getDB();
+  const ts = getNow();
+  let changed = 0;
+  for (const id of unique) {
+    const item = await db.get('scheduleItems', id);
+    if (!item || item.updatedAt) continue;
+    await db.put('scheduleItems', { ...item, updatedAt: ts });
+    changed++;
+  }
+  return changed;
+}
+
 // Delete a schedule item
 export async function deleteScheduleItem(id: string): Promise<void> {
   const db = await getDB();

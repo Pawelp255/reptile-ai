@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -35,8 +35,15 @@ export function MarkDoneModal({
   isLoading = false,
 }: MarkDoneModalProps) {
   const [details, setDetails] = useState('');
+  const confirmOnceRef = useRef(false);
+
+  useEffect(() => {
+    if (!isLoading) confirmOnceRef.current = false;
+  }, [isLoading]);
 
   const handleConfirm = () => {
+    if (isLoading || confirmOnceRef.current) return;
+    confirmOnceRef.current = true;
     onConfirm(details.trim() || undefined);
     setDetails('');
   };

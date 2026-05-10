@@ -209,7 +209,7 @@ export default function ReptileProfilePage() {
 
     try {
       await updateScheduleFrequency(itemId, tempFrequency);
-      void pushCareTasksToCloudByIds([itemId]).catch(() => {});
+      void pushCareTasksToCloudByIds([itemId], { notifyOnError: true });
       await loadData();
       setEditingSchedule(null);
     } catch (error) {
