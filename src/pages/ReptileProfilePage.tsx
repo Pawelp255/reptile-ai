@@ -64,6 +64,19 @@ const eventLabels: Record<EventType, string> = {
   note: 'Note',
 };
 
+function formatScheduleFrequency(days: number): string {
+  if (days === 1) return 'Daily';
+  if (days === 7) return 'Weekly';
+  if (days === 14) return 'Every 2 weeks';
+  return `Every ${days} days`;
+}
+
+function parseFrequencyInput(value: string): number | null {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed)) return null;
+  return Math.max(1, parsed);
+}
+
 const sexLabels = {
   unknown: 'Unknown',
   male: 'Male',
@@ -120,7 +133,7 @@ export default function ReptileProfilePage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState<string | null>(null);
-  const [tempFrequency, setTempFrequency] = useState<number>(0);
+  const [tempFrequency, setTempFrequency] = useState<string>('');
   const [selectedEvent, setSelectedEvent] = useState<CareEvent | null>(null);
   const [deleteEventOpen, setDeleteEventOpen] = useState(false);
   const [deletingEvent, setDeletingEvent] = useState(false);
@@ -220,14 +233,18 @@ export default function ReptileProfilePage() {
 
   const handleEditFrequency = (item: ScheduleItem) => {
     setEditingSchedule(item.id);
-    setTempFrequency(item.frequencyDays);
+    setTempFrequency(String(item.frequencyDays));
   };
 
   const handleSaveFrequency = async (itemId: string) => {
-    if (tempFrequency < 1) return;
+    const nextFrequency = parseFrequencyInput(tempFrequency);
+    if (!nextFrequency) {
+      toast.error('Enter a frequency of at least 1 day');
+      return;
+    }
 
     try {
-      await updateScheduleFrequency(itemId, tempFrequency);
+      await updateScheduleFrequency(itemId, nextFrequency);
       void pushCareTasksToCloudByIds([itemId], { notifyOnError: true });
       await loadData();
       setEditingSchedule(null);
@@ -235,6 +252,11 @@ export default function ReptileProfilePage() {
       console.error('Failed to update frequency:', error);
       toast.error('Could not save schedule frequency');
     }
+  };
+
+  const handleFrequencyBlur = () => {
+    const nextFrequency = parseFrequencyInput(tempFrequency);
+    setTempFrequency(String(nextFrequency ?? 1));
   };
 
   const handleDeleteEvent = async () => {
@@ -596,7 +618,7 @@ export default function ReptileProfilePage() {
                   <div>
                     <h4 className="font-medium">{taskLabels[item.taskType]}</h4>
                     <p className="text-sm text-muted-foreground">
-                      Every {item.frequencyDays} days
+                      {formatScheduleFrequency(item.frequencyDays)}
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">
                       Next:{' '}
@@ -606,6 +628,16 @@ export default function ReptileProfilePage() {
                         year: 'numeric',
                       })}
                     </p>
+                    {item.lastDoneDate && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Last completed:{' '}
+                        {formatLocalDateKey(item.lastDoneDate, {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric',
+                        })}
+                      </p>
+                    )}
                   </div>
                   
                   {editingSchedule === item.id ? (
@@ -614,12 +646,14 @@ export default function ReptileProfilePage() {
                         type="number"
                         min="1"
                         value={tempFrequency}
-                        onChange={(e) => setTempFrequency(parseInt(e.target.value) || 1)}
+                        onChange={(e) => setTempFrequency(e.target.value)}
+                        onBlur={handleFrequencyBlur}
                         className="w-20 h-8"
                       />
                       <Button 
                         size="sm" 
                         onClick={() => handleSaveFrequency(item.id)}
+                        disabled={!parseFrequencyInput(tempFrequency)}
                       >
                         Save
                       </Button>
@@ -813,7 +847,19 @@ export default function ReptileProfilePage() {
                 </div>
               )}
 
-              <div className="pt-2">
+              <div className="grid grid-cols-2 gap-2 pt-2">
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => {
+                    navigate(
+                      `/add-event?eventId=${selectedEvent.id}&returnTo=${encodeURIComponent(`/reptiles/${id}`)}`,
+                    );
+                  }}
+                >
+                  <Edit className="w-4 h-4 mr-2" />
+                  Edit Event
+                </Button>
                 <Button 
                   variant="destructive" 
                   className="w-full"

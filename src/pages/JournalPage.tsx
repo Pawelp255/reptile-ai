@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Link } from 'react-router-dom';
-import { BookOpen, Filter, Trash2 } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { BookOpen, Edit, Filter, Trash2 } from 'lucide-react';
 import { PageHeader } from '@/components/PageHeader';
 import { EventItem } from '@/components/EventItem';
 import { EmptyState } from '@/components/EmptyState';
@@ -60,6 +60,7 @@ const eventLabels: Record<EventType, string> = {
 };
 
 export default function JournalPage() {
+  const navigate = useNavigate();
   const [events, setEvents] = useState<EventWithReptile[]>([]);
   const [reptiles, setReptiles] = useState<Reptile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -378,7 +379,18 @@ export default function JournalPage() {
                 </div>
               )}
 
-              <div className="pt-2">
+              <div className="grid grid-cols-2 gap-2 pt-2">
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => {
+                    void lightHaptic();
+                    navigate(`/add-event?eventId=${selectedEvent.id}&returnTo=${encodeURIComponent('/journal')}`);
+                  }}
+                >
+                  <Edit className="w-4 h-4 mr-2" />
+                  Edit Event
+                </Button>
                 <Button 
                   variant="destructive" 
                   className="w-full"

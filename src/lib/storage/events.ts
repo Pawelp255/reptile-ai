@@ -24,6 +24,28 @@ export async function createCareEvent(data: CareEventFormData): Promise<CareEven
   return event;
 }
 
+// Update an existing care event without changing its id or original created timestamp.
+export async function updateCareEvent(id: string, data: CareEventFormData): Promise<CareEvent> {
+  const db = await getDB();
+  const existing = await db.get('careEvents', id);
+  if (!existing) throw new Error('Care event not found');
+
+  const event: CareEvent = {
+    ...existing,
+    reptileId: data.reptileId,
+    eventType: data.eventType,
+    eventDate: data.eventDate || getToday(),
+    details: data.details,
+    photoDataUrl: data.photoDataUrl,
+    weightGrams: data.weightGrams,
+    lengthCm: data.lengthCm,
+    supplements: data.supplements,
+  };
+
+  await db.put('careEvents', event);
+  return event;
+}
+
 // Get all care events
 export async function getAllCareEvents(): Promise<CareEvent[]> {
   const db = await getDB();

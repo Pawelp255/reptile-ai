@@ -573,15 +573,27 @@ export default function EditReptilePage() {
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            <div>
+            <div className="space-y-1.5">
               <Label htmlFor="birthDate">Birth Date</Label>
-              <Input
-                id="birthDate"
-                type="date"
-                value={formData.birthDate}
-                onChange={(e) => setFormData({ ...formData, birthDate: e.target.value })}
-                className="mt-1.5"
-              />
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <Input
+                  id="birthDate"
+                  type="date"
+                  value={formData.birthDate}
+                  onChange={(e) => setFormData({ ...formData, birthDate: e.target.value })}
+                  className="mt-0 sm:flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="shrink-0 self-start sm:self-auto"
+                  disabled={!formData.birthDate}
+                  onClick={() => setFormData((prev) => ({ ...prev, birthDate: '' }))}
+                >
+                  Clear date
+                </Button>
+              </div>
             </div>
             <div>
               <Label htmlFor="estimatedAgeMonths">Est. Age (months)</Label>

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Camera, X, Bug } from 'lucide-react';
 import { PageHeader } from '@/components/PageHeader';
 import { EmptyState } from '@/components/EmptyState';
@@ -15,7 +15,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { getAllReptiles, createCareEvent, getToday, reconcileScheduleAfterManualCareEvent } from '@/lib/storage';
+import {
+  getAllReptiles,
+  createCareEvent,
+  getCareEventById,
+  getToday,
+  reconcileScheduleAfterManualCareEvent,
+  updateCareEvent,
+} from '@/lib/storage';
 import { pushCareTasksToCloudByIds } from '@/lib/reptiles/cloudSync';
 import type { Reptile, EventType, CareEventFormData, Supplement } from '@/types';
 import { toast } from 'sonner';
@@ -33,6 +40,9 @@ const eventTypeOptions: { value: EventType; label: string; emoji: string }[] = [
 
 export default function AddEventPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const editEventId = searchParams.get('eventId');
+  const returnTo = searchParams.get('returnTo');
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [reptiles, setReptiles] = useState<Reptile[]>([]);
@@ -48,13 +58,33 @@ export default function AddEventPage() {
     lengthCm: undefined,
     supplements: [],
   });
+  const isEditing = !!editEventId;
 
   useEffect(() => {
     const loadReptiles = async () => {
       try {
-        const allReptiles = await getAllReptiles();
+        const [allReptiles, eventToEdit] = await Promise.all([
+          getAllReptiles(),
+          editEventId ? getCareEventById(editEventId) : Promise.resolve(undefined),
+        ]);
         setReptiles(allReptiles);
-        if (allReptiles.length > 0) {
+        if (editEventId) {
+          if (!eventToEdit) {
+            toast.error('Event not found');
+            navigate('/journal');
+            return;
+          }
+          setFormData({
+            reptileId: eventToEdit.reptileId,
+            eventType: eventToEdit.eventType,
+            eventDate: eventToEdit.eventDate,
+            details: eventToEdit.details || '',
+            photoDataUrl: eventToEdit.photoDataUrl,
+            weightGrams: eventToEdit.weightGrams,
+            lengthCm: eventToEdit.lengthCm,
+            supplements: eventToEdit.supplements || [],
+          });
+        } else if (allReptiles.length > 0) {
           setFormData(prev => ({ ...prev, reptileId: allReptiles[0].id }));
         }
       } catch (error) {
@@ -65,7 +95,7 @@ export default function AddEventPage() {
     };
 
     loadReptiles();
-  }, []);
+  }, [editEventId, navigate]);
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -129,7 +159,7 @@ export default function AddEventPage() {
 
     setSaving(true);
     try {
-      const created = await createCareEvent({
+      const payload = {
         ...formData,
         details: formData.details?.trim() || undefined,
         // Only include health metrics for health events
@@ -139,24 +169,28 @@ export default function AddEventPage() {
         supplements: formData.eventType === 'feeding' && formData.supplements?.length 
           ? formData.supplements 
           : undefined,
-      });
+      };
+
+      const saved = editEventId
+        ? await updateCareEvent(editEventId, payload)
+        : await createCareEvent(payload);
 
       const scheduleId = await reconcileScheduleAfterManualCareEvent(
-        formData.reptileId,
-        formData.eventType,
-        created.eventDate,
+        saved.reptileId,
+        saved.eventType,
+        saved.eventDate,
       );
       if (scheduleId) {
         void pushCareTasksToCloudByIds([scheduleId], { notifyOnError: true });
       }
 
       await mediumHaptic();
-      toast.success('Event saved locally', {
+      toast.success(editEventId ? 'Event updated locally' : 'Event saved locally', {
         description: 'Your journal updates instantly and syncs when available.',
       });
-      navigate('/journal');
+      navigate(returnTo && returnTo.startsWith('/') && !returnTo.startsWith('//') ? returnTo : '/journal');
     } catch (error) {
-      console.error('Failed to create event:', error);
+      console.error(editEventId ? 'Failed to update event:' : 'Failed to create event:', error);
       toast.error('Could not save event — try again');
     } finally {
       setSaving(false);
@@ -166,7 +200,7 @@ export default function AddEventPage() {
   if (loading) {
     return (
       <div className="page-container">
-        <PageHeader title="Add Event" />
+        <PageHeader title={isEditing ? 'Edit Event' : 'Add Event'} />
         <div className="page-content page-content-top loading-min-height flex items-center justify-center">
           <div className="animate-pulse text-sm text-muted-foreground">Loading your animals…</div>
         </div>
@@ -177,7 +211,7 @@ export default function AddEventPage() {
   if (reptiles.length === 0) {
     return (
       <div className="page-container">
-        <PageHeader title="Add Event" />
+        <PageHeader title={isEditing ? 'Edit Event' : 'Add Event'} />
         <div className="page-content page-content-top">
           <EmptyState
             icon={<Bug className="w-16 h-16" />}
@@ -202,7 +236,10 @@ export default function AddEventPage() {
 
   return (
     <div className="page-container">
-      <PageHeader title="Add Event" subtitle="Log a care event" />
+      <PageHeader
+        title={isEditing ? 'Edit Event' : 'Add Event'}
+        subtitle={isEditing ? 'Update care event details' : 'Log a care event'}
+      />
 
       <form id="add-event-form" onSubmit={handleSubmit} className="page-content page-content-top space-y-6 pb-32 scroll-pb-32">
         {/* Reptile Selection */}
@@ -388,7 +425,7 @@ export default function AddEventPage() {
           className="w-full min-h-[48px] tap-feedback"
           disabled={saving || !formData.reptileId}
         >
-          {saving ? 'Saving…' : 'Save Event'}
+          {saving ? 'Saving…' : isEditing ? 'Update Event' : 'Save Event'}
         </Button>
       </div>
     </div>
