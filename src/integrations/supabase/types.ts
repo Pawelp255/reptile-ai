@@ -57,6 +57,7 @@ export type Database = {
           morph: string | null
           name: string
           notes: string | null
+          photo_path: string | null
           photo_url: string | null
           sex: string
           sort_order: number | null
@@ -76,6 +77,7 @@ export type Database = {
           morph?: string | null
           name: string
           notes?: string | null
+          photo_path?: string | null
           photo_url?: string | null
           sex?: string
           sort_order?: number | null
@@ -95,6 +97,7 @@ export type Database = {
           morph?: string | null
           name?: string
           notes?: string | null
+          photo_path?: string | null
           photo_url?: string | null
           sex?: string
           sort_order?: number | null

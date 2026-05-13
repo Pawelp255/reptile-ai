@@ -52,6 +52,13 @@ export interface Reptile {
   // Phase 3: Advanced genetics
   genes?: GeneticGene[]; // Structured gene data
   photoUrl?: string;
+  photoPath?: string;
+  /** Local-only metadata for temporary signed storage URLs. Never synced to cloud. */
+  photoUrlExpiresAt?: string;
+  /** Local-only fallback copy of inline photo data URL for signed URL refresh failures. */
+  photoInlineFallbackUrl?: string;
+  /** Local-only backoff marker after failed signed URL refresh attempts. */
+  photoUrlRefreshFailedAt?: string;
   /** Display order on My Animals; lower first. Assigned on create / migration / reorder. */
   sortOrder?: number;
   createdAt: string; // ISO datetime
@@ -164,6 +171,7 @@ export interface ReptileFormData {
   hets?: string[];
   genes?: GeneticGene[];
   photoUrl?: string;
+  photoPath?: string;
 }
 
 export interface CareEventFormData {

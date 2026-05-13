@@ -2,6 +2,8 @@
 import { getDB, generateId, getNow, getToday, addDays } from './db';
 import { revokePublicSharesForAnimal } from '@/lib/share/revokePublicShares';
 import { deleteCurrentUserCloudReptile, upsertCurrentUserCloudReptile } from '@/lib/reptiles/cloudSync';
+import { ensureInlinePhotoBackedUp, resolveDisplayPhotoForReptile } from '@/lib/reptiles/photoStorage';
+import { toast } from 'sonner';
 import type { Reptile, ReptileFormData, ScheduleItem, DietType } from '@/types';
 
 // Get feeding frequency (days) based on diet type. Legacy + expanded for reptiles/amphibians.
@@ -61,6 +63,32 @@ function syncReptileUpsertInBackground(reptile: Reptile): void {
   });
 }
 
+function backupPhotoToStorageInBackground(reptile: Reptile, opts?: { notifyOnError?: boolean }): void {
+  void (async () => {
+    const result = await ensureInlinePhotoBackedUp({ reptile });
+    if (result.uploaded) {
+      const db = await getDB();
+      const existing = await db.get('reptiles', reptile.id);
+      if (!existing) return;
+      const updated: Reptile = {
+        ...existing,
+        photoPath: result.reptile.photoPath,
+      };
+      await db.put('reptiles', updated);
+      syncReptileUpsertInBackground(updated);
+      return;
+    }
+    if (result.error && opts?.notifyOnError) {
+      toast.info('Photo saved on this device. Cloud photo backup was not completed yet.');
+    }
+  })().catch((error) => {
+    console.warn('Cloud photo backup skipped:', error);
+    if (opts?.notifyOnError) {
+      toast.info('Photo saved on this device. Cloud photo backup was not completed yet.');
+    }
+  });
+}
+
 function syncReptileDeleteInBackground(reptileId: string): void {
   void deleteCurrentUserCloudReptile(reptileId).catch((error) => {
     console.warn('Cloud reptile delete skipped:', error);
@@ -76,6 +104,16 @@ function compareReptilesDisplayOrder(a: Reptile, b: Reptile): number {
   const byCreated = a.createdAt.localeCompare(b.createdAt);
   if (byCreated !== 0) return byCreated;
   return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+}
+
+async function refreshDisplayPhotosFromStorage(reptiles: Reptile[]): Promise<Reptile[]> {
+  const db = await getDB();
+  const refreshed = await Promise.all(reptiles.map(async (reptile) => resolveDisplayPhotoForReptile(reptile)));
+  const changed = refreshed.filter((r) => r.refreshed).map((r) => r.reptile);
+  for (const reptile of changed) {
+    await db.put('reptiles', reptile);
+  }
+  return refreshed.map((r) => r.reptile);
 }
 
 /** Assigns contiguous `sortOrder` when legacy rows are missing it (one-time per device). */
@@ -135,6 +173,7 @@ export async function createReptile(data: ReptileFormData): Promise<Reptile> {
     hets: data.hets,
     genes: data.genes,
     photoUrl: data.photoUrl?.trim() || undefined,
+    photoPath: data.photoPath?.trim() || undefined,
     sortOrder: maxOrder + 1,
     createdAt: now,
     updatedAt: now,
@@ -152,6 +191,7 @@ export async function createReptile(data: ReptileFormData): Promise<Reptile> {
   await tx.done;
 
   syncReptileUpsertInBackground(reptile);
+  backupPhotoToStorageInBackground(reptile, { notifyOnError: true });
 
   return reptile;
 }
@@ -161,7 +201,8 @@ export async function getAllReptiles(): Promise<Reptile[]> {
   const db = await getDB();
   await ensureReptilesHaveSortOrderAssigned(db);
   const all = await db.getAll('reptiles');
-  return [...all].sort(compareReptilesDisplayOrder);
+  const withFreshPhotos = await refreshDisplayPhotosFromStorage(all);
+  return [...withFreshPhotos].sort(compareReptilesDisplayOrder);
 }
 
 /** Persist My Animals order after drag-and-drop (`orderedIds` is the full list, index 0 = top). */
@@ -181,7 +222,13 @@ export async function persistReptilesDisplayOrder(orderedIds: string[]): Promise
 // Get a single reptile by ID
 export async function getReptileById(id: string): Promise<Reptile | undefined> {
   const db = await getDB();
-  return db.get('reptiles', id);
+  const reptile = await db.get('reptiles', id);
+  if (!reptile) return undefined;
+  const resolved = await resolveDisplayPhotoForReptile(reptile);
+  if (resolved.refreshed) {
+    await db.put('reptiles', resolved.reptile);
+  }
+  return resolved.reptile;
 }
 
 // Update a reptile
@@ -202,6 +249,7 @@ export async function updateReptile(id: string, data: Partial<ReptileFormData>):
 
   await db.put('reptiles', updated);
   syncReptileUpsertInBackground(updated);
+  backupPhotoToStorageInBackground(updated, { notifyOnError: true });
   return updated;
 }
 

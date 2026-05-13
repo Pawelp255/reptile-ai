@@ -3,6 +3,12 @@ import type { Json, TablesInsert, TablesUpdate } from "@/integrations/supabase/t
 import { toast } from "sonner";
 import { getDB } from "@/lib/storage/db";
 import {
+  ensureInlinePhotoBackedUp,
+  getCurrentSupabaseUserId,
+  isInlineDataUrl,
+  resolveDisplayPhotoForReptile,
+} from "@/lib/reptiles/photoStorage";
+import {
   ensureScheduleItemsHaveTimestamps,
   ensureScheduleItemsHaveTimestampsForIds,
 } from "@/lib/storage/schedule";
@@ -23,6 +29,7 @@ type CloudReptileRow = {
   diet_type: string;
   breeding_status: string;
   notes: string | null;
+  photo_path: string | null;
   photo_url: string | null;
   sort_order: number | null;
   data: Json;
@@ -36,7 +43,45 @@ function parseDate(value: string | undefined | null): number {
   return Number.isNaN(parsed) ? 0 : parsed;
 }
 
-function toCloudRecord(userId: string, reptile: Reptile): TablesInsert<"reptiles"> {
+function stripLargeInlinePhotoFromData(reptile: Reptile): Reptile {
+  const {
+    photoUrlExpiresAt: _omitPhotoUrlExpiresAt,
+    photoInlineFallbackUrl: _omitPhotoInlineFallbackUrl,
+    photoUrlRefreshFailedAt: _omitPhotoUrlRefreshFailedAt,
+    ...withoutLocalOnly
+  } = reptile;
+  const clean = withoutLocalOnly as Reptile;
+  const value = clean.photoUrl?.trim();
+  if (!value) return clean;
+  if (clean.photoPath && (isInlineDataUrl(value) || value.startsWith("http://") || value.startsWith("https://"))) {
+    return {
+      ...clean,
+      photoUrl: undefined,
+    };
+  }
+  return clean;
+}
+
+function toCloudPhotoUrl(reptile: Reptile, effectivePhotoPath: string | null): string | null {
+  const value = reptile.photoUrl?.trim();
+  if (!value) return null;
+  if (isInlineDataUrl(value)) return effectivePhotoPath ? null : value;
+  if (effectivePhotoPath && (value.startsWith("http://") || value.startsWith("https://"))) {
+    // Signed URLs are temporary display-only URLs and should not be persisted.
+    return null;
+  }
+  return value;
+}
+
+function toCloudRecord(
+  userId: string,
+  reptile: Reptile,
+  effectivePhotoPath: string | null,
+): TablesInsert<"reptiles"> {
+  const cloudData = stripLargeInlinePhotoFromData({
+    ...reptile,
+    photoPath: effectivePhotoPath ?? undefined,
+  });
   return {
     id: reptile.id,
     user_id: userId,
@@ -50,9 +95,10 @@ function toCloudRecord(userId: string, reptile: Reptile): TablesInsert<"reptiles
     diet_type: reptile.dietType,
     breeding_status: reptile.breedingStatus,
     notes: reptile.notes ?? null,
-    photo_url: reptile.photoUrl ?? null,
+    photo_path: effectivePhotoPath,
+    photo_url: toCloudPhotoUrl(reptile, effectivePhotoPath),
     sort_order: typeof reptile.sortOrder === "number" ? reptile.sortOrder : null,
-    data: reptile as unknown as Json,
+    data: cloudData as unknown as Json,
     created_at: reptile.createdAt,
     updated_at: reptile.updatedAt,
   };
@@ -62,21 +108,28 @@ function fromCloudRecord(row: CloudReptileRow): Reptile {
   const payload = (row.data && typeof row.data === "object" && !Array.isArray(row.data)
     ? row.data
     : {}) as Partial<Reptile>;
+  const {
+    photoUrlExpiresAt: _omitPhotoUrlExpiresAt,
+    photoInlineFallbackUrl: _omitPhotoInlineFallbackUrl,
+    photoUrlRefreshFailedAt: _omitPhotoUrlRefreshFailedAt,
+    ...payloadCloudSafe
+  } = payload;
 
   return {
-    ...payload,
-    id: payload.id ?? row.id,
-    name: payload.name ?? row.name,
-    species: payload.species ?? row.species,
-    morph: payload.morph ?? row.morph ?? undefined,
-    sex: payload.sex ?? (row.sex as Reptile["sex"]),
-    birthDate: payload.birthDate ?? row.birth_date ?? undefined,
-    estimatedAgeMonths: payload.estimatedAgeMonths ?? row.estimated_age_months ?? undefined,
-    acquisitionDate: payload.acquisitionDate ?? row.acquisition_date ?? undefined,
-    dietType: payload.dietType ?? (row.diet_type as Reptile["dietType"]),
-    breedingStatus: payload.breedingStatus ?? (row.breeding_status as Reptile["breedingStatus"]),
-    notes: payload.notes ?? row.notes ?? undefined,
-    photoUrl: payload.photoUrl ?? row.photo_url ?? undefined,
+    ...payloadCloudSafe,
+    id: payloadCloudSafe.id ?? row.id,
+    name: payloadCloudSafe.name ?? row.name,
+    species: payloadCloudSafe.species ?? row.species,
+    morph: payloadCloudSafe.morph ?? row.morph ?? undefined,
+    sex: payloadCloudSafe.sex ?? (row.sex as Reptile["sex"]),
+    birthDate: payloadCloudSafe.birthDate ?? row.birth_date ?? undefined,
+    estimatedAgeMonths: payloadCloudSafe.estimatedAgeMonths ?? row.estimated_age_months ?? undefined,
+    acquisitionDate: payloadCloudSafe.acquisitionDate ?? row.acquisition_date ?? undefined,
+    dietType: payloadCloudSafe.dietType ?? (row.diet_type as Reptile["dietType"]),
+    breedingStatus: payloadCloudSafe.breedingStatus ?? (row.breeding_status as Reptile["breedingStatus"]),
+    notes: payloadCloudSafe.notes ?? row.notes ?? undefined,
+    photoPath: payloadCloudSafe.photoPath ?? row.photo_path ?? undefined,
+    photoUrl: payloadCloudSafe.photoUrl ?? row.photo_url ?? undefined,
     sortOrder:
       typeof payload.sortOrder === "number"
         ? payload.sortOrder
@@ -97,13 +150,31 @@ export async function fetchCloudReptiles(userId: string): Promise<Reptile[]> {
     .eq("user_id", userId);
 
   if (error) throw error;
-  return (data as CloudReptileRow[]).map(fromCloudRecord);
+  const hydrated = (data as CloudReptileRow[]).map(fromCloudRecord);
+  return Promise.all(
+    hydrated.map(async (reptile) => {
+      const resolved = await resolveDisplayPhotoForReptile(reptile);
+      return resolved.reptile;
+    }),
+  );
 }
 
 export async function upsertCloudReptile(userId: string, reptile: Reptile): Promise<void> {
   if (!supabase) return;
 
-  const record = toCloudRecord(userId, reptile);
+  let effectivePhotoPath: string | null = reptile.photoPath ?? null;
+  if (!effectivePhotoPath) {
+    const { data, error } = await supabase
+      .from("reptiles")
+      .select("photo_path")
+      .eq("user_id", userId)
+      .eq("id", reptile.id)
+      .maybeSingle();
+    if (error) throw error;
+    effectivePhotoPath = (data?.photo_path as string | null | undefined) ?? null;
+  }
+
+  const record = toCloudRecord(userId, reptile, effectivePhotoPath);
   const updatePayload: TablesUpdate<"reptiles"> = record;
 
   const { error } = await supabase
@@ -295,17 +366,34 @@ export async function syncLocalReptilesToCloud(userId: string): Promise<void> {
   const cloudById = new Map(cloudReptiles.map((reptile) => [reptile.id, reptile]));
 
   for (const localReptile of localReptiles) {
+    const migrated = await ensureInlinePhotoBackedUp({
+      reptile: localReptile,
+      userId,
+    });
     const cloudReptile = cloudById.get(localReptile.id);
+    let reptileForSync = migrated.reptile;
+    let localRowChanged = migrated.uploaded;
+    if (!reptileForSync.photoPath && cloudReptile?.photoPath) {
+      reptileForSync = {
+        ...reptileForSync,
+        photoPath: cloudReptile.photoPath,
+      };
+      localRowChanged = true;
+    }
+    if (localRowChanged) {
+      await db.put("reptiles", reptileForSync);
+    }
+
     if (!cloudReptile) {
-      await upsertCloudReptile(userId, localReptile);
+      await upsertCloudReptile(userId, reptileForSync);
       continue;
     }
 
-    const localUpdatedAt = parseDate(localReptile.updatedAt);
+    const localUpdatedAt = parseDate(reptileForSync.updatedAt);
     const cloudUpdatedAt = parseDate(cloudReptile.updatedAt);
 
     if (localUpdatedAt > cloudUpdatedAt) {
-      await upsertCloudReptile(userId, localReptile);
+      await upsertCloudReptile(userId, reptileForSync);
     } else if (cloudUpdatedAt > localUpdatedAt) {
       await db.put("reptiles", cloudReptile);
     }
@@ -337,15 +425,7 @@ export function notifyIndexedDbDataChanged(): void {
 }
 
 async function getCurrentUserId(): Promise<string | null> {
-  if (!supabase) return null;
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  if (session?.user?.id) return session.user.id;
-
-  const { data, error } = await supabase.auth.getUser();
-  if (error || !data.user) return null;
-  return data.user.id;
+  return getCurrentSupabaseUserId();
 }
 
 /**
