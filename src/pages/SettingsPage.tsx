@@ -66,7 +66,6 @@ import { exportFullBackupJson, type ReptilitaBackupV1 } from '@/lib/backup/fullB
 import { applyReptilitaBackupMerge, parseBackupFileText } from '@/lib/backup/importBackup';
 import { generateICS } from '@/lib/export/ics';
 import { generatePDFReport } from '@/lib/export/pdf';
-import { downloadPromoCard } from '@/lib/export/promoCard';
 import { ProBadge } from '@/components/plan/ProBadge';
 import { FEATURE_SMART_INSIGHTS_PLACEHOLDER } from '@/lib/plan/mockSubscription';
 import { usePlanStatus } from '@/hooks/usePlanStatus';
@@ -296,11 +295,12 @@ export default function SettingsPage() {
   const handleSharePromo = async () => {
     setExportingPromo(true);
     try {
+      const { downloadPromoCard } = await import('@/lib/export/promoCard');
       await downloadPromoCard();
       toast.success('Promo card exported');
     } catch (error) {
       console.error('Failed to export promo card:', error);
-      toast.error('Failed to export promo card');
+      toast.error(error instanceof Error ? error.message : 'Failed to export promo card');
     } finally {
       setExportingPromo(false);
     }
@@ -672,7 +672,8 @@ export default function SettingsPage() {
                   )}
                   {syncControlsEnabled && (
                     <p className="text-caption pt-1">
-                      Changes merge when you reconnect. Your animals stay editable offline.
+                      Changes merge when you reconnect. Your animals stay editable offline. Primary data lives on this device;
+                      sync updates your signed-in account for supported records when you run Sync.
                     </p>
                   )}
                 </div>
@@ -797,7 +798,8 @@ export default function SettingsPage() {
               </label>
             </div>
             <p className="text-caption px-4 sm:px-5 pb-4 pt-2">
-              Notifications require permission. In-app reminders show on the Today screen.
+              These toggles are saved with your settings. This build does not schedule lock-screen push notifications; open
+              Today to see what is due while you use the app.
             </p>
           </div>
         </section>

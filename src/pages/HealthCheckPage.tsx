@@ -6,7 +6,10 @@ import { PhotoHealthCheck } from '@/components/health/PhotoHealthCheck';
 export default function HealthCheckPage() {
   return (
     <PageMotion className="page-container">
-      <PageHeader title="Photo Health Check" subtitle="Preview visual analysis" />
+      <PageHeader
+        title="Photo Health Check"
+        subtitle="Educational preview only — not a medical assessment"
+      />
       <div className="page-content page-content-top space-y-3 pb-28">
         <div className="premium-surface rounded-[var(--radius-xl)] p-3 sm:p-4 border border-warning/25">
           <div className="flex items-center gap-2 text-warning">

@@ -2,6 +2,7 @@
 import { jsPDF } from 'jspdf';
 import { format } from 'date-fns';
 import { stripDemoMarkerForDisplay } from '@/lib/display/stripDemoMarker';
+import { downloadOrShareBlob } from '@/lib/native/blobExport';
 import {
   getReptileById,
   getCareEventsByReptile,
@@ -75,7 +76,7 @@ export async function exportVetPdf(
   // Title
   doc.setFontSize(20);
   doc.setFont('helvetica', 'bold');
-  doc.text('Veterinary Care Report', margin, y);
+  doc.text('Care summary for your veterinarian', margin, y);
   y += 8;
 
   doc.setFontSize(10);
@@ -252,12 +253,11 @@ export async function exportVetPdf(
 
 export async function downloadVetPdf(reptileId: string, reptileName: string, options?: VetPdfOptions): Promise<void> {
   const blob = await exportVetPdf(reptileId, options);
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `${reptileName.replace(/\s+/g, '-').toLowerCase()}-vet-report.pdf`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  const fileName = `${reptileName.replace(/\s+/g, '-').toLowerCase()}-vet-report.pdf`;
+  const ok = await downloadOrShareBlob(blob, fileName);
+  if (!ok) {
+    throw new Error(
+      'Could not share or save the PDF. Try the system share sheet, Save to Files, or open this screen in Safari.',
+    );
+  }
 }

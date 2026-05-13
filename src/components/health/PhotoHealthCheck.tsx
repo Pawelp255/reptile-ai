@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import { toast } from 'sonner';
 import { motion, useReducedMotion } from 'framer-motion';
 import { Camera, Upload, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -65,6 +66,7 @@ export function PhotoHealthCheck() {
       setAnalyzed(true);
     } catch (err) {
       console.error('Photo analysis failed:', err);
+      toast.error('Preview could not run — try again with a smaller image.');
     } finally {
       setAnalyzing(false);
     }
@@ -150,7 +152,6 @@ export function PhotoHealthCheck() {
           ref={inputRef}
           type="file"
           accept="image/*"
-          capture="environment"
           className="hidden"
           onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
         />

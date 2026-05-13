@@ -48,9 +48,9 @@
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>Reptilita uses the camera when you capture photos for profiles, journal entries, or optional photo workflows.</string>
+	<string>Reptilita uses the camera only when you choose to take a new photo (for example from the photo picker) for an animal profile, a journal entry, or the optional Photo Health Check preview.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Select photos from your library for reptile profiles, journal events, exports, and sharing.</string>
+	<string>Choose existing photos from your library for animal profiles, journal entries, optional previews, and sharing.</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 </dict>

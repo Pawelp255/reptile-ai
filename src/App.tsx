@@ -25,12 +25,12 @@ import AddEventPage from "./pages/AddEventPage";
 import JournalPage from "./pages/JournalPage";
 import SettingsPage from "./pages/SettingsPage";
 import AuthCallbackPage from "./pages/AuthCallbackPage";
-import CreatePairingPage from "./pages/CreatePairingPage";
-import PairingDetailPage from "./pages/PairingDetailPage";
-import ClutchDetailPage from "./pages/ClutchDetailPage";
 import NotFound from "./pages/NotFound";
 
 // Heavier pages — lazy-loaded for smaller initial bundle
+const CreatePairingPage = lazy(() => import("./pages/CreatePairingPage"));
+const PairingDetailPage = lazy(() => import("./pages/PairingDetailPage"));
+const ClutchDetailPage = lazy(() => import("./pages/ClutchDetailPage"));
 const GeneticsCalculatorPage = lazy(() => import("./pages/GeneticsCalculatorPage"));
 const AIAssistantPage = lazy(() => import("./pages/AIAssistantPage"));
 const CareCardPage = lazy(() => import("./pages/CareCardPage"));

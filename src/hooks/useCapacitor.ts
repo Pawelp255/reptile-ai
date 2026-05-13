@@ -18,7 +18,12 @@ export function useCapacitor() {
           await StatusBar.setBackgroundColor({ color: '#2a9d8f' });
         }
 
-        // Hide splash screen after app is ready
+        // Let the first paint land before hiding splash (reduces flash under WKWebView)
+        await new Promise<void>((resolve) => {
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => resolve());
+          });
+        });
         await SplashScreen.hide();
       } catch (error) {
         console.warn('Capacitor plugin error:', error);

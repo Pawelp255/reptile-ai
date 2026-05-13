@@ -44,7 +44,6 @@ import {
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { pushCareTasksToCloudByIds } from '@/lib/reptiles/cloudSync';
-import { downloadVetPdf } from '@/lib/export/vetPdf';
 import { ProfileSkeleton } from '@/components/system/SkeletonLoaders';
 import { PetProfileShareDialog } from '@/components/PetProfileShareDialog';
 import type { Reptile, ScheduleItem, CareEvent, TaskType, EventType, Pairing } from '@/types';
@@ -535,7 +534,7 @@ export default function ReptileProfilePage() {
             </div>
           </div>
 
-          {/* Action Buttons — share panel, Vet PDF / AI (staggered) */}
+          {/* Action Buttons — share panel, care summary PDF / AI (staggered) */}
           <div className="space-y-2 animate-in-slide-up motion-delay-2">
             <Link to={`/passport/${id}`}>
               <Button
@@ -563,16 +562,18 @@ export default function ReptileProfilePage() {
                 className="min-h-[44px]"
                 onClick={async () => {
                   try {
+                    const { downloadVetPdf } = await import('@/lib/export/vetPdf');
                     await downloadVetPdf(reptile.id, reptile.name);
-                    toast.success('Vet PDF exported');
+                    toast.success('Care summary ready — check the share sheet or downloads');
                   } catch (e) {
                     console.error(e);
-                    toast.error('Failed to export PDF');
+                    const msg = e instanceof Error ? e.message : 'Could not export the PDF.';
+                    toast.error(msg);
                   }
                 }}
               >
                 <FileText className="w-4 h-4 mr-2" />
-                Vet PDF
+                Care summary (PDF)
               </Button>
               <Link to={`/ai?reptileId=${id}`}>
                 <Button variant="outline" className="w-full min-h-[44px] justify-center gap-2">

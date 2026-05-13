@@ -17,6 +17,23 @@ export default defineConfig(() => {
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes("node_modules")) return;
+          if (id.includes("recharts")) return "recharts";
+          if (id.includes("react-dom") || id.includes("react-router")) return "react-vendor";
+          if (id.includes("/react/") || id.endsWith("/react/index.js")) return "react-core";
+          if (id.includes("@radix-ui")) return "radix-ui";
+          if (id.includes("framer-motion")) return "framer-motion";
+          if (id.includes("@supabase")) return "supabase";
+          if (id.includes("@tanstack/react-query")) return "react-query";
+          if (id.includes("lucide-react")) return "lucide";
+        },
+      },
+    },
+  },
   server: {
     host: "::",
     port: 8080,

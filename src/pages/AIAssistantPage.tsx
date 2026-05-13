@@ -43,7 +43,6 @@ import { usePlanStatus } from '@/hooks/usePlanStatus';
 import { streamProAssistantReply } from '@/lib/ai/proAssistantStream';
 import { streamBasicAssistantReply } from '@/lib/ai/basicAssistant';
 import { extractActions, stripActionBlocks, type AIAction } from '@/lib/ai/actionParser';
-import { downloadVetPdf } from '@/lib/export/vetPdf';
 import { QuickScanButtons } from '@/components/QuickScanButtons';
 import { ActionReviewCard } from '@/components/ActionReviewCard';
 import { createCareEvent } from '@/lib/storage/events';
@@ -425,11 +424,13 @@ export default function AIAssistantPage() {
     }
     try {
       const name = reptileNameMap.get(selectedReptile) || 'animal';
+      const { downloadVetPdf } = await import('@/lib/export/vetPdf');
       await downloadVetPdf(selectedReptile, name, { rangeDays });
-      toast.success('Vet PDF exported');
+      toast.success('Care summary ready — check the share sheet or downloads');
     } catch (error) {
-      console.error('Failed to export vet PDF:', error);
-      toast.error('Failed to export PDF');
+      console.error('Failed to export care summary PDF:', error);
+      const msg = error instanceof Error ? error.message : 'Failed to export PDF';
+      toast.error(msg);
     }
   };
   
@@ -622,12 +623,12 @@ export default function AIAssistantPage() {
             </Select>
           </div>
 
-          {/* Vet PDF Export */}
+          {/* Care summary PDF (for your veterinarian) */}
           {selectedReptile && selectedReptile !== '__none__' && (
             <div className="pt-2 border-t border-border">
               <Button variant="outline" size="sm" className="w-full" onClick={handleExportVetPdf}>
                 <FileText className="w-4 h-4 mr-2" />
-                Export Vet PDF
+                Export care summary (PDF)
               </Button>
             </div>
           )}

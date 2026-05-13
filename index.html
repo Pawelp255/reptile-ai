@@ -3,6 +3,15 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
+    <style>
+      /* Match native splash (#040605) so WKWebView does not flash white before CSS loads */
+      html,
+      body,
+      #root {
+        background-color: #040605;
+        min-height: 100%;
+      }
+    </style>
     
     <!-- App Identity -->
     <title>Reptilita</title>

@@ -1,5 +1,3 @@
-import { Directory, Filesystem } from "@capacitor/filesystem";
-import { Share } from "@capacitor/share";
 import { isNative } from "./sharing";
 
 function sanitizeFileName(name: string): string {
@@ -36,6 +34,10 @@ export function triggerWebDownload(blob: Blob, fileName: string): void {
  * downloads are unreliable, e.g. WKWebView).
  */
 export async function shareBlobViaNativeSheet(blob: Blob, fileName: string): Promise<void> {
+  const [{ Directory, Filesystem }, { Share }] = await Promise.all([
+    import("@capacitor/filesystem"),
+    import("@capacitor/share"),
+  ]);
   const safeName = sanitizeFileName(fileName);
   const base64 = await blobToBase64(blob);
   const saved = await Filesystem.writeFile({
@@ -55,14 +57,16 @@ export async function downloadOrShareBlob(blob: Blob, fileName: string): Promise
     try {
       await shareBlobViaNativeSheet(blob, fileName);
       return true;
-    } catch {
+    } catch (e) {
+      console.warn("Native share/export failed:", e);
       return false;
     }
   }
   try {
     triggerWebDownload(blob, fileName);
     return true;
-  } catch {
+  } catch (e) {
+    console.warn("Web download failed:", e);
     return false;
   }
 }
