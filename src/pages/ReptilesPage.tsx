@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useReducedMotion } from 'framer-motion';
 import { PageMotion } from '@/components/motion/PageMotion';
 import { StaggerList, StaggerItem } from '@/components/motion/StaggerList';
 import { ReptileCard } from '@/components/ReptileCard';
@@ -34,52 +35,72 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Plus, Search, Bug, GripVertical } from 'lucide-react';
+import { Plus, Search, Bug } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { PageHeader } from '@/components/PageHeader';
 import { lightHaptic, mediumHaptic } from '@/lib/native/haptics';
+import { cn } from '@/lib/utils';
 
 interface ReptileWithFeeding {
   reptile: Reptile;
   nextFeedingDate?: string;
 }
 
-function SortableReptileRow({ reptile, nextFeedingDate }: { reptile: Reptile; nextFeedingDate?: string }) {
+function SortableReptileRow({
+  reptile,
+  nextFeedingDate,
+  reducedMotion,
+}: {
+  reptile: Reptile;
+  nextFeedingDate?: string;
+  reducedMotion: boolean;
+}) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: reptile.id });
   const style = {
     transform: CSS.Transform.toString(transform),
-    transition,
+    transition: reducedMotion ? undefined : transition,
   };
   return (
-    <div ref={setNodeRef} style={style} className={isDragging ? 'relative z-20 opacity-90' : undefined}>
-      <div className="flex min-w-0 items-stretch gap-2">
-        <button
-          type="button"
-          className="mt-0.5 flex h-11 w-9 shrink-0 touch-none items-center justify-center rounded-lg border border-border bg-muted/40 text-muted-foreground hover:bg-muted/70"
-          {...attributes}
-          {...listeners}
-          aria-label="Hold and drag to reorder"
-        >
-          <GripVertical className="h-4 w-4" aria-hidden />
-        </button>
-        <div className="min-w-0 flex-1">
-          <ReptileCard reptile={reptile} nextFeedingDate={nextFeedingDate} />
-        </div>
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        'min-w-0 cursor-grab rounded-[calc(var(--radius-xl)+2px)] outline-none active:cursor-grabbing focus-visible:ring-2 focus-visible:ring-primary/35 focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+        isDragging && 'relative z-[19]',
+      )}
+      {...attributes}
+      {...listeners}
+    >
+      <div
+        className={cn(
+          'relative rounded-[calc(var(--radius-xl)+2px)]',
+          'ring-1 ring-inset ring-border/45',
+          'before:pointer-events-none before:absolute before:left-1.5 before:top-2.5 before:bottom-2.5 before:w-[3px] before:rounded-full before:bg-primary/25',
+          isDragging &&
+            !reducedMotion &&
+            '[&_.reptile-card]:-translate-y-0.5 [&_.reptile-card]:scale-[1.02] [&_.reptile-card]:shadow-[0_16px_48px_-12px_rgba(0,0,0,0.32)] [&_.reptile-card]:ring-1 [&_.reptile-card]:ring-primary/30 [&_.reptile-card]:transition-[box-shadow,transform] [&_.reptile-card]:duration-200',
+          isDragging && reducedMotion && '[&_.reptile-card]:ring-2 [&_.reptile-card]:ring-primary/45',
+        )}
+      >
+        <ReptileCard reptile={reptile} nextFeedingDate={nextFeedingDate} disableNavigation />
       </div>
     </div>
   );
 }
 
 export default function ReptilesPage() {
+  const reducedMotion = useReducedMotion();
   const [reptiles, setReptiles] = useState<ReptileWithFeeding[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<'all' | 'reptile' | 'amphibian'>('all');
   const [loadingSample, setLoadingSample] = useState(false);
+  const [reorderMode, setReorderMode] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
-      activationConstraint: { delay: 220, tolerance: 8 },
+      // Long-press activates drag; quick tap passes through without starting a drag.
+      activationConstraint: { delay: 300, tolerance: 8 },
     }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
@@ -156,7 +177,15 @@ export default function ReptilesPage() {
     [reptiles, searchQuery, typeFilter],
   );
 
-  const reorderEnabled = !searchQuery.trim() && typeFilter === 'all' && reptiles.length > 1;
+  const canReorder = !searchQuery.trim() && typeFilter === 'all' && reptiles.length > 1;
+
+  useEffect(() => {
+    if (!canReorder) setReorderMode(false);
+  }, [canReorder]);
+
+  const handleDragStart = useCallback(() => {
+    void lightHaptic();
+  }, []);
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -170,6 +199,16 @@ export default function ReptilesPage() {
       return next;
     });
   };
+
+  const exitReorderMode = useCallback(() => {
+    setReorderMode(false);
+    void lightHaptic();
+  }, []);
+
+  const enterReorderMode = useCallback(() => {
+    setReorderMode(true);
+    void lightHaptic();
+  }, []);
 
   if (loading) {
     return (
@@ -217,8 +256,22 @@ export default function ReptilesPage() {
                   {filteredReptiles.length === 1 ? '' : 'es'} · {reptiles.length} total
                 </p>
               </div>
-              <div className="px-2.5 py-1 rounded-full bg-primary/10 text-primary/90 text-xs font-medium tabular-nums shrink-0">
-                {reptiles.length}
+              <div className="flex items-center gap-2 shrink-0">
+                {canReorder && (
+                  <Button
+                    type="button"
+                    variant={reorderMode ? 'default' : 'outline'}
+                    size="sm"
+                    className="min-h-[36px] px-3 text-xs tap-feedback"
+                    aria-pressed={reorderMode}
+                    onClick={() => (reorderMode ? exitReorderMode() : enterReorderMode())}
+                  >
+                    {reorderMode ? 'Done' : 'Reorder'}
+                  </Button>
+                )}
+                <div className="px-2.5 py-1 rounded-full bg-primary/10 text-primary/90 text-xs font-medium tabular-nums">
+                  {reptiles.length}
+                </div>
               </div>
             </div>
             <div className="relative">
@@ -262,13 +315,13 @@ export default function ReptilesPage() {
                 Amphibians
               </Button>
             </div>
-            {reorderEnabled ? (
-              <p className="text-[11px] text-muted-foreground leading-snug">
-                Hold the handle, then drag to reorder. Order is saved on this device and syncs when you are signed in.
+            {reorderMode && canReorder ? (
+              <p id="reptiles-reorder-hint" className="text-[11px] text-muted-foreground leading-snug">
+                Press and hold a card, then drag to move it. Order is saved on this device and syncs when you are signed in.
               </p>
-            ) : reptiles.length > 1 ? (
+            ) : !canReorder && reptiles.length > 1 ? (
               <p className="text-[11px] text-muted-foreground leading-snug">
-                Set filter to All and clear search to drag and reorder your list.
+                Set filter to All and clear search to reorder your list.
               </p>
             ) : null}
           </div>
@@ -327,12 +380,27 @@ export default function ReptilesPage() {
               />
             </div>
           </div>
-        ) : reorderEnabled ? (
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        ) : reorderMode && canReorder ? (
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+          >
             <SortableContext items={reptiles.map((r) => r.reptile.id)} strategy={verticalListSortingStrategy}>
-              <div className="space-y-2.5 overflow-x-hidden">
+              <div
+                className="space-y-2.5 overflow-x-hidden"
+                role="list"
+                aria-label="Animals, reorder mode"
+                aria-describedby="reptiles-reorder-hint"
+              >
                 {reptiles.map(({ reptile, nextFeedingDate }) => (
-                  <SortableReptileRow key={reptile.id} reptile={reptile} nextFeedingDate={nextFeedingDate} />
+                  <SortableReptileRow
+                    key={reptile.id}
+                    reptile={reptile}
+                    nextFeedingDate={nextFeedingDate}
+                    reducedMotion={Boolean(reducedMotion)}
+                  />
                 ))}
               </div>
             </SortableContext>

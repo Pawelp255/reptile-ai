@@ -1,8 +1,18 @@
-import { useState, useEffect, Fragment, useCallback, useRef } from 'react';
+import { useState, useEffect, Fragment, useCallback, useRef, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
 import { cn } from '@/lib/utils';
-import { ArrowUpRight, Bug, Check, ListChecks, NotebookPen, UserPlus } from 'lucide-react';
+import {
+  ArrowUpRight,
+  Bug,
+  Check,
+  FastForward,
+  ListChecks,
+  MoreVertical,
+  NotebookPen,
+  Sparkles,
+  UserPlus,
+} from 'lucide-react';
 import { getDisplayEmoji } from '@/lib/animals/taxonomy';
 import { PageHeader } from '@/components/PageHeader';
 import { PageMotion } from '@/components/motion/PageMotion';
@@ -10,6 +20,21 @@ import { StaggerList, StaggerItem } from '@/components/motion/StaggerList';
 import { TaskCard } from '@/components/TaskCard';
 import { EmptyState } from '@/components/EmptyState';
 import { MarkDoneModal } from '@/components/MarkDoneModal';
+import {
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+} from '@/components/ui/drawer';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { TodayTasksSkeleton } from '@/components/system/SkeletonLoaders';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
@@ -25,6 +50,10 @@ import {
   seedExpoDemo,
   updateSettings,
   isSampleDatasetEnabled,
+  advanceOverdueRecurringTasksStartFresh,
+  advanceOverdueRecurringTasksSkipOverdue,
+  isRecurringCareTask,
+  markOverdueRecurringTasksDoneBulk,
 } from '@/lib/storage';
 import { pushCareTasksToCloudByIds, REPTILES_CLOUD_SYNC_EVENT } from '@/lib/reptiles/cloudSync';
 import type { ScheduleItem, Reptile } from '@/types';
@@ -51,6 +80,8 @@ function focusAnimalCarePhrase(animalName: string, task: TaskWithReptile | undef
 
 type FilterMode = 'today' | 'week';
 
+type OverdueBulkIntent = 'startFresh' | 'skipOverdue' | 'markDone';
+
 export default function TodayPage() {
   const navigate = useNavigate();
   const prefersReducedMotion = useReducedMotion();
@@ -65,6 +96,10 @@ export default function TodayPage() {
   const [saving, setSaving] = useState(false);
   const [loadingSample, setLoadingSample] = useState(false);
   const markDoneInFlightRef = useRef(false);
+  const bulkOverdueInFlightRef = useRef(false);
+  const [overdueDrawerOpen, setOverdueDrawerOpen] = useState(false);
+  const [overdueBulkIntent, setOverdueBulkIntent] = useState<OverdueBulkIntent | null>(null);
+  const [overdueBulkSaving, setOverdueBulkSaving] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
@@ -137,6 +172,10 @@ export default function TodayPage() {
     t => t.reptile && (isOverdue(t.nextDueDate) || isDueToday(t.nextDueDate)),
   );
   const overdueTasks = backlogTodayTasks.filter(t => isOverdue(t.nextDueDate));
+  const overdueRecurringTasks = useMemo(
+    () => overdueTasks.filter(t => isRecurringCareTask(t)),
+    [overdueTasks],
+  );
   const dueTodayTasks = backlogTodayTasks.filter(t => isDueToday(t.nextDueDate));
   const todayImportantTasks = tasks
     .filter(task => isOverdue(task.nextDueDate) || isDueToday(task.nextDueDate))
@@ -244,6 +283,87 @@ export default function TodayPage() {
       setSaving(false);
     }
   };
+
+  const openOverdueBulkDrawer = useCallback((intent: OverdueBulkIntent) => {
+    setOverdueBulkIntent(intent);
+    setOverdueDrawerOpen(true);
+  }, []);
+
+  const handleOverdueBulkConfirm = useCallback(async () => {
+    if (!overdueBulkIntent || overdueRecurringTasks.length === 0) return;
+    if (bulkOverdueInFlightRef.current) return;
+    bulkOverdueInFlightRef.current = true;
+    setOverdueBulkSaving(true);
+    try {
+      const ids = overdueRecurringTasks.map(t => t.id);
+      let pushed: string[] = [];
+      if (overdueBulkIntent === 'startFresh') {
+        pushed = await advanceOverdueRecurringTasksStartFresh(ids);
+      } else if (overdueBulkIntent === 'skipOverdue') {
+        pushed = await advanceOverdueRecurringTasksSkipOverdue(ids);
+      } else {
+        const r = await markOverdueRecurringTasksDoneBulk(ids);
+        pushed = r.scheduleItemIds;
+      }
+      await loadData();
+      const uniquePushed = [...new Set(pushed)].filter(Boolean);
+      if (uniquePushed.length === 0) {
+        toast.info('Nothing to update', {
+          description: 'Looks like everything was already up to date.',
+        });
+      } else {
+        void pushCareTasksToCloudByIds(uniquePushed, { notifyOnError: true });
+        await lightHaptic();
+        const n = uniquePushed.length;
+        if (overdueBulkIntent === 'startFresh') {
+          toast.success('Schedule updated', {
+            description: n === 1 ? 'Next reminder moved forward from today.' : `Updated ${n} repeating reminders from today.`,
+          });
+        } else if (overdueBulkIntent === 'skipOverdue') {
+          toast.success('Reminders updated', {
+            description: n === 1 ? 'Past due window rolled forward.' : `Rolled ${n} reminders forward on the calendar.`,
+          });
+        } else {
+          toast.success('Logged for today', {
+            description: n === 1 ? 'Task and journal entry saved locally.' : `${n} tasks logged with journal entries.`,
+          });
+        }
+      }
+      setOverdueDrawerOpen(false);
+      setOverdueBulkIntent(null);
+    } catch (error) {
+      console.error('Bulk overdue update failed:', error);
+      toast.error('Could not update tasks — try again');
+    } finally {
+      bulkOverdueInFlightRef.current = false;
+      setOverdueBulkSaving(false);
+    }
+  }, [overdueBulkIntent, overdueRecurringTasks, loadData]);
+
+  const overdueBulkSheet = useMemo(() => {
+    const n = overdueRecurringTasks.length;
+    if (!overdueBulkIntent || n === 0) return null;
+    const taskWord = n === 1 ? 'repeating reminder' : 'repeating reminders';
+    if (overdueBulkIntent === 'startFresh') {
+      return {
+        title: 'Reset reminders from today?',
+        description: `This moves ${n} behind-schedule ${taskWord} forward so your next due dates start from today's rhythm. Nothing is added to your journal.`,
+        confirm: 'Reset from today',
+      };
+    }
+    if (overdueBulkIntent === 'skipOverdue') {
+      return {
+        title: 'Roll past due dates forward?',
+        description: `This advances ${n} behind-schedule ${taskWord} along the calendar until they are current. Nothing is added to your journal.`,
+        confirm: 'Roll forward',
+      };
+    }
+    return {
+      title: 'Log overdue as done for today?',
+      description: `This marks ${n} behind-schedule ${taskWord} complete for today and adds the usual journal entries for your animals, same as marking each task done.`,
+      confirm: 'Log as done today',
+    };
+  }, [overdueBulkIntent, overdueRecurringTasks.length]);
 
   const handleLoadSampleData = async () => {
     setLoadingSample(true);
@@ -514,6 +634,62 @@ export default function TodayPage() {
             </div>
           </div>
 
+          {overdueRecurringTasks.length > 0 && (
+            <div className="relative z-10 mt-4 rounded-xl border border-border/55 bg-card/85 px-3.5 py-3 shadow-sm backdrop-blur-sm">
+              <div className="flex items-start gap-3">
+                <div className="min-w-0 flex-1 space-y-1">
+                  <p className="text-sm font-medium text-foreground">Catch up gently</p>
+                  <p className="text-[12px] leading-snug text-muted-foreground">
+                    {overdueRecurringTasks.length} behind-schedule repeating{' '}
+                    {overdueRecurringTasks.length === 1 ? 'reminder' : 'reminders'}. One-off reminders are left as-is.
+                  </p>
+                </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="h-10 w-10 shrink-0 rounded-full tap-feedback"
+                      aria-label="Catch-up options for behind-schedule reminders"
+                    >
+                      <MoreVertical className="h-4 w-4" aria-hidden />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-[min(100vw-2rem,18rem)]">
+                    <DropdownMenuItem
+                      className="cursor-pointer flex items-center gap-2"
+                      onSelect={() => {
+                        setTimeout(() => openOverdueBulkDrawer('startFresh'), 0);
+                      }}
+                    >
+                      <Sparkles className="h-4 w-4 shrink-0 opacity-70" aria-hidden />
+                      <span>Start fresh</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      className="cursor-pointer flex items-center gap-2"
+                      onSelect={() => {
+                        setTimeout(() => openOverdueBulkDrawer('skipOverdue'), 0);
+                      }}
+                    >
+                      <FastForward className="h-4 w-4 shrink-0 opacity-70" aria-hidden />
+                      <span>Skip past due dates</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      className="cursor-pointer flex items-center gap-2"
+                      onSelect={() => {
+                        setTimeout(() => openOverdueBulkDrawer('markDone'), 0);
+                      }}
+                    >
+                      <ListChecks className="h-4 w-4 shrink-0 opacity-70" aria-hidden />
+                      <span>Mark overdue done</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </div>
+          )}
+
           <div className="relative z-10 mt-4 grid gap-2.5 sm:grid-cols-2">
             <div className="rounded-lg border border-border/50 bg-card/70 px-3 py-2.5">
               <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">Next Important Task</p>
@@ -731,6 +907,39 @@ export default function TodayPage() {
           )}
       </div>
       </div>
+
+      <Drawer
+        open={overdueDrawerOpen}
+        onOpenChange={(open) => {
+          setOverdueDrawerOpen(open);
+          if (!open) setOverdueBulkIntent(null);
+        }}
+        shouldScaleBackground={!prefersReducedMotion}
+      >
+        <DrawerContent className="pb-[max(1rem,env(safe-area-inset-bottom))]">
+          <DrawerHeader className="text-left">
+            <DrawerTitle>{overdueBulkSheet?.title ?? ''}</DrawerTitle>
+            <DrawerDescription className="text-left text-pretty">
+              {overdueBulkSheet?.description ?? ''}
+            </DrawerDescription>
+          </DrawerHeader>
+          <DrawerFooter className="flex-col gap-2 pt-2">
+            <Button
+              type="button"
+              className="w-full min-h-[48px] tap-feedback"
+              disabled={overdueBulkSaving || !overdueBulkSheet}
+              onClick={() => void handleOverdueBulkConfirm()}
+            >
+              {overdueBulkSaving ? 'Saving…' : overdueBulkSheet?.confirm}
+            </Button>
+            <DrawerClose asChild>
+              <Button type="button" variant="outline" className="w-full min-h-[48px] tap-feedback" disabled={overdueBulkSaving}>
+                Cancel
+              </Button>
+            </DrawerClose>
+          </DrawerFooter>
+        </DrawerContent>
+      </Drawer>
 
       <MarkDoneModal
         isOpen={modalState.isOpen}
