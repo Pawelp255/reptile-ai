@@ -40,10 +40,101 @@ import { Link } from 'react-router-dom';
 import { PageHeader } from '@/components/PageHeader';
 import { lightHaptic, mediumHaptic } from '@/lib/native/haptics';
 import { cn } from '@/lib/utils';
+import { resolveAnimalGroup, type AnimalCategory, type AnimalGroup } from '@/lib/animals/taxonomy';
 
 interface ReptileWithFeeding {
   reptile: Reptile;
   nextFeedingDate?: string;
+}
+
+type AnimalFilter =
+  | 'all'
+  | 'snakes'
+  | 'lizards'
+  | 'geckos'
+  | 'turtles'
+  | 'amphibians'
+  | 'invertebrates'
+  | 'fish'
+  | 'other';
+
+const ANIMAL_FILTER_OPTIONS: { value: AnimalFilter; label: string }[] = [
+  { value: 'all', label: 'All' },
+  { value: 'snakes', label: 'Snakes' },
+  { value: 'lizards', label: 'Lizards' },
+  { value: 'geckos', label: 'Geckos' },
+  { value: 'turtles', label: 'Turtles' },
+  { value: 'amphibians', label: 'Amphibians' },
+  { value: 'invertebrates', label: 'Invertebrates' },
+  { value: 'fish', label: 'Fish' },
+  { value: 'other', label: 'Other' },
+];
+
+const VALID_ANIMAL_GROUPS = new Set<AnimalGroup>(['reptile', 'amphibian', 'invertebrate', 'fish', 'other']);
+const SNAKE_CATEGORIES = new Set<AnimalCategory>(['snake']);
+const GECKO_CATEGORIES = new Set<AnimalCategory>(['gecko']);
+const LIZARD_CATEGORIES = new Set<AnimalCategory>([
+  'lizard',
+  'monitor',
+  'skink',
+  'tegu',
+  'chameleon',
+  'iguana',
+  'anole',
+]);
+const TURTLE_CATEGORIES = new Set<AnimalCategory>(['turtle', 'tortoise']);
+
+function getSafeAnimalGroup(reptile: Reptile): AnimalGroup | 'unknown' {
+  const rawGroup = (reptile as { animalGroup?: string }).animalGroup;
+  if (rawGroup) return VALID_ANIMAL_GROUPS.has(rawGroup as AnimalGroup) ? (rawGroup as AnimalGroup) : 'unknown';
+  return resolveAnimalGroup(reptile);
+}
+
+function getAnimalSearchText(reptile: Reptile): string {
+  return [
+    reptile.species,
+    reptile.commonName,
+    reptile.scientificName,
+    reptile.speciesGroup,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+}
+
+function matchesQuickAnimalFilter(reptile: Reptile, filter: AnimalFilter): boolean {
+  if (filter === 'all') return true;
+
+  const category = reptile.animalCategory;
+  const group = getSafeAnimalGroup(reptile);
+  const text = getAnimalSearchText(reptile);
+
+  switch (filter) {
+    case 'snakes':
+      return (
+        (category ? SNAKE_CATEGORIES.has(category) : false) ||
+        /\b(snake|python|boa|boid|colubrid|corn snake|kingsnake|milk snake|hognose)\b/.test(text)
+      );
+    case 'geckos':
+      return (category ? GECKO_CATEGORIES.has(category) : false) || /\b(gecko|eublepharis|correlophus|rhacodactylus|gekko)\b/.test(text);
+    case 'lizards':
+      return (
+        (category ? LIZARD_CATEGORIES.has(category) : false) ||
+        /\b(lizard|monitor|skink|tegu|chameleon|iguana|anole|bearded dragon|dragon|agama|varanus|pogona)\b/.test(text)
+      );
+    case 'turtles':
+      return (category ? TURTLE_CATEGORIES.has(category) : false) || /\b(turtle|tortoise|terrapin|slider|cooter)\b/.test(text);
+    case 'amphibians':
+      return group === 'amphibian';
+    case 'invertebrates':
+      return group === 'invertebrate';
+    case 'fish':
+      return group === 'fish';
+    case 'other':
+      return group === 'other' || group === 'unknown';
+    default:
+      return true;
+  }
 }
 
 function SortableReptileRow({
@@ -93,7 +184,7 @@ export default function ReptilesPage() {
   const [reptiles, setReptiles] = useState<ReptileWithFeeding[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [typeFilter, setTypeFilter] = useState<'all' | 'reptile' | 'amphibian'>('all');
+  const [animalFilter, setAnimalFilter] = useState<AnimalFilter>('all');
   const [loadingSample, setLoadingSample] = useState(false);
   const [reorderMode, setReorderMode] = useState(false);
 
@@ -166,18 +257,18 @@ export default function ReptilesPage() {
           return (
             reptile.name.toLowerCase().includes(query) ||
             reptile.species.toLowerCase().includes(query) ||
+            (reptile.commonName?.toLowerCase().includes(query) ?? false) ||
+            (reptile.scientificName?.toLowerCase().includes(query) ?? false) ||
             (reptile.morph?.toLowerCase().includes(query) ?? false)
           );
         })
         .filter(({ reptile }) => {
-          if (typeFilter === 'all') return true;
-          const cls = reptile.animalClass ?? (reptile.isAmphibian ? 'amphibian' : 'reptile');
-          return typeFilter === 'amphibian' ? cls === 'amphibian' : cls === 'reptile';
+          return matchesQuickAnimalFilter(reptile, animalFilter);
         }),
-    [reptiles, searchQuery, typeFilter],
+    [reptiles, searchQuery, animalFilter],
   );
 
-  const canReorder = !searchQuery.trim() && typeFilter === 'all' && reptiles.length > 1;
+  const canReorder = !searchQuery.trim() && animalFilter === 'all' && reptiles.length > 1;
 
   useEffect(() => {
     if (!canReorder) setReorderMode(false);
@@ -286,34 +377,19 @@ export default function ReptilesPage() {
                 className="pl-10 bg-background/80 backdrop-blur-sm border border-border/60 rounded-[var(--radius-lg)] placeholder:text-muted-foreground/60 transition-[color,background,box-shadow] duration-200 shadow-[var(--shadow-card)] focus-visible:ring-2 focus-visible:ring-primary/30"
               />
             </div>
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                variant={typeFilter === 'all' ? 'default' : 'outline'}
-                size="sm"
-                className="min-h-[32px] px-3 text-xs"
-                onClick={() => setTypeFilter('all')}
-              >
-                All
-              </Button>
-              <Button
-                type="button"
-                variant={typeFilter === 'reptile' ? 'default' : 'outline'}
-                size="sm"
-                className="min-h-[32px] px-3 text-xs"
-                onClick={() => setTypeFilter('reptile')}
-              >
-                Reptiles
-              </Button>
-              <Button
-                type="button"
-                variant={typeFilter === 'amphibian' ? 'default' : 'outline'}
-                size="sm"
-                className="min-h-[32px] px-3 text-xs"
-                onClick={() => setTypeFilter('amphibian')}
-              >
-                Amphibians
-              </Button>
+            <div className="flex flex-wrap gap-2">
+              {ANIMAL_FILTER_OPTIONS.map((option) => (
+                <Button
+                  key={option.value}
+                  type="button"
+                  variant={animalFilter === option.value ? 'default' : 'outline'}
+                  size="sm"
+                  className="min-h-[32px] px-3 text-xs whitespace-nowrap"
+                  onClick={() => setAnimalFilter(option.value)}
+                >
+                  {option.label}
+                </Button>
+              ))}
             </div>
             {reorderMode && canReorder ? (
               <p id="reptiles-reorder-hint" className="text-[11px] text-muted-foreground leading-snug">
@@ -364,14 +440,14 @@ export default function ReptilesPage() {
               <EmptyState
                 icon={<Search className="w-12 h-12" />}
                 title="Nothing matches filters"
-                description="Clear search or widen the reptile/amphibian filter to see your list again."
+                description="Clear search or widen the animal group filter to see your list again."
                 action={
                   <Button
                     type="button"
                     className="w-full max-w-[280px] mx-auto min-h-[48px] tap-feedback"
                     onClick={() => {
                       setSearchQuery('');
-                      setTypeFilter('all');
+                      setAnimalFilter('all');
                     }}
                   >
                     Reset search & filters
