@@ -2,25 +2,29 @@ import { ChevronRight, Utensils } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { format, isValid } from 'date-fns';
 import type { Reptile } from '@/types';
-import { getDisplayEmoji, getCategoryLabel } from '@/lib/animals/taxonomy';
+import { getDisplayEmoji, getCategoryLabel, getAnimalGroupLabel, resolveAnimalGroup } from '@/lib/animals/taxonomy';
 
 interface ReptileCardProps {
   reptile: Reptile;
   nextFeedingDate?: string;
+  /** When true, renders the same card without navigation (e.g. My Animals reorder mode). */
+  disableNavigation?: boolean;
 }
 
-export function ReptileCard({ reptile, nextFeedingDate }: ReptileCardProps) {
+export function ReptileCard({ reptile, nextFeedingDate, disableNavigation }: ReptileCardProps) {
   const emoji = getDisplayEmoji(reptile.animalCategory, reptile.species);
   const categoryLabel = reptile.animalCategory ? getCategoryLabel(reptile.animalCategory) : null;
+  const groupLabel = getAnimalGroupLabel(resolveAnimalGroup(reptile));
 
-  return (
-    <Link to={`/reptiles/${reptile.id}`} className="block min-h-[44px] tap-feedback rounded-[calc(var(--radius-xl)+2px)]">
-      <div className="reptile-card premium-surface">
+  const surface = (
+    <div className="reptile-card premium-surface">
         <div className="flex items-center justify-center w-12 h-12 rounded-[var(--radius-xl)] bg-secondary/80 text-2xl shrink-0 overflow-hidden border border-border/40">
           {reptile.photoUrl ? (
             <img
               src={reptile.photoUrl}
               alt=""
+              loading="lazy"
+              decoding="async"
               className="w-full h-full object-cover"
             />
           ) : (
@@ -33,8 +37,11 @@ export function ReptileCard({ reptile, nextFeedingDate }: ReptileCardProps) {
             {reptile.commonName || reptile.species}
           </p>
           <div className="mt-1 flex flex-wrap items-center gap-1.5">
+            <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[11px] font-medium">
+              {groupLabel}
+            </span>
             {categoryLabel && (
-              <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[11px] font-medium">
+              <span className="px-2 py-0.5 rounded-full bg-muted/70 text-[11px] text-muted-foreground">
                 {categoryLabel}
               </span>
             )}
@@ -59,8 +66,19 @@ export function ReptileCard({ reptile, nextFeedingDate }: ReptileCardProps) {
             </div>
           )}
         </div>
-        <ChevronRight className="w-5 h-5 text-muted-foreground/80 shrink-0" aria-hidden />
+        {!disableNavigation && <ChevronRight className="w-5 h-5 text-muted-foreground/80 shrink-0" aria-hidden />}
       </div>
+  );
+
+  if (disableNavigation) {
+    return (
+      <div className="block min-h-[44px] rounded-[calc(var(--radius-xl)+2px)]">{surface}</div>
+    );
+  }
+
+  return (
+    <Link to={`/reptiles/${reptile.id}`} className="block min-h-[44px] tap-feedback rounded-[calc(var(--radius-xl)+2px)]">
+      {surface}
     </Link>
   );
 }

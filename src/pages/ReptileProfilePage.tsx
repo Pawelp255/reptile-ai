@@ -52,7 +52,7 @@ import { pushCareTasksToCloudByIds } from '@/lib/reptiles/cloudSync';
 import { ProfileSkeleton } from '@/components/system/SkeletonLoaders';
 import { PetProfileShareDialog } from '@/components/PetProfileShareDialog';
 import type { Reptile, ScheduleItem, CareEvent, TaskType, EventType, Pairing, ScheduleMode } from '@/types';
-import { getDisplayEmoji } from '@/lib/animals/taxonomy';
+import { getAnimalGroupLabel, getDisplayEmoji, resolveAnimalGroup } from '@/lib/animals/taxonomy';
 import {
   getAverageFeedingInterval,
   getAverageShedCycle,
@@ -465,6 +465,8 @@ export default function ReptileProfilePage() {
     );
   }
 
+  const animalGroupLabel = getAnimalGroupLabel(resolveAnimalGroup(reptile));
+
   return (
     <PageMotion className="page-container">
       <PageHeader 
@@ -507,7 +509,7 @@ export default function ReptileProfilePage() {
           <div className="rounded-[calc(var(--radius-xl)+4px)] p-[4px] bg-gradient-to-br from-primary/35 via-transparent to-accent/28 shadow-[var(--surface-shadow-deep)] ring-2 ring-background">
             <div className="aspect-square rounded-[var(--radius-xl)] overflow-hidden shadow-[var(--shadow-elevated)] bg-secondary/50">
               {reptile.photoUrl ? (
-                <img src={reptile.photoUrl} alt={reptile.name} className="w-full h-full object-cover" />
+                <img src={reptile.photoUrl} alt={reptile.name} decoding="async" className="w-full h-full object-cover" />
               ) : (
                 <div className="relative w-full h-full flex flex-col items-center justify-center gap-3 bg-gradient-to-br from-secondary/95 via-muted/85 to-secondary/65">
                   <div
@@ -530,6 +532,9 @@ export default function ReptileProfilePage() {
         </div>
 
         <div className="flex flex-wrap justify-center gap-2 px-1">
+          <span className="inline-flex items-center rounded-full border border-border/60 bg-primary/10 px-3 py-1 text-[11px] font-semibold tracking-wide text-primary shadow-[var(--shadow-card)]">
+            {animalGroupLabel}
+          </span>
           <span className="inline-flex items-center rounded-full border border-border/60 bg-background/80 px-3 py-1 text-[11px] font-semibold tracking-wide text-foreground/90 shadow-[var(--shadow-card)]">
             {sexLabels[reptile.sex]}
           </span>
@@ -1127,6 +1132,8 @@ export default function ReptileProfilePage() {
                   <img 
                     src={selectedEvent.photoDataUrl} 
                     alt="Event photo" 
+                    loading="lazy"
+                    decoding="async"
                     className="mt-2 w-full rounded-lg"
                   />
                 </div>

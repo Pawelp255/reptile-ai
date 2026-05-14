@@ -5,6 +5,7 @@ const REPTILE_PHOTO_BUCKET = "reptile-photos";
 const SIGNED_URL_TTL_SECONDS = 60 * 60;
 const SIGNED_URL_REFRESH_SKEW_MS = 2 * 60 * 1000;
 const SIGNED_URL_RETRY_COOLDOWN_MS = 5 * 60 * 1000;
+const signedUrlRequests = new Map<string, Promise<{ signedUrl: string; expiresAt: string } | undefined>>();
 
 type EnsurePhotoStoredResult = {
   reptile: Reptile;
@@ -80,8 +81,19 @@ export async function createSignedReptilePhotoUrl(
   options?: { expiresInSeconds?: number; throwOnError?: boolean },
 ): Promise<{ signedUrl: string; expiresAt: string } | undefined> {
   if (!supabase || !photoPath?.trim()) return undefined;
+  const key = `${photoPath}:${options?.expiresInSeconds ?? SIGNED_URL_TTL_SECONDS}`;
+  const existing = signedUrlRequests.get(key);
+  if (existing) {
+    try {
+      return await existing;
+    } catch (error) {
+      if (options?.throwOnError) throw error;
+      return undefined;
+    }
+  }
+
   const ttl = options?.expiresInSeconds ?? SIGNED_URL_TTL_SECONDS;
-  try {
+  const request = (async () => {
     const { data, error } = await supabase.storage
       .from(REPTILE_PHOTO_BUCKET)
       .createSignedUrl(photoPath, ttl);
@@ -91,9 +103,16 @@ export async function createSignedReptilePhotoUrl(
       signedUrl: data.signedUrl,
       expiresAt: new Date(Date.now() + ttl * 1000).toISOString(),
     };
+  })();
+
+  signedUrlRequests.set(key, request);
+  try {
+    return await request;
   } catch (error) {
     if (options?.throwOnError) throw error;
     return undefined;
+  } finally {
+    signedUrlRequests.delete(key);
   }
 }
 
@@ -128,6 +147,7 @@ export async function resolveDisplayPhotoForReptile(
   const inlineFallback =
     reptile.photoInlineFallbackUrl?.trim() ||
     (isInlineDataUrl(reptile.photoUrl) ? reptile.photoUrl.trim() : undefined);
+  const currentDisplayUrl = reptile.photoUrl?.trim();
 
   try {
     const signed = await createSignedReptilePhotoUrl(reptile.photoPath, {
@@ -137,7 +157,7 @@ export async function resolveDisplayPhotoForReptile(
       const next: Reptile = {
         ...reptile,
         photoInlineFallbackUrl: inlineFallback,
-        photoUrl: inlineFallback ?? undefined,
+        photoUrl: inlineFallback ?? currentDisplayUrl ?? undefined,
         photoUrlExpiresAt: undefined,
         photoUrlRefreshFailedAt: new Date().toISOString(),
       };
@@ -160,7 +180,7 @@ export async function resolveDisplayPhotoForReptile(
     const next: Reptile = {
       ...reptile,
       photoInlineFallbackUrl: inlineFallback,
-      photoUrl: inlineFallback ?? undefined,
+      photoUrl: inlineFallback ?? currentDisplayUrl ?? undefined,
       photoUrlExpiresAt: undefined,
       photoUrlRefreshFailedAt: new Date().toISOString(),
     };

@@ -52,7 +52,8 @@ import {
   isSampleDatasetEnabled,
   advanceOverdueRecurringTasksStartFresh,
   advanceOverdueRecurringTasksSkipOverdue,
-  isRecurringCareTask,
+  isFlexibleScheduleItem,
+  isStrictRecurringCareTask,
   markOverdueRecurringTasksDoneBulk,
 } from '@/lib/storage';
 import { pushCareTasksToCloudByIds, REPTILES_CLOUD_SYNC_EVENT } from '@/lib/reptiles/cloudSync';
@@ -139,26 +140,27 @@ export default function TodayPage() {
     return () => window.removeEventListener(REPTILES_CLOUD_SYNC_EVENT, onCloudSyncFinished);
   }, [loadData]);
 
-  const filteredTasks = tasks.filter(task => {
-    const overdue = isOverdue(task.nextDueDate);
+  const strictFilteredTasks = tasks.filter(task => {
+    const strict = isStrictRecurringCareTask(task);
+    const overdue = strict && isOverdue(task.nextDueDate);
     const dueToday = isDueToday(task.nextDueDate);
-    
+
     if (filterMode === 'today') {
-      return overdue || dueToday;
+      return strict && (overdue || dueToday);
     } else {
-      return overdue || isWithinDays(task.nextDueDate, 7);
+      return strict && (overdue || isWithinDays(task.nextDueDate, 7));
     }
   }).sort((a, b) => {
     // Sort overdue first, then by date
-    const aOverdue = isOverdue(a.nextDueDate);
-    const bOverdue = isOverdue(b.nextDueDate);
+    const aOverdue = isStrictRecurringCareTask(a) && isOverdue(a.nextDueDate);
+    const bOverdue = isStrictRecurringCareTask(b) && isOverdue(b.nextDueDate);
     if (aOverdue && !bOverdue) return -1;
     if (!aOverdue && bOverdue) return 1;
     return a.nextDueDate.localeCompare(b.nextDueDate);
   });
 
   // Group tasks by reptile
-  const groupedTasks = filteredTasks.reduce((acc, task) => {
+  const groupedTasks = strictFilteredTasks.reduce((acc, task) => {
     const key = task.reptileId;
     if (!acc[key]) {
       acc[key] = { reptile: task.reptile, tasks: [] };
@@ -169,16 +171,32 @@ export default function TodayPage() {
 
   /** Overdue / due-today backlog for hero stats and badges (not tied to week filter). */
   const backlogTodayTasks = tasks.filter(
-    t => t.reptile && (isOverdue(t.nextDueDate) || isDueToday(t.nextDueDate)),
+    t =>
+      t.reptile &&
+      isStrictRecurringCareTask(t) &&
+      (isOverdue(t.nextDueDate) || isDueToday(t.nextDueDate)),
   );
   const overdueTasks = backlogTodayTasks.filter(t => isOverdue(t.nextDueDate));
   const overdueRecurringTasks = useMemo(
-    () => overdueTasks.filter(t => isRecurringCareTask(t)),
+    () => overdueTasks.filter(t => isStrictRecurringCareTask(t)),
     [overdueTasks],
   );
   const dueTodayTasks = backlogTodayTasks.filter(t => isDueToday(t.nextDueDate));
+  const todayStr = getToday();
+  const suggestedFlexibleTasks = tasks
+    .filter(
+      (task) =>
+        task.reptile &&
+        isFlexibleScheduleItem(task) &&
+        (task.nextDueDate <= todayStr || isDueToday(task.nextDueDate)),
+    )
+    .sort((a, b) => a.nextDueDate.localeCompare(b.nextDueDate));
   const todayImportantTasks = tasks
-    .filter(task => isOverdue(task.nextDueDate) || isDueToday(task.nextDueDate))
+    .filter(
+      (task) =>
+        isStrictRecurringCareTask(task) &&
+        (isOverdue(task.nextDueDate) || isDueToday(task.nextDueDate)),
+    )
     .sort((a, b) => {
       const aOverdue = isOverdue(a.nextDueDate);
       const bOverdue = isOverdue(b.nextDueDate);
@@ -194,7 +212,6 @@ export default function TodayPage() {
   const focusAnimal = nextImportantTask?.reptile ?? randomAnimalFallback;
   const animalsNeedingAttentionCount = new Set(todayImportantTasks.map(task => task.reptileId)).size;
   const animalsClearTodayCount = Math.max(reptiles.size - animalsNeedingAttentionCount, 0);
-  const todayStr = getToday();
   const completedTodayCount = tasks.filter(t => t.reptile && t.lastDoneDate === todayStr).length;
   const totalTodayTasks = backlogTodayTasks.length + completedTodayCount;
   const hasScheduledTodayWork = totalTodayTasks > 0;
@@ -395,7 +412,7 @@ export default function TodayPage() {
     );
   }
 
-  const hasNoTasks = filteredTasks.length === 0;
+  const hasNoTasks = strictFilteredTasks.length === 0 && (filterMode !== 'today' || suggestedFlexibleTasks.length === 0);
   const showFirstRunOnboarding = reptiles.size === 0;
 
   return (
@@ -711,7 +728,7 @@ export default function TodayPage() {
                   <div className="flex items-center gap-2.5">
                     <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg border border-primary/15 bg-secondary/70 ring-1 ring-primary/10">
                       {focusAnimal.photoUrl ? (
-                        <img src={focusAnimal.photoUrl} alt="" className="h-full w-full object-cover" />
+                        <img src={focusAnimal.photoUrl} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
                       ) : (
                         <span className="flex h-full w-full items-center justify-center text-lg">
                           {getDisplayEmoji(focusAnimal.animalCategory, focusAnimal.species)}
@@ -867,40 +884,65 @@ export default function TodayPage() {
               </div>
             </div>
           ) : (
-            <StaggerList className="space-y-5">
-              {Object.entries(groupedTasks).map(([reptileId, { reptile, tasks: reptileTasks }]) => {
-                const hasOverdueForReptile = reptileTasks.some(task =>
-                  isOverdue(task.nextDueDate),
-                );
+            <div className="space-y-5">
+              <StaggerList className="space-y-5">
+                {Object.entries(groupedTasks).map(([reptileId, { reptile, tasks: reptileTasks }]) => {
+                  const hasOverdueForReptile = reptileTasks.some(task =>
+                    isStrictRecurringCareTask(task) && isOverdue(task.nextDueDate),
+                  );
 
-                return (
-                  <StaggerItem key={reptileId}>
-                    <div className="premium-surface rounded-[var(--radius-xl)] p-4 sm:p-5">
-                      <div className="flex items-baseline justify-between gap-3 mb-3">
-                        <h2 className="text-card-title">{reptile.name}</h2>
-                        {hasOverdueForReptile && (
-                          <span className="px-2.5 py-0.5 rounded-full bg-destructive/10 text-destructive text-[11px] font-medium tracking-wide uppercase">
-                            Overdue tasks
-                          </span>
-                        )}
+                  return (
+                    <StaggerItem key={reptileId}>
+                      <div className="premium-surface rounded-[var(--radius-xl)] p-4 sm:p-5">
+                        <div className="flex items-baseline justify-between gap-3 mb-3">
+                          <h2 className="text-card-title">{reptile.name}</h2>
+                          {hasOverdueForReptile && (
+                            <span className="px-2.5 py-0.5 rounded-full bg-destructive/10 text-destructive text-[11px] font-medium tracking-wide uppercase">
+                              Overdue tasks
+                            </span>
+                          )}
+                        </div>
+                        <div className="space-y-2.5">
+                          {reptileTasks.map(task => (
+                            <TaskCard
+                              key={task.id}
+                              reptileName={reptile.name}
+                              taskType={task.taskType}
+                              nextDueDate={task.nextDueDate}
+                              isOverdue={isStrictRecurringCareTask(task) && isOverdue(task.nextDueDate)}
+                              onMarkDone={() => handleMarkDone(task)}
+                            />
+                          ))}
+                        </div>
                       </div>
-                      <div className="space-y-2.5">
-                        {reptileTasks.map(task => (
-                          <TaskCard
-                            key={task.id}
-                            reptileName={reptile.name}
-                            taskType={task.taskType}
-                            nextDueDate={task.nextDueDate}
-                            isOverdue={isOverdue(task.nextDueDate)}
-                            onMarkDone={() => handleMarkDone(task)}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  </StaggerItem>
-                );
-              })}
-            </StaggerList>
+                    </StaggerItem>
+                  );
+                })}
+              </StaggerList>
+
+              {filterMode === 'today' && suggestedFlexibleTasks.length > 0 && (
+                <div className="premium-surface rounded-[var(--radius-xl)] p-4 sm:p-5">
+                  <div className="mb-3">
+                    <h3 className="text-card-title">Suggested reminders</h3>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Flexible reminders are optional and do not count as overdue.
+                    </p>
+                  </div>
+                  <div className="space-y-2.5">
+                    {suggestedFlexibleTasks.map((task) => (
+                      <TaskCard
+                        key={task.id}
+                        reptileName={task.reptile.name}
+                        taskType={task.taskType}
+                        nextDueDate={task.nextDueDate}
+                        isOverdue={false}
+                        onMarkDone={() => handleMarkDone(task)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           )}
         </Fragment>
             </>
