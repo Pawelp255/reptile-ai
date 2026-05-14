@@ -175,13 +175,15 @@ export default function AddEventPage() {
         ? await updateCareEvent(editEventId, payload)
         : await createCareEvent(payload);
 
-      const scheduleId = await reconcileScheduleAfterManualCareEvent(
-        saved.reptileId,
-        saved.eventType,
-        saved.eventDate,
-      );
-      if (scheduleId) {
-        void pushCareTasksToCloudByIds([scheduleId], { notifyOnError: true });
+      if (!editEventId) {
+        const scheduleId = await reconcileScheduleAfterManualCareEvent(
+          saved.reptileId,
+          saved.eventType,
+          saved.eventDate,
+        );
+        if (scheduleId) {
+          void pushCareTasksToCloudByIds([scheduleId], { notifyOnError: true });
+        }
       }
 
       await mediumHaptic();

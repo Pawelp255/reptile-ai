@@ -3,6 +3,7 @@ import { getDB, generateId, getNow, getToday, addDays } from './db';
 import { revokePublicSharesForAnimal } from '@/lib/share/revokePublicShares';
 import { deleteCurrentUserCloudReptile, upsertCurrentUserCloudReptile } from '@/lib/reptiles/cloudSync';
 import { ensureInlinePhotoBackedUp, resolveDisplayPhotoForReptile } from '@/lib/reptiles/photoStorage';
+import { resolveAnimalGroup } from '@/lib/animals/taxonomy';
 import { toast } from 'sonner';
 import type { Reptile, ReptileFormData, ScheduleItem, DietType } from '@/types';
 
@@ -73,6 +74,7 @@ function backupPhotoToStorageInBackground(reptile: Reptile, opts?: { notifyOnErr
       const updated: Reptile = {
         ...existing,
         photoPath: result.reptile.photoPath,
+        updatedAt: getNow(),
       };
       await db.put('reptiles', updated);
       syncReptileUpsertInBackground(updated);
@@ -149,6 +151,7 @@ export async function createReptile(data: ReptileFormData): Promise<Reptile> {
     species: data.species,
     commonName: data.commonName,
     scientificName: data.scientificName,
+    animalGroup: data.animalGroup ?? resolveAnimalGroup(data),
     animalClass: data.animalClass,
     animalCategory: data.animalCategory,
     speciesGroup: data.speciesGroup,

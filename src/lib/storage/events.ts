@@ -6,6 +6,7 @@ import { subtractDaysLocal } from '@/lib/date/localDateKey';
 // Create a new care event
 export async function createCareEvent(data: CareEventFormData): Promise<CareEvent> {
   const db = await getDB();
+  const now = getNow();
   
   const event: CareEvent = {
     id: generateId(),
@@ -17,7 +18,8 @@ export async function createCareEvent(data: CareEventFormData): Promise<CareEven
     weightGrams: data.weightGrams,
     lengthCm: data.lengthCm,
     supplements: data.supplements,
-    createdAt: getNow(),
+    createdAt: now,
+    updatedAt: now,
   };
 
   await db.put('careEvents', event);
@@ -40,6 +42,7 @@ export async function updateCareEvent(id: string, data: CareEventFormData): Prom
     weightGrams: data.weightGrams,
     lengthCm: data.lengthCm,
     supplements: data.supplements,
+    updatedAt: getNow(),
   };
 
   await db.put('careEvents', event);

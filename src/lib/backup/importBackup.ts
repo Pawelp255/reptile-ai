@@ -1,5 +1,5 @@
 import { getDB } from "@/lib/storage/db";
-import { ensureScheduleItemsHaveTimestamps } from "@/lib/storage/schedule";
+import { ensureScheduleItemsHaveTimestamps, normalizeWeekdays } from "@/lib/storage/schedule";
 import { updateSettings } from "@/lib/storage/settings";
 import type { AppSettings, CareEvent, Clutch, Offspring, Pairing, Reptile, ScheduleItem } from "@/types";
 import type { ReptilitaBackupV1 } from "./fullBackup";
@@ -30,11 +30,18 @@ function mergeSchedule(canonicalId: string, reptileId: string, local: ScheduleIt
       : parseTs(incoming.nextDueDate) > parseTs(local.nextDueDate)
         ? incoming
         : local;
-  return { ...winner, id: canonicalId, reptileId };
+  return {
+    ...winner,
+    id: canonicalId,
+    reptileId,
+    weekdays: winner.weekdays === undefined ? undefined : normalizeWeekdays(winner.weekdays),
+  };
 }
 
 function mergeCareEvent(canonicalId: string, reptileId: string, local: CareEvent, incoming: CareEvent): CareEvent {
-  const winner = parseTs(local.createdAt) >= parseTs(incoming.createdAt) ? local : incoming;
+  const localFreshness = parseTs(local.updatedAt) || parseTs(local.createdAt);
+  const incomingFreshness = parseTs(incoming.updatedAt) || parseTs(incoming.createdAt);
+  const winner = localFreshness >= incomingFreshness ? local : incoming;
   return { ...winner, id: canonicalId, reptileId };
 }
 
@@ -153,8 +160,14 @@ export async function applyReptilitaBackupMerge(data: ReptilitaBackupV1): Promis
     if (!localReps.some((r) => r.id === reptileId)) continue;
 
     const local = await db.get("scheduleItems", row.id);
-    const incoming: ScheduleItem = { ...row, reptileId };
-    const merged = local ? mergeSchedule(row.id, reptileId, local, incoming) : { ...incoming, id: row.id };
+    const incoming: ScheduleItem = {
+      ...row,
+      reptileId,
+      weekdays: row.weekdays === undefined ? undefined : normalizeWeekdays(row.weekdays),
+    };
+    const merged = local
+      ? mergeSchedule(row.id, reptileId, local, incoming)
+      : { ...incoming, id: row.id };
     await db.put("scheduleItems", merged);
     schedulesWritten++;
   }

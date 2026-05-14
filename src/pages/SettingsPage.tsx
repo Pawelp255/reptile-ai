@@ -65,7 +65,7 @@ import {
 import { exportFullBackupJson, type ReptilitaBackupV1 } from '@/lib/backup/fullBackup';
 import { applyReptilitaBackupMerge, parseBackupFileText } from '@/lib/backup/importBackup';
 import { generateICS } from '@/lib/export/ics';
-import { generatePDFReport } from '@/lib/export/pdf';
+import { generatePDFReportBlob } from '@/lib/export/pdf';
 import { ProBadge } from '@/components/plan/ProBadge';
 import { FEATURE_SMART_INSIGHTS_PLACEHOLDER } from '@/lib/plan/mockSubscription';
 import { usePlanStatus } from '@/hooks/usePlanStatus';
@@ -84,7 +84,6 @@ import { readLastSuccessfulCloudSyncMs } from '@/lib/sync/syncTelemetry';
 import { REPTILITA_SUPPORT_EMAIL, reptilitaMailto } from '@/lib/reptilitaSupport';
 import { downloadOrShareBlob } from '@/lib/native/blobExport';
 import { getLocalDateKey } from '@/lib/date/localDateKey';
-import { isNative } from '@/lib/native/sharing';
 
 type ThemeValue = 'light' | 'dark' | 'system';
 
@@ -242,19 +241,13 @@ export default function SettingsPage() {
     try {
       const [reptiles, events] = await Promise.all([getAllReptiles(), getAllCareEvents()]);
       if (reptiles.length === 0) { toast.error('No animals to export'); return; }
-      const htmlContent = generatePDFReport(reptiles, events);
-      const printWindow = window.open('', '_blank');
-      if (printWindow) {
-        printWindow.document.write(htmlContent);
-        printWindow.document.close();
-        toast.success('Report opened in new tab — use Print to save as PDF');
-      } else {
-        toast.error(
-          isNative()
-            ? 'This report needs a new window. Try opening the app in Safari, or use Backup export from Settings.'
-            : 'Please allow popups to generate the report',
-        );
+      const blob = await generatePDFReportBlob(reptiles, events);
+      const ok = await downloadOrShareBlob(blob, 'reptilita-care-report.pdf');
+      if (!ok) {
+        toast.error('Could not export PDF — use Share to Files or try from a browser.');
+        return;
       }
+      toast.success('Report ready — check downloads or the share sheet');
     } catch (error) {
       console.error('Failed to generate report:', error);
       toast.error('Failed to generate report');
