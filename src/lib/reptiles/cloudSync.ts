@@ -10,7 +10,6 @@ import {
 } from "@/lib/reptiles/photoStorage";
 import {
   ensureScheduleItemsHaveTimestamps,
-  ensureScheduleItemsHaveTimestampsForIds,
   normalizeWeekdays,
 } from "@/lib/storage/schedule";
 import { writeLastSuccessfulCloudSyncMs } from "@/lib/sync/syncTelemetry";
@@ -42,6 +41,20 @@ function parseDate(value: string | undefined | null): number {
   if (!value) return 0;
   const parsed = Date.parse(value);
   return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+function entityFreshness(value: { updatedAt?: string | null; createdAt?: string | null }): number {
+  return parseDate(value.updatedAt) || parseDate(value.createdAt);
+}
+
+type ScheduleItemWithCreatedAt = ScheduleItem & { createdAt?: string | null };
+
+function scheduleFreshness(value: Pick<ScheduleItemWithCreatedAt, "updatedAt" | "createdAt">): number {
+  return parseDate(value.updatedAt) || parseDate(value.createdAt);
+}
+
+function cloudCareTaskFreshness(row: Pick<CloudCareTaskRow, "updated_at" | "created_at">): number {
+  return parseDate(row.updated_at) || parseDate(row.created_at);
 }
 
 function stripLargeInlinePhotoFromData(reptile: Reptile): Reptile {
@@ -163,20 +176,40 @@ export async function fetchCloudReptiles(userId: string): Promise<Reptile[]> {
 export async function upsertCloudReptile(userId: string, reptile: Reptile): Promise<void> {
   if (!supabase) return;
 
-  let effectivePhotoPath: string | null = reptile.photoPath ?? null;
-  if (!effectivePhotoPath) {
-    const { data, error } = await supabase
-      .from("reptiles")
-      .select("photo_path")
-      .eq("user_id", userId)
-      .eq("id", reptile.id)
-      .maybeSingle();
-    if (error) throw error;
-    effectivePhotoPath = (data?.photo_path as string | null | undefined) ?? null;
+  const { data: existingRow, error: fetchError } = await supabase
+    .from("reptiles")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("id", reptile.id)
+    .maybeSingle();
+
+  if (fetchError) throw fetchError;
+
+  const existingCloud = existingRow ? fromCloudRecord(existingRow as CloudReptileRow) : null;
+  let reptileForRecord = reptile;
+  if (existingCloud) {
+    const cloudFreshness = entityFreshness(existingCloud);
+    const localFreshness = entityFreshness(reptile);
+    if (cloudFreshness > localFreshness) return;
+    if (cloudFreshness === localFreshness) {
+      const localHasNewPhotoPath = !!reptile.photoPath && !existingRow?.photo_path;
+      if (!localHasNewPhotoPath) return;
+      reptileForRecord = {
+        ...existingCloud,
+        photoPath: reptile.photoPath,
+        photoUrl: reptile.photoUrl ?? existingCloud.photoUrl,
+      };
+    }
   }
 
-  const record = toCloudRecord(userId, reptile, effectivePhotoPath);
-  const updatePayload: TablesUpdate<"reptiles"> = record;
+  let effectivePhotoPath: string | null = reptileForRecord.photoPath ?? null;
+  if (!effectivePhotoPath) {
+    effectivePhotoPath = (existingRow?.photo_path as string | null | undefined) ?? null;
+  }
+
+  const record = toCloudRecord(userId, reptileForRecord, effectivePhotoPath);
+  const { created_at: _preserveCreatedAt, ...recordWithoutCreatedAt } = record;
+  const updatePayload: TablesUpdate<"reptiles"> = existingRow ? recordWithoutCreatedAt : record;
 
   const { error } = await supabase
     .from("reptiles")
@@ -200,8 +233,10 @@ export async function deleteCloudReptile(userId: string, reptileId: string): Pro
 export async function hydrateLocalFromCloud(userId: string): Promise<void> {
   const db = await getDB();
   const cloudReptiles = await fetchCloudReptiles(userId);
+  const pendingDeleteIds = new Set(readPendingReptileDeleteIds(userId));
 
   for (const cloudReptile of cloudReptiles) {
+    if (pendingDeleteIds.has(cloudReptile.id)) continue;
     const localReptile = await db.get("reptiles", cloudReptile.id);
     if (!localReptile) {
       await db.put("reptiles", cloudReptile);
@@ -241,6 +276,65 @@ type CloudCareEventRow = {
   created_at: string;
   updated_at: string;
 };
+
+const PENDING_REPTILE_DELETES_KEY_PREFIX = "reptilita.pendingDeletes.reptiles";
+const PENDING_CARE_EVENT_DELETES_KEY_PREFIX = "reptilita.pendingDeletes.events";
+
+function pendingDeleteKey(prefix: string, userId: string): string {
+  return `${prefix}.${userId}`;
+}
+
+function readPendingDeleteIds(key: string): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return [];
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed)
+      ? [...new Set(parsed.filter((id): id is string => typeof id === "string" && !!id))]
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function writePendingDeleteIds(key: string, ids: string[]): void {
+  if (typeof window === "undefined") return;
+  const unique = [...new Set(ids)].filter(Boolean);
+  if (unique.length === 0) {
+    window.localStorage.removeItem(key);
+    return;
+  }
+  window.localStorage.setItem(key, JSON.stringify(unique));
+}
+
+function queuePendingDelete(key: string, id: string): void {
+  writePendingDeleteIds(key, [...readPendingDeleteIds(key), id]);
+}
+
+function readPendingReptileDeleteIds(userId: string): string[] {
+  return readPendingDeleteIds(pendingDeleteKey(PENDING_REPTILE_DELETES_KEY_PREFIX, userId));
+}
+
+function writePendingReptileDeleteIds(userId: string, ids: string[]): void {
+  writePendingDeleteIds(pendingDeleteKey(PENDING_REPTILE_DELETES_KEY_PREFIX, userId), ids);
+}
+
+function queuePendingReptileDelete(userId: string, id: string): void {
+  queuePendingDelete(pendingDeleteKey(PENDING_REPTILE_DELETES_KEY_PREFIX, userId), id);
+}
+
+function readPendingCareEventDeleteIds(userId: string): string[] {
+  return readPendingDeleteIds(pendingDeleteKey(PENDING_CARE_EVENT_DELETES_KEY_PREFIX, userId));
+}
+
+function writePendingCareEventDeleteIds(userId: string, ids: string[]): void {
+  writePendingDeleteIds(pendingDeleteKey(PENDING_CARE_EVENT_DELETES_KEY_PREFIX, userId), ids);
+}
+
+function queuePendingCareEventDelete(userId: string, id: string): void {
+  queuePendingDelete(pendingDeleteKey(PENDING_CARE_EVENT_DELETES_KEY_PREFIX, userId), id);
+}
 
 function toCloudCareTaskRecord(userId: string, schedule: ScheduleItem): TablesInsert<"reptile_care_tasks"> {
   const normalizedSchedule =
@@ -297,6 +391,21 @@ export async function fetchCloudCareTasks(userId: string): Promise<ScheduleItem[
 async function upsertCloudCareTask(userId: string, schedule: ScheduleItem): Promise<void> {
   if (!supabase) return;
 
+  const { data: existingRow, error: fetchError } = await supabase
+    .from("reptile_care_tasks")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("id", schedule.id)
+    .maybeSingle();
+
+  if (fetchError) throw fetchError;
+
+  if (existingRow) {
+    const localFreshness = scheduleFreshness(schedule);
+    const cloudFreshness = cloudCareTaskFreshness(existingRow as CloudCareTaskRow);
+    if (cloudFreshness >= localFreshness) return;
+  }
+
   const record = toCloudCareTaskRecord(userId, schedule);
   const updatePayload: TablesUpdate<"reptile_care_tasks"> = record;
 
@@ -310,7 +419,6 @@ async function upsertCloudCareTask(userId: string, schedule: ScheduleItem): Prom
 export async function hydrateLocalCareTasksFromCloud(userId: string): Promise<void> {
   const db = await getDB();
   const cloudTasks = await fetchCloudCareTasks(userId);
-  await ensureScheduleItemsHaveTimestamps();
 
   const localReptiles = await db.getAll("reptiles");
   const reptileIds = new Set(localReptiles.map((r) => r.id));
@@ -336,7 +444,6 @@ export async function syncLocalCareTasksToCloud(userId: string): Promise<void> {
   if (!supabase) return;
 
   const db = await getDB();
-  await ensureScheduleItemsHaveTimestamps();
   const [localTasks, cloudTasks] = await Promise.all([
     db.getAll("scheduleItems"),
     fetchCloudCareTasks(userId),
@@ -349,16 +456,15 @@ export async function syncLocalCareTasksToCloud(userId: string): Promise<void> {
 
   for (const local of localTasksSynced) {
     const cloudRow = cloudById.get(local.id);
-    const localTs = parseDate(local.updatedAt);
-    const noLocalTs = localTs <= 0;
-    const cloudTs = cloudRow ? parseDate(cloudRow.updatedAt) : 0;
+    const localTs = scheduleFreshness(local);
+    const cloudTs = cloudRow ? scheduleFreshness(cloudRow) : 0;
 
     if (!cloudRow) {
       await upsertCloudCareTask(userId, local);
       continue;
     }
 
-    if (noLocalTs || localTs > cloudTs) {
+    if (localTs > cloudTs) {
       await upsertCloudCareTask(userId, local);
     } else if (cloudTs > localTs) {
       await db.put("scheduleItems", cloudRow);
@@ -372,10 +478,12 @@ export async function syncLocalCareTasksToCloud(userId: string): Promise<void> {
       await db.put("scheduleItems", cloud);
     }
   }
+
+  await ensureScheduleItemsHaveTimestamps();
 }
 
 function careEventFreshness(event: Pick<CareEvent, "updatedAt" | "createdAt">): number {
-  return parseDate(event.updatedAt) || parseDate(event.createdAt);
+  return entityFreshness(event);
 }
 
 function toCloudCareEventRecord(userId: string, event: CareEvent): TablesInsert<"reptile_care_events"> {
@@ -440,8 +548,23 @@ export async function fetchCloudCareEvents(userId: string): Promise<CareEvent[]>
 async function upsertCloudCareEvent(userId: string, event: CareEvent): Promise<void> {
   if (!supabase) return;
 
+  const { data: existingRow, error: fetchError } = await supabase
+    .from("reptile_care_events")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("id", event.id)
+    .maybeSingle();
+
+  if (fetchError) throw fetchError;
+
+  if (existingRow) {
+    const existingCloud = fromCloudCareEventRow(existingRow as CloudCareEventRow);
+    if (careEventFreshness(existingCloud) >= careEventFreshness(event)) return;
+  }
+
   const record = toCloudCareEventRecord(userId, event);
-  const updatePayload: TablesUpdate<"reptile_care_events"> = record;
+  const { created_at: _preserveCreatedAt, ...recordWithoutCreatedAt } = record;
+  const updatePayload: TablesUpdate<"reptile_care_events"> = existingRow ? recordWithoutCreatedAt : record;
 
   const { error } = await supabase
     .from("reptile_care_events")
@@ -462,15 +585,41 @@ async function deleteCloudCareEvent(userId: string, eventId: string): Promise<vo
   if (error) throw error;
 }
 
+async function flushPendingCloudDeletes(userId: string): Promise<void> {
+  const pendingReptileIds = readPendingReptileDeleteIds(userId);
+  const remainingReptileIds: string[] = [];
+  for (const reptileId of pendingReptileIds) {
+    try {
+      await deleteCloudReptile(userId, reptileId);
+    } catch {
+      remainingReptileIds.push(reptileId);
+    }
+  }
+  writePendingReptileDeleteIds(userId, remainingReptileIds);
+
+  const pendingCareEventIds = readPendingCareEventDeleteIds(userId);
+  const remainingCareEventIds: string[] = [];
+  for (const eventId of pendingCareEventIds) {
+    try {
+      await deleteCloudCareEvent(userId, eventId);
+    } catch {
+      remainingCareEventIds.push(eventId);
+    }
+  }
+  writePendingCareEventDeleteIds(userId, remainingCareEventIds);
+}
+
 export async function hydrateLocalCareEventsFromCloud(userId: string): Promise<void> {
   const db = await getDB();
   const cloudEvents = await fetchCloudCareEvents(userId);
+  const pendingDeleteIds = new Set(readPendingCareEventDeleteIds(userId));
   await ensureCareEventsHaveTimestamps();
 
   const localReptiles = await db.getAll("reptiles");
   const reptileIds = new Set(localReptiles.map((r) => r.id));
 
   for (const cloud of cloudEvents) {
+    if (pendingDeleteIds.has(cloud.id)) continue;
     if (!reptileIds.has(cloud.reptileId)) continue;
 
     const local = await db.get("careEvents", cloud.id);
@@ -491,6 +640,7 @@ export async function syncLocalCareEventsToCloud(userId: string): Promise<void> 
   if (!supabase) return;
 
   const db = await getDB();
+  const pendingDeleteIds = new Set(readPendingCareEventDeleteIds(userId));
   await ensureCareEventsHaveTimestamps();
   const [localEvents, cloudEvents] = await Promise.all([
     db.getAll("careEvents"),
@@ -519,6 +669,7 @@ export async function syncLocalCareEventsToCloud(userId: string): Promise<void> 
   }
 
   for (const cloud of cloudEvents) {
+    if (pendingDeleteIds.has(cloud.id)) continue;
     if (!reptileIds.has(cloud.reptileId)) continue;
     const local = await db.get("careEvents", cloud.id);
     if (!local) {
@@ -529,6 +680,7 @@ export async function syncLocalCareEventsToCloud(userId: string): Promise<void> 
 
 export async function syncLocalReptilesToCloud(userId: string): Promise<void> {
   const db = await getDB();
+  const pendingDeleteIds = new Set(readPendingReptileDeleteIds(userId));
   const [localReptiles, cloudReptiles] = await Promise.all([
     db.getAll("reptiles"),
     fetchCloudReptiles(userId),
@@ -562,8 +714,10 @@ export async function syncLocalReptilesToCloud(userId: string): Promise<void> {
 
     const localUpdatedAt = parseDate(reptileForSync.updatedAt);
     const cloudUpdatedAt = parseDate(cloudReptile.updatedAt);
+    const shouldUploadMissingCloudPhotoPath =
+      localUpdatedAt === cloudUpdatedAt && !!reptileForSync.photoPath && !cloudReptile.photoPath;
 
-    if (localUpdatedAt > cloudUpdatedAt) {
+    if (localUpdatedAt > cloudUpdatedAt || shouldUploadMissingCloudPhotoPath) {
       await upsertCloudReptile(userId, reptileForSync);
     } else if (cloudUpdatedAt > localUpdatedAt) {
       await db.put("reptiles", cloudReptile);
@@ -571,6 +725,7 @@ export async function syncLocalReptilesToCloud(userId: string): Promise<void> {
   }
 
   for (const cloudReptile of cloudReptiles) {
+    if (pendingDeleteIds.has(cloudReptile.id)) continue;
     const localReptile = await db.get("reptiles", cloudReptile.id);
     if (!localReptile) {
       await db.put("reptiles", cloudReptile);
@@ -612,7 +767,7 @@ export async function syncCurrentUserReptiles(authenticatedUserId?: string): Pro
       return;
     }
 
-    await ensureScheduleItemsHaveTimestamps();
+    await flushPendingCloudDeletes(userId);
     await hydrateLocalFromCloud(userId);
     await hydrateLocalCareTasksFromCloud(userId);
     await hydrateLocalCareEventsFromCloud(userId);
@@ -648,10 +803,11 @@ export async function pullCloudIntoLocal(authenticatedUserId?: string): Promise<
   try {
     if (!userId) userId = (await getCurrentUserId()) ?? undefined;
     if (!userId || !supabase) return;
-    await ensureScheduleItemsHaveTimestamps();
+    await flushPendingCloudDeletes(userId);
     await hydrateLocalFromCloud(userId);
     await hydrateLocalCareTasksFromCloud(userId);
     await hydrateLocalCareEventsFromCloud(userId);
+    await ensureScheduleItemsHaveTimestamps();
     writeLastSuccessfulCloudSyncMs(Date.now());
     const db = await getDB();
     dispatchCloudSyncEvent({
@@ -672,7 +828,7 @@ export async function pushLocalIntoCloud(authenticatedUserId?: string): Promise<
   try {
     if (!userId) userId = (await getCurrentUserId()) ?? undefined;
     if (!userId || !supabase) return;
-    await ensureScheduleItemsHaveTimestamps();
+    await flushPendingCloudDeletes(userId);
     await syncLocalReptilesToCloud(userId);
     await syncLocalCareTasksToCloud(userId);
     await syncLocalCareEventsToCloud(userId);
@@ -699,7 +855,12 @@ export async function upsertCurrentUserCloudReptile(reptile: Reptile): Promise<v
 export async function deleteCurrentUserCloudReptile(reptileId: string): Promise<void> {
   const userId = await getCurrentUserId();
   if (!userId) return;
-  await deleteCloudReptile(userId, reptileId);
+  try {
+    await deleteCloudReptile(userId, reptileId);
+  } catch (error) {
+    queuePendingReptileDelete(userId, reptileId);
+    throw error;
+  }
 }
 
 export type PushCareTasksToCloudByIdsOpts = {
@@ -736,7 +897,6 @@ export async function pushCareTasksToCloudByIds(
     if (!userId) return;
 
     const db = await getDB();
-    await ensureScheduleItemsHaveTimestampsForIds(ids);
 
     const reptileIds = new Set((await db.getAll("reptiles")).map((r) => r.id));
 
@@ -806,11 +966,13 @@ export async function pushCareEventsToCloudByIds(
 export async function deleteCurrentUserCloudCareEvent(eventId: string): Promise<void> {
   if (!supabase || !eventId) return;
 
+  let userId: string | null = null;
   try {
-    const userId = await getCurrentUserId();
+    userId = await getCurrentUserId();
     if (!userId) return;
     await deleteCloudCareEvent(userId, eventId);
   } catch (error) {
+    if (userId) queuePendingCareEventDelete(userId, eventId);
     console.warn("[CloudSync] narrow care event delete failed:", error);
   }
 }
