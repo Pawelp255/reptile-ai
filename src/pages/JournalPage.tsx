@@ -33,6 +33,7 @@ import { toast } from 'sonner';
 import { formatLocalDateKey } from '@/lib/date/localDateKey';
 import { stripDemoMarkerForDisplay } from '@/lib/display/stripDemoMarker';
 import { getAllCareEvents, getAllReptiles, deleteCareEvent, getToday } from '@/lib/storage';
+import { REPTILES_CLOUD_SYNC_EVENT } from '@/lib/reptiles/cloudSync';
 import type { CareEvent, Reptile, EventType } from '@/types';
 import { lightHaptic, mediumHaptic } from '@/lib/native/haptics';
 
@@ -95,6 +96,15 @@ export default function JournalPage() {
 
   useEffect(() => {
     loadData();
+  }, []);
+
+  useEffect(() => {
+    const onCloudSyncFinished = (event: Event) => {
+      const detail = (event as CustomEvent<{ ok?: boolean }>).detail;
+      if (detail?.ok) void loadData();
+    };
+    window.addEventListener(REPTILES_CLOUD_SYNC_EVENT, onCloudSyncFinished);
+    return () => window.removeEventListener(REPTILES_CLOUD_SYNC_EVENT, onCloudSyncFinished);
   }, []);
 
   const handleDeleteEvent = async () => {

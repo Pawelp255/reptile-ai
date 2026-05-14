@@ -3,6 +3,24 @@ import { getDB, generateId, getNow, getToday } from './db';
 import type { CareEvent, CareEventFormData, EventType } from '@/types';
 import { subtractDaysLocal } from '@/lib/date/localDateKey';
 
+function pushCareEventToCloudInBackground(id: string): void {
+  void import('@/lib/reptiles/cloudSync')
+    .then(({ pushCareEventsToCloudByIds }) =>
+      pushCareEventsToCloudByIds([id], { notifyOnError: true }),
+    )
+    .catch((error) => {
+      console.warn('[CareEvents] background cloud push failed:', error);
+    });
+}
+
+function deleteCareEventFromCloudInBackground(id: string): void {
+  void import('@/lib/reptiles/cloudSync')
+    .then(({ deleteCurrentUserCloudCareEvent }) => deleteCurrentUserCloudCareEvent(id))
+    .catch((error) => {
+      console.warn('[CareEvents] background cloud delete failed:', error);
+    });
+}
+
 // Create a new care event
 export async function createCareEvent(data: CareEventFormData): Promise<CareEvent> {
   const db = await getDB();
@@ -23,6 +41,7 @@ export async function createCareEvent(data: CareEventFormData): Promise<CareEven
   };
 
   await db.put('careEvents', event);
+  pushCareEventToCloudInBackground(event.id);
   return event;
 }
 
@@ -46,6 +65,7 @@ export async function updateCareEvent(id: string, data: CareEventFormData): Prom
   };
 
   await db.put('careEvents', event);
+  pushCareEventToCloudInBackground(event.id);
   return event;
 }
 
@@ -101,6 +121,7 @@ export async function getRecentEvents(days: number): Promise<CareEvent[]> {
 export async function deleteCareEvent(id: string): Promise<void> {
   const db = await getDB();
   await db.delete('careEvents', id);
+  deleteCareEventFromCloudInBackground(id);
 }
 
 // Get a single care event

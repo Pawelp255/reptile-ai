@@ -48,7 +48,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { pushCareTasksToCloudByIds } from '@/lib/reptiles/cloudSync';
+import { pushCareTasksToCloudByIds, REPTILES_CLOUD_SYNC_EVENT } from '@/lib/reptiles/cloudSync';
 import { ProfileSkeleton } from '@/components/system/SkeletonLoaders';
 import { PetProfileShareDialog } from '@/components/PetProfileShareDialog';
 import type { Reptile, ScheduleItem, CareEvent, TaskType, EventType, Pairing, ScheduleMode } from '@/types';
@@ -254,6 +254,15 @@ export default function ReptileProfilePage() {
 
   useEffect(() => {
     loadData();
+  }, [loadData]);
+
+  useEffect(() => {
+    const onCloudSyncFinished = (event: Event) => {
+      const detail = (event as CustomEvent<{ ok?: boolean }>).detail;
+      if (detail?.ok) void loadData();
+    };
+    window.addEventListener(REPTILES_CLOUD_SYNC_EVENT, onCloudSyncFinished);
+    return () => window.removeEventListener(REPTILES_CLOUD_SYNC_EVENT, onCloudSyncFinished);
   }, [loadData]);
 
   const todayDateKey = useMemo(() => getToday(), []);
