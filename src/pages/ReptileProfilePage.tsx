@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Trash2, Edit, Calendar, Utensils, RefreshCw, Pencil, Scale, Ruler, Heart, Plus, FileText, FileBadge, Bot, Share2 } from 'lucide-react';
+import { ArrowLeft, Trash2, Edit, Calendar, Utensils, RefreshCw, Pencil, Scale, Ruler, Heart, Plus, FileText, FileBadge, Bot, Share2, Activity, CheckCircle2, TrendingDown, TrendingUp, Minus } from 'lucide-react';
 import { isValid } from 'date-fns';
 import { formatLocalDateKey, parseLocalDateKey } from '@/lib/date/localDateKey';
+import { cn } from '@/lib/utils';
 import { PageHeader } from '@/components/PageHeader';
 import { PageMotion } from '@/components/motion/PageMotion';
 import { ProBadge } from '@/components/plan/ProBadge';
@@ -14,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,11 +32,14 @@ import {
   deleteReptile,
   getScheduleByReptile,
   getCareEventsByReptile,
-  updateScheduleFrequency,
-  getLastEventByType,
+  computeNextDueDate,
+  getScheduleMode,
+  isFlexibleScheduleItem,
+  updateScheduleRule,
   deleteCareEvent,
   getPairingsByReptile,
   getToday,
+  normalizeWeekdays,
 } from '@/lib/storage';
 import {
   Dialog,
@@ -46,8 +51,24 @@ import { toast } from 'sonner';
 import { pushCareTasksToCloudByIds } from '@/lib/reptiles/cloudSync';
 import { ProfileSkeleton } from '@/components/system/SkeletonLoaders';
 import { PetProfileShareDialog } from '@/components/PetProfileShareDialog';
-import type { Reptile, ScheduleItem, CareEvent, TaskType, EventType, Pairing } from '@/types';
+import type { Reptile, ScheduleItem, CareEvent, TaskType, EventType, Pairing, ScheduleMode } from '@/types';
 import { getDisplayEmoji } from '@/lib/animals/taxonomy';
+import {
+  getAverageFeedingInterval,
+  getAverageShedCycle,
+  getFeedingConsistency,
+  getLastFeedingDate,
+  getLastShedDate,
+  getLatestWeight,
+  getRecentWeights,
+  getUpcomingCareSummary,
+  getWeightChangePercent,
+  getWeightTrend,
+  hasRecentCleaning,
+  hasRecentHealthChecks,
+  type FeedingConsistency,
+  type WeightTrend,
+} from '@/lib/careInsights';
 
 const taskLabels: Record<TaskType, string> = {
   feed: 'Feeding',
@@ -71,10 +92,59 @@ function formatScheduleFrequency(days: number): string {
   return `Every ${days} days`;
 }
 
+const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+function formatWeekdayList(weekdays: number[] | undefined): string {
+  const values = normalizeWeekdays(weekdays);
+  if (values.length === 0) return 'No days selected';
+  return values.map((d) => WEEKDAY_LABELS[d]).join(', ');
+}
+
+function modeDescription(mode: ScheduleMode): string {
+  if (mode === 'weekdays') return 'Due on selected days';
+  if (mode === 'flexible') return 'Soft reminder - not counted as overdue';
+  return 'Strict recurring care';
+}
+
 function parseFrequencyInput(value: string): number | null {
   const parsed = Number.parseInt(value, 10);
   if (!Number.isFinite(parsed)) return null;
   return Math.max(1, parsed);
+}
+
+function daysBetween(fromDateKey: string, toDateKey: string): number {
+  const from = parseLocalDateKey(fromDateKey);
+  const to = parseLocalDateKey(toDateKey);
+  if (!isValid(from) || !isValid(to)) return 0;
+  return Math.max(0, Math.round((to.getTime() - from.getTime()) / (24 * 60 * 60 * 1000)));
+}
+
+function formatDaysAgo(dateKey: string | undefined, todayDateKey: string): string {
+  if (!dateKey) return 'No record';
+  const days = daysBetween(dateKey, todayDateKey);
+  if (days === 0) return 'today';
+  if (days === 1) return '1 day ago';
+  return `${days} days ago`;
+}
+
+function formatRoundedPercent(value: number | undefined): string | undefined {
+  if (value == null) return undefined;
+  const rounded = Math.round(value);
+  if (rounded === 0) return 'Stable';
+  return `${rounded > 0 ? '+' : ''}${rounded}%`;
+}
+
+function weightTrendLabel(trend: WeightTrend, recentCount: number): string {
+  if (trend === 'insufficient_data') return 'Add another weight entry to show a trend';
+  if (trend === 'stable') return `Stable over last ${recentCount} entries`;
+  if (trend === 'increasing') return `Increasing over last ${recentCount} entries`;
+  return `Decreasing over last ${recentCount} entries`;
+}
+
+function feedingConsistencyLabel(consistency: FeedingConsistency): string {
+  if (consistency === 'consistent') return 'Consistent';
+  if (consistency === 'irregular') return 'Irregular';
+  return 'More entries needed';
 }
 
 const sexLabels = {
@@ -125,15 +195,14 @@ export default function ReptileProfilePage() {
   const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
   const [events, setEvents] = useState<CareEvent[]>([]);
   const [pairings, setPairings] = useState<PairingWithPartner[]>([]);
-  const [lastFeeding, setLastFeeding] = useState<CareEvent | null>(null);
-  const [lastShedding, setLastShedding] = useState<CareEvent | null>(null);
-  const [lastWeight, setLastWeight] = useState<number | undefined>(undefined);
   const [lastLength, setLastLength] = useState<number | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState<string | null>(null);
   const [tempFrequency, setTempFrequency] = useState<string>('');
+  const [tempScheduleMode, setTempScheduleMode] = useState<ScheduleMode>('interval');
+  const [tempWeekdays, setTempWeekdays] = useState<number[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<CareEvent | null>(null);
   const [deleteEventOpen, setDeleteEventOpen] = useState(false);
   const [deletingEvent, setDeletingEvent] = useState(false);
@@ -169,22 +238,12 @@ export default function ReptileProfilePage() {
       );
       setPairings(pairingsWithPartners);
 
-      // Get last feeding and shedding
-      const [feeding, shedding] = await Promise.all([
-        getLastEventByType(id, 'feeding'),
-        getLastEventByType(id, 'shedding'),
-      ]);
-      setLastFeeding(feeding || null);
-      setLastShedding(shedding || null);
-
       // Phase 1.5 Fix: Sort health events by date desc and find most recent with weight/length
       const healthEvents = eventsData
         .filter(e => e.eventType === 'health')
         .sort((a, b) => b.eventDate.localeCompare(a.eventDate));
       
-      const lastWeightEvent = healthEvents.find(e => e.weightGrams !== undefined);
       const lastLengthEvent = healthEvents.find(e => e.lengthCm !== undefined);
-      setLastWeight(lastWeightEvent?.weightGrams);
       setLastLength(lastLengthEvent?.lengthCm);
     } catch (error) {
       console.error('Failed to load reptile:', error);
@@ -197,13 +256,113 @@ export default function ReptileProfilePage() {
     loadData();
   }, [loadData]);
 
+  const todayDateKey = useMemo(() => getToday(), []);
+  const recentWeights = useMemo(() => getRecentWeights(events, 3), [events]);
+  const latestWeight = useMemo(() => getLatestWeight(events), [events]);
+  const weightTrend = useMemo(() => getWeightTrend(events), [events]);
+  const weightChangePercent = useMemo(
+    () => getWeightChangePercent(events, 30, todayDateKey),
+    [events, todayDateKey],
+  );
+  const lastFeedingDate = useMemo(() => getLastFeedingDate(events), [events]);
+  const averageFeedingInterval = useMemo(() => getAverageFeedingInterval(events), [events]);
+  const feedingConsistency = useMemo(() => getFeedingConsistency(events), [events]);
+  const lastShedDate = useMemo(() => getLastShedDate(events), [events]);
+  const averageShedCycle = useMemo(() => getAverageShedCycle(events), [events]);
+  const recentCleaning = useMemo(() => hasRecentCleaning(events, 14, todayDateKey), [events, todayDateKey]);
+  const recentHealthCheck = useMemo(() => hasRecentHealthChecks(events, 30, todayDateKey), [events, todayDateKey]);
+  const upcomingCareSummary = useMemo(
+    () => getUpcomingCareSummary(schedule, todayDateKey, 7),
+    [schedule, todayDateKey],
+  );
+
+  const careInsightLines = useMemo(() => {
+    const lines: { icon: typeof Utensils; label: string; detail?: string; tone: string }[] = [];
+    const weightChange = formatRoundedPercent(weightChangePercent);
+    const cleanTasks = schedule.filter((item) => item.taskType === 'clean' && !isFlexibleScheduleItem(item));
+    const cleanTasksCurrent = cleanTasks.length > 0 && cleanTasks.every((item) => item.nextDueDate >= todayDateKey);
+
+    lines.push({
+      icon: Utensils,
+      label: `Last feeding: ${formatDaysAgo(lastFeedingDate, todayDateKey)}`,
+      detail: averageFeedingInterval
+        ? `Avg ${averageFeedingInterval} days · ${feedingConsistencyLabel(feedingConsistency).toLowerCase()}`
+        : feedingConsistencyLabel(feedingConsistency),
+      tone: 'bg-amber-500/10 text-amber-600',
+    });
+
+    lines.push({
+      icon: weightTrend === 'increasing' ? TrendingUp : weightTrend === 'decreasing' ? TrendingDown : Minus,
+      label: weightTrendLabel(weightTrend, recentWeights.length),
+      detail: weightChange ? `${weightChange} in last 30 days` : latestWeight ? `${latestWeight.grams}g latest` : undefined,
+      tone: 'bg-rose-500/10 text-rose-600',
+    });
+
+    lines.push({
+      icon: RefreshCw,
+      label: `Last shed: ${formatDaysAgo(lastShedDate, todayDateKey)}`,
+      detail: averageShedCycle ? `Avg cycle ${averageShedCycle} days` : 'More entries needed for cycle average',
+      tone: 'bg-purple-500/10 text-purple-600',
+    });
+
+    if (recentCleaning || cleanTasksCurrent) {
+      lines.push({
+        icon: CheckCircle2,
+        label: recentCleaning ? 'Cleaning logged recently' : 'Cleaning tasks are up to date',
+        detail:
+          upcomingCareSummary.nextTask?.taskType === 'clean' && upcomingCareSummary.nextTaskDaysAway != null
+            ? upcomingCareSummary.nextTaskDaysAway === 0
+              ? 'Next cleaning today'
+              : `Next cleaning in ${upcomingCareSummary.nextTaskDaysAway} days`
+            : undefined,
+        tone: 'bg-emerald-500/10 text-emerald-600',
+      });
+    } else if (upcomingCareSummary.nextTask) {
+      lines.push({
+        icon: Calendar,
+        label:
+          upcomingCareSummary.dueTodayCount > 0
+            ? `${upcomingCareSummary.dueTodayCount} care task${upcomingCareSummary.dueTodayCount === 1 ? '' : 's'} due today`
+            : `${upcomingCareSummary.upcomingCount} care task${upcomingCareSummary.upcomingCount === 1 ? '' : 's'} upcoming`,
+        detail: upcomingCareSummary.overdueCount > 0 ? `${upcomingCareSummary.overdueCount} task${upcomingCareSummary.overdueCount === 1 ? '' : 's'} waiting` : undefined,
+        tone: 'bg-primary/10 text-primary',
+      });
+    }
+
+    if (recentHealthCheck) {
+      lines.push({
+        icon: Activity,
+        label: 'Health check logged recently',
+        detail: 'Within the last 30 days',
+        tone: 'bg-cyan-500/10 text-cyan-600',
+      });
+    }
+
+    return lines.slice(0, 5);
+  }, [
+    averageFeedingInterval,
+    averageShedCycle,
+    feedingConsistency,
+    lastFeedingDate,
+    lastShedDate,
+    latestWeight,
+    recentCleaning,
+    recentHealthCheck,
+    recentWeights.length,
+    schedule,
+    todayDateKey,
+    upcomingCareSummary,
+    weightChangePercent,
+    weightTrend,
+  ]);
+
   const nextCareHighlight = useMemo(() => {
     if (!schedule.length) return null;
     const sorted = [...schedule].sort((a, b) => a.nextDueDate.localeCompare(b.nextDueDate));
     const task = sorted[0];
     if (!task) return null;
     const today = getToday();
-    const overdue = task.nextDueDate < today;
+    const overdue = !isFlexibleScheduleItem(task) && task.nextDueDate < today;
     const dueToday = task.nextDueDate === today;
     let status: string;
     if (overdue) status = 'Overdue';
@@ -233,18 +392,28 @@ export default function ReptileProfilePage() {
 
   const handleEditFrequency = (item: ScheduleItem) => {
     setEditingSchedule(item.id);
+    setTempScheduleMode(getScheduleMode(item));
+    setTempWeekdays(normalizeWeekdays(item.weekdays));
     setTempFrequency(String(item.frequencyDays));
   };
 
   const handleSaveFrequency = async (itemId: string) => {
     const nextFrequency = parseFrequencyInput(tempFrequency);
-    if (!nextFrequency) {
+    if ((tempScheduleMode === 'interval' || tempScheduleMode === 'flexible') && !nextFrequency) {
       toast.error('Enter a frequency of at least 1 day');
+      return;
+    }
+    if (tempScheduleMode === 'weekdays' && tempWeekdays.length === 0) {
+      toast.error('Select at least one weekday');
       return;
     }
 
     try {
-      await updateScheduleFrequency(itemId, nextFrequency);
+      await updateScheduleRule(itemId, {
+        scheduleMode: tempScheduleMode,
+        frequencyDays: nextFrequency ?? 1,
+        weekdays: tempScheduleMode === 'weekdays' ? tempWeekdays : undefined,
+      });
       void pushCareTasksToCloudByIds([itemId], { notifyOnError: true });
       await loadData();
       setEditingSchedule(null);
@@ -255,8 +424,16 @@ export default function ReptileProfilePage() {
   };
 
   const handleFrequencyBlur = () => {
+    if (tempScheduleMode === 'weekdays') return;
     const nextFrequency = parseFrequencyInput(tempFrequency);
     setTempFrequency(String(nextFrequency ?? 1));
+  };
+
+  const toggleWeekday = (day: number) => {
+    setTempWeekdays((prev) => {
+      if (prev.includes(day)) return prev.filter((d) => d !== day);
+      return [...prev, day].sort((a, b) => a - b);
+    });
   };
 
   const handleDeleteEvent = async () => {
@@ -504,14 +681,17 @@ export default function ReptileProfilePage() {
                 <div>
                   <span className="text-muted-foreground text-sm">Last Feeding</span>
                   <p className="font-medium text-sm">
-                    {lastFeeding
-                      ? formatLocalDateKey(lastFeeding.eventDate, {
+                    {lastFeedingDate
+                      ? formatLocalDateKey(lastFeedingDate, {
                           month: 'short',
                           day: 'numeric',
                           year: 'numeric',
                         })
                       : 'No record'}
                   </p>
+                  {averageFeedingInterval && (
+                    <p className="text-xs text-muted-foreground">Average every {averageFeedingInterval} days</p>
+                  )}
                 </div>
               </div>
               <div className="flex items-center gap-3">
@@ -519,16 +699,19 @@ export default function ReptileProfilePage() {
                   <RefreshCw className="w-4 h-4 text-purple-500" />
                 </div>
                 <div>
-                  <span className="text-muted-foreground text-sm">Last Shedding</span>
+                  <span className="text-muted-foreground text-sm">Last Shed</span>
                   <p className="font-medium text-sm">
-                    {lastShedding
-                      ? formatLocalDateKey(lastShedding.eventDate, {
+                    {lastShedDate
+                      ? formatLocalDateKey(lastShedDate, {
                           month: 'short',
                           day: 'numeric',
                           year: 'numeric',
                         })
                       : 'No record'}
                   </p>
+                  {averageShedCycle && (
+                    <p className="text-xs text-muted-foreground">Average cycle {averageShedCycle} days</p>
+                  )}
                 </div>
               </div>
               <div className="flex items-center gap-3">
@@ -538,8 +721,11 @@ export default function ReptileProfilePage() {
                 <div>
                   <span className="text-muted-foreground text-sm">Last Weight</span>
                   <p className="font-medium text-sm">
-                    {lastWeight ? `${lastWeight}g` : 'No record'}
+                    {latestWeight ? `${latestWeight.grams}g` : 'No record'}
                   </p>
+                  {latestWeight && (
+                    <p className="text-xs text-muted-foreground">{weightTrendLabel(weightTrend, recentWeights.length)}</p>
+                  )}
                 </div>
               </div>
               <div className="flex items-center gap-3">
@@ -556,8 +742,31 @@ export default function ReptileProfilePage() {
             </div>
           </div>
 
+          {/* Care insights — deterministic summaries from local history */}
+          <div className="premium-surface rounded-[var(--radius-xl)] p-4 sm:p-5 animate-in-slide-up motion-delay-2">
+            <h3 className="section-header">Care insights</h3>
+            <div className="space-y-3">
+              {careInsightLines.map((insight) => {
+                const Icon = insight.icon;
+                return (
+                  <div key={`${insight.label}-${insight.detail ?? ''}`} className="flex items-start gap-3">
+                    <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${insight.tone}`}>
+                      <Icon className="h-4 w-4" aria-hidden />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium leading-snug text-foreground">{insight.label}</p>
+                      {insight.detail && (
+                        <p className="text-xs text-muted-foreground mt-0.5">{insight.detail}</p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
           {/* Action Buttons — share panel, care summary PDF / AI (staggered) */}
-          <div className="space-y-2 animate-in-slide-up motion-delay-2">
+          <div className="space-y-2 animate-in-slide-up motion-delay-3">
             <Link to={`/passport/${id}`}>
               <Button
                 type="button"
@@ -618,8 +827,11 @@ export default function ReptileProfilePage() {
                   <div>
                     <h4 className="font-medium">{taskLabels[item.taskType]}</h4>
                     <p className="text-sm text-muted-foreground">
-                      {formatScheduleFrequency(item.frequencyDays)}
+                      {getScheduleMode(item) === 'weekdays'
+                        ? formatWeekdayList(item.weekdays)
+                        : formatScheduleFrequency(item.frequencyDays)}
                     </p>
+                    <p className="text-xs text-muted-foreground mt-1">{modeDescription(getScheduleMode(item))}</p>
                     <p className="text-xs text-muted-foreground mt-1">
                       Next:{' '}
                       {formatLocalDateKey(item.nextDueDate, {
@@ -641,19 +853,92 @@ export default function ReptileProfilePage() {
                   </div>
                   
                   {editingSchedule === item.id ? (
-                    <div className="flex items-center gap-2">
-                      <Input
-                        type="number"
-                        min="1"
-                        value={tempFrequency}
-                        onChange={(e) => setTempFrequency(e.target.value)}
-                        onBlur={handleFrequencyBlur}
-                        className="w-20 h-8"
-                      />
-                      <Button 
-                        size="sm" 
+                    <div className="w-[248px] space-y-2">
+                      <Select
+                        value={tempScheduleMode}
+                        onValueChange={(value) => setTempScheduleMode(value as ScheduleMode)}
+                      >
+                        <SelectTrigger className="h-8 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="interval">Every X days</SelectItem>
+                          <SelectItem value="weekdays">Specific weekdays</SelectItem>
+                          <SelectItem value="flexible">Flexible reminder</SelectItem>
+                        </SelectContent>
+                      </Select>
+
+                      {tempScheduleMode === 'weekdays' ? (
+                        <div className="space-y-2">
+                          <div className="flex flex-wrap gap-1.5">
+                            {WEEKDAY_LABELS.map((dayLabel, dayIndex) => {
+                              const active = tempWeekdays.includes(dayIndex);
+                              return (
+                                <button
+                                  key={dayLabel}
+                                  type="button"
+                                  onClick={() => toggleWeekday(dayIndex)}
+                                  className={cn(
+                                    'h-7 rounded-md border px-2 text-[11px] font-medium transition-colors',
+                                    active
+                                      ? 'border-primary bg-primary/10 text-primary'
+                                      : 'border-border text-muted-foreground hover:text-foreground',
+                                  )}
+                                >
+                                  {dayLabel}
+                                </button>
+                              );
+                            })}
+                          </div>
+                          <p className="text-[11px] text-muted-foreground">
+                            Next due:{' '}
+                            {formatLocalDateKey(
+                              computeNextDueDate(
+                                { ...item, scheduleMode: tempScheduleMode, weekdays: tempWeekdays },
+                                getToday(),
+                              ),
+                              { month: 'short', day: 'numeric', year: 'numeric' },
+                            )}
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <Input
+                              type="number"
+                              min="1"
+                              value={tempFrequency}
+                              onChange={(e) => setTempFrequency(e.target.value)}
+                              onBlur={handleFrequencyBlur}
+                              className="w-20 h-8"
+                            />
+                            <span className="text-[11px] text-muted-foreground">days</span>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground">
+                            Next due:{' '}
+                            {formatLocalDateKey(
+                              computeNextDueDate(
+                                {
+                                  ...item,
+                                  scheduleMode: tempScheduleMode,
+                                  frequencyDays: parseFrequencyInput(tempFrequency) ?? 1,
+                                },
+                                getToday(),
+                              ),
+                              { month: 'short', day: 'numeric', year: 'numeric' },
+                            )}
+                          </p>
+                        </div>
+                      )}
+
+                      <Button
+                        size="sm"
                         onClick={() => handleSaveFrequency(item.id)}
-                        disabled={!parseFrequencyInput(tempFrequency)}
+                        disabled={
+                          tempScheduleMode === 'weekdays'
+                            ? tempWeekdays.length === 0
+                            : !parseFrequencyInput(tempFrequency)
+                        }
                       >
                         Save
                       </Button>
