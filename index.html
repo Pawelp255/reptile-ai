@@ -4,12 +4,20 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
     <style>
-      /* Match native splash (#040605) so WKWebView does not flash white before CSS loads */
+      /* Match the app canvas before CSS loads so iOS overscroll never exposes black in light mode. */
       html,
       body,
       #root {
-        background-color: #040605;
+        background-color: #f7faf9;
         min-height: 100%;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        html,
+        body,
+        #root {
+          background-color: #040605;
+        }
       }
     </style>
     

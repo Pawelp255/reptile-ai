@@ -64,6 +64,14 @@
     --space-section: 1.5rem;
     --space-card: 1.125rem;
 
+    --app-backdrop-color: hsl(var(--background));
+    --app-backdrop-image:
+      radial-gradient(ellipse 160% 120% at 50% -35%, hsl(166 36% 93% / 0.62), transparent 48%),
+      radial-gradient(ellipse 110% 75% at 88% 15%, hsl(154 26% 94% / 0.32), transparent 45%),
+      radial-gradient(ellipse 85% 55% at 8% 65%, hsl(148 22% 93% / 0.24), transparent 42%),
+      radial-gradient(ellipse 65% 45% at 98% 88%, hsl(160 24% 92% / 0.18), transparent 40%),
+      radial-gradient(ellipse 50% 35% at 50% 100%, hsl(152 20% 91% / 0.12), transparent 38%);
+
     /* Typography scale — clear hierarchy */
     --text-page-title: 1.0625rem;
     --text-section-title: 0.6875rem;
@@ -170,6 +178,13 @@
     --nav-active: 166 50% 50%;
     --nav-inactive: 150 10% 50%;
 
+    --app-backdrop-color: hsl(var(--background));
+    --app-backdrop-image:
+      radial-gradient(ellipse 130% 90% at 50% -25%, hsl(166 26% 13% / 0.5), transparent 48%),
+      radial-gradient(ellipse 95% 55% at 92% 35%, hsl(150 16% 10% / 0.28), transparent 44%),
+      radial-gradient(ellipse 75% 50% at 5% 72%, hsl(152 18% 9% / 0.2), transparent 42%),
+      radial-gradient(ellipse 55% 40% at 50% 105%, hsl(158 20% 8% / 0.12), transparent 40%);
+
     --sidebar-background: 150 20% 10%;
     --sidebar-foreground: 150 10% 90%;
     --sidebar-primary: 166 50% 50%;
@@ -187,7 +202,10 @@
   }
 
   html {
-    /* Prevent overscroll bounce on iOS, native-like scroll */
+    background-color: var(--app-backdrop-color);
+    background-image: var(--app-backdrop-image);
+    background-repeat: no-repeat;
+    background-size: cover;
     overscroll-behavior: none;
     -webkit-overflow-scrolling: touch;
     scroll-behavior: smooth;
@@ -204,28 +222,20 @@
     padding-top: env(safe-area-inset-top, 0px);
     padding-left: env(safe-area-inset-left);
     padding-right: env(safe-area-inset-right);
-    /* Premium atmospheric background — rich layered green/teal, calm terrarium depth */
-    background-color: hsl(var(--background));
-    background-image:
-      radial-gradient(ellipse 160% 120% at 50% -35%, hsl(166 36% 93% / 0.62), transparent 48%),
-      radial-gradient(ellipse 110% 75% at 88% 15%, hsl(154 26% 94% / 0.32), transparent 45%),
-      radial-gradient(ellipse 85% 55% at 8% 65%, hsl(148 22% 93% / 0.24), transparent 42%),
-      radial-gradient(ellipse 65% 45% at 98% 88%, hsl(160 24% 92% / 0.18), transparent 40%),
-      radial-gradient(ellipse 50% 35% at 50% 100%, hsl(152 20% 91% / 0.12), transparent 38%);
+    background-color: var(--app-backdrop-color);
+    background-image: var(--app-backdrop-image);
+    background-repeat: no-repeat;
+    background-size: cover;
   }
 
   body,
   #root {
     min-height: 100vh;
     min-height: 100dvh;
-  }
-
-  .dark body {
-    background-image:
-      radial-gradient(ellipse 130% 90% at 50% -25%, hsl(166 26% 13% / 0.5), transparent 48%),
-      radial-gradient(ellipse 95% 55% at 92% 35%, hsl(150 16% 10% / 0.28), transparent 44%),
-      radial-gradient(ellipse 75% 50% at 5% 72%, hsl(152 18% 9% / 0.2), transparent 42%),
-      radial-gradient(ellipse 55% 40% at 50% 105%, hsl(158 20% 8% / 0.12), transparent 40%);
+    background-color: var(--app-backdrop-color);
+    background-image: var(--app-backdrop-image);
+    background-repeat: no-repeat;
+    background-size: cover;
   }
 
   /* Prevent text selection on touch hold for app-like feel */
@@ -604,6 +614,13 @@
   }
 
   /* Page container — nav + safe area; subtle entry */
+  .app-shell {
+    background-color: var(--app-backdrop-color);
+    background-image: var(--app-backdrop-image);
+    background-repeat: no-repeat;
+    background-size: cover;
+  }
+
   .page-container {
     @apply min-h-screen overflow-x-hidden;
     min-height: 100vh;

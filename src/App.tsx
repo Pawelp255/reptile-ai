@@ -61,6 +61,14 @@ function AppContent() {
       if (id) runSync(id);
     });
 
+    const handleOnline = () => {
+      void supabase.auth.getSession().then(({ data }) => {
+        const id = data.session?.user?.id;
+        if (id) runSync(id);
+      });
+    };
+    window.addEventListener("online", handleOnline);
+
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
@@ -71,11 +79,14 @@ function AppContent() {
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      subscription.unsubscribe();
+    };
   }, []);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="app-shell min-h-screen bg-background">
       <Suspense fallback={<RouteFallback />}>
         <Routes>
           <Route path="/auth" element={<AuthPage />} />
