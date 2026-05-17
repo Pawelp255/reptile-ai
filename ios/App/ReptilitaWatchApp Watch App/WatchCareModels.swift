@@ -3,30 +3,49 @@ import Foundation
 struct WatchCareSnapshot: Codable {
     let version: Int
     let generatedAt: String
-    let todayKey: String
+    let date: String
     let overdueCount: Int
-    let tasks: [WatchCareTask]
-    let dailySummary: WatchCareDailySummary
+    let dueTodayCount: Int
+    let completedTodayCount: Int
+    let nextImportantTask: WatchCareTask?
+    let animalName: String?
 }
 
 struct WatchCareTask: Codable, Identifiable {
     let id: String
-    let reptileName: String
-    let taskKind: WatchCareTaskKind
-    let label: String
+    let taskType: WatchCareAction
+    let animalId: String
+    let animalName: String?
     let dueDate: String
     let isOverdue: Bool
-    let isDueToday: Bool
 }
 
-struct WatchCareDailySummary: Codable {
-    let dueTodayCount: Int
-    let completedTodayCount: Int
-}
+enum WatchCareAction: String, Codable, CaseIterable, Identifiable {
+    case feed
+    case clean
+    case mist
 
-enum WatchCareTaskKind: String, Codable {
-    case feeding
-    case misting
-    case cleaning
-    case weightCheck
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .feed:
+            return "Feed"
+        case .clean:
+            return "Clean"
+        case .mist:
+            return "Mist"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .feed:
+            return "fork.knife"
+        case .clean:
+            return "sparkles"
+        case .mist:
+            return "humidity"
+        }
+    }
 }

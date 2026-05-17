@@ -196,6 +196,10 @@ public class ReptilitaWatchBridgePlugin: CAPPlugin, CAPBridgedPlugin, WCSessionD
         handleMessage(applicationContext, replyHandler: nil)
     }
 
+    public func session(_ session: WCSession, didReceiveUserInfo userInfo: [String: Any] = [:]) {
+        handleMessage(userInfo, replyHandler: nil)
+    }
+
     private func handleMessage(_ message: [String: Any], replyHandler: (([String: Any]) -> Void)?) {
         let type = message["type"] as? String
         if type == "requestTodaySnapshot" {
