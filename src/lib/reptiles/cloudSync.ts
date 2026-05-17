@@ -615,12 +615,8 @@ export async function hydrateLocalCareEventsFromCloud(userId: string): Promise<v
   const pendingDeleteIds = new Set(readPendingCareEventDeleteIds(userId));
   await ensureCareEventsHaveTimestamps();
 
-  const localReptiles = await db.getAll("reptiles");
-  const reptileIds = new Set(localReptiles.map((r) => r.id));
-
   for (const cloud of cloudEvents) {
     if (pendingDeleteIds.has(cloud.id)) continue;
-    if (!reptileIds.has(cloud.reptileId)) continue;
 
     const local = await db.get("careEvents", cloud.id);
     if (!local) {
@@ -670,7 +666,6 @@ export async function syncLocalCareEventsToCloud(userId: string): Promise<void> 
 
   for (const cloud of cloudEvents) {
     if (pendingDeleteIds.has(cloud.id)) continue;
-    if (!reptileIds.has(cloud.reptileId)) continue;
     const local = await db.get("careEvents", cloud.id);
     if (!local) {
       await db.put("careEvents", cloud);
@@ -738,7 +733,7 @@ export const REPTILES_CLOUD_SYNC_EVENT = "reptilita:reptiles-cloud-sync";
 
 function dispatchCloudSyncEvent(
   detail:
-    | { ok: true; reptileCount: number; scheduleCount: number }
+    | { ok: true; reptileCount: number; scheduleCount: number; careEventCount: number }
     | { ok: false; error: unknown },
 ) {
   if (typeof window === "undefined") return;
@@ -747,7 +742,7 @@ function dispatchCloudSyncEvent(
 
 /** Call after local-only bulk writes (e.g. backup import) so Today / My Animals refresh. */
 export function notifyIndexedDbDataChanged(): void {
-  dispatchCloudSyncEvent({ ok: true, reptileCount: 0, scheduleCount: 0 });
+  dispatchCloudSyncEvent({ ok: true, reptileCount: 0, scheduleCount: 0, careEventCount: 0 });
 }
 
 async function getCurrentUserId(): Promise<string | null> {
@@ -788,8 +783,9 @@ export async function syncCurrentUserReptiles(authenticatedUserId?: string): Pro
     const db = await getDB();
     const reptileCount = (await db.getAll("reptiles")).length;
     const scheduleCount = (await db.getAll("scheduleItems")).length;
+    const careEventCount = (await db.getAll("careEvents")).length;
     writeLastSuccessfulCloudSyncMs(Date.now());
-    dispatchCloudSyncEvent({ ok: true, reptileCount, scheduleCount });
+    dispatchCloudSyncEvent({ ok: true, reptileCount, scheduleCount, careEventCount });
   } catch (error) {
     console.warn("[CloudSync] failed:", error);
     dispatchCloudSyncEvent({ ok: false, error });
@@ -814,6 +810,7 @@ export async function pullCloudIntoLocal(authenticatedUserId?: string): Promise<
       ok: true,
       reptileCount: (await db.getAll("reptiles")).length,
       scheduleCount: (await db.getAll("scheduleItems")).length,
+      careEventCount: (await db.getAll("careEvents")).length,
     });
   } catch (error) {
     console.warn("[CloudSync] pull failed:", error);
@@ -838,6 +835,7 @@ export async function pushLocalIntoCloud(authenticatedUserId?: string): Promise<
       ok: true,
       reptileCount: (await db.getAll("reptiles")).length,
       scheduleCount: (await db.getAll("scheduleItems")).length,
+      careEventCount: (await db.getAll("careEvents")).length,
     });
   } catch (error) {
     console.warn("[CloudSync] push failed:", error);

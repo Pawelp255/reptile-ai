@@ -16,6 +16,7 @@ export default defineConfig(() => {
   return ({
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
+    __BUILD_TIMESTAMP__: JSON.stringify(new Date().toISOString()),
   },
   build: {
     rollupOptions: {
