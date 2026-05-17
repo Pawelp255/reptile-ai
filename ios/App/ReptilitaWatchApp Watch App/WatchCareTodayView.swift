@@ -29,10 +29,10 @@ struct WatchCareTodayView: View {
                     Section("Next") {
                         if let task = snapshot.nextImportantTask {
                             HStack(spacing: 8) {
-                                Image(systemName: task.taskType.systemImage)
+                                Image(systemName: task.systemImage)
                                     .foregroundStyle(task.isOverdue ? .orange : .teal)
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text(task.taskType.title)
+                                    Text(task.title)
                                         .font(.headline)
                                     Text(task.animalName ?? snapshot.animalName ?? "Reptile")
                                         .font(.caption)
@@ -62,7 +62,10 @@ struct WatchCareTodayView: View {
                         }
                     }
                 } else {
-                    ContentUnavailableView("Open Reptilita on iPhone", systemImage: "iphone")
+                    ContentUnavailableView(session.debugStatus, systemImage: "iphone")
+                    Text("Open Reptilita on iPhone")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
                 }
             }
             .navigationTitle("Today")

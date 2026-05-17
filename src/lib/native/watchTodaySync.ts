@@ -122,8 +122,15 @@ async function pushTodaySnapshot(force = false): Promise<WatchTodaySnapshot | un
   const now = Date.now();
   if (!force && now - lastSnapshotPushMs < 30_000) return undefined;
 
+  console.info('[WatchTodaySync] Building Today snapshot', { force });
   const snapshot = await buildWatchTodaySnapshot();
   lastSnapshotPushMs = now;
+  console.info('[WatchTodaySync] Sending Today snapshot', {
+    overdueCount: snapshot.overdueCount,
+    dueTodayCount: snapshot.dueTodayCount,
+    completedTodayCount: snapshot.completedTodayCount,
+    nextTaskType: snapshot.nextImportantTask?.taskType,
+  });
   await WatchBridge.updateTodaySnapshot({ snapshot });
   return snapshot;
 }
@@ -176,6 +183,7 @@ async function logMistingFallback(action: WatchTaskAction): Promise<void> {
 }
 
 async function handleWatchTaskAction(action: WatchTaskAction): Promise<void> {
+  console.info('[WatchTodaySync] Received watch action', action);
   const actionType = action.action ?? action.taskType;
   let ok = false;
   let message = 'Action was not applied.';
@@ -227,8 +235,10 @@ export function startWatchTodaySync(): void {
   if (started || !Capacitor.isNativePlatform()) return;
   started = true;
 
-  void WatchBridge.getStatus();
-  void pushTodaySnapshot(true);
+  console.info('[WatchTodaySync] Starting Watch Today sync');
+  void WatchBridge.getStatus().then((status) => {
+    console.info('[WatchTodaySync] Initial bridge status', status);
+  });
   scheduleRefresh();
 
   void WatchBridge.addListener('watchTaskAction', (event) => {
@@ -236,24 +246,34 @@ export function startWatchTodaySync(): void {
   });
 
   void WatchBridge.addListener('watchSnapshotRequested', () => {
+    console.info('[WatchTodaySync] Watch requested Today snapshot');
     void pushTodaySnapshot(true);
   });
 
   void WatchBridge.addListener('watchBridgeStatusChanged', () => {
+    console.info('[WatchTodaySync] Bridge status changed');
     void pushTodaySnapshot();
   });
 
+  void WatchBridge.requestTodaySnapshot().then((result) => {
+    console.info('[WatchTodaySync] Drained native Watch snapshot request state', result);
+  });
+  void pushTodaySnapshot(true);
+
   window.addEventListener('focus', () => {
+    console.info('[WatchTodaySync] Window focus snapshot refresh');
     void pushTodaySnapshot();
   });
 
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
+      console.info('[WatchTodaySync] App foreground snapshot refresh');
       void pushTodaySnapshot(true);
     }
   });
 
   window.addEventListener(REPTILES_CLOUD_SYNC_EVENT, () => {
+    console.info('[WatchTodaySync] Cloud sync event snapshot refresh');
     void pushTodaySnapshot(true);
   });
 }

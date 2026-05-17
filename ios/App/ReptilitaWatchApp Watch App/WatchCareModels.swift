@@ -13,11 +13,23 @@ struct WatchCareSnapshot: Codable {
 
 struct WatchCareTask: Codable, Identifiable {
     let id: String
-    let taskType: WatchCareAction
+    let taskType: String
     let animalId: String
     let animalName: String?
     let dueDate: String
     let isOverdue: Bool
+
+    var action: WatchCareAction? {
+        WatchCareAction(rawValue: taskType)
+    }
+
+    var title: String {
+        action?.title ?? "Check"
+    }
+
+    var systemImage: String {
+        action?.systemImage ?? "checklist"
+    }
 }
 
 enum WatchCareAction: String, Codable, CaseIterable, Identifiable {

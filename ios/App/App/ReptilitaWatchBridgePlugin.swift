@@ -20,6 +20,7 @@ public class ReptilitaWatchBridgePlugin: CAPPlugin, CAPBridgedPlugin, WCSessionD
 
     public override func load() {
         super.load()
+        NSLog("[ReptilitaWatchBridge] load")
         activateSessionIfNeeded()
     }
 
@@ -38,11 +39,13 @@ public class ReptilitaWatchBridgePlugin: CAPPlugin, CAPBridgedPlugin, WCSessionD
 
         saveSnapshot(snapshot)
         sendSnapshot(snapshot)
+        NSLog("[ReptilitaWatchBridge] updateTodaySnapshot received from JS")
         call.resolve(statusPayload())
     }
 
     @objc func requestTodaySnapshot(_ call: CAPPluginCall) {
         activateSessionIfNeeded()
+        NSLog("[ReptilitaWatchBridge] requestTodaySnapshot called from JS")
         notifyListeners("watchSnapshotRequested", data: [:], retainUntilConsumed: true)
         call.resolve([
             "status": statusPayload(),
@@ -70,16 +73,21 @@ public class ReptilitaWatchBridgePlugin: CAPPlugin, CAPBridgedPlugin, WCSessionD
     }
 
     private func activateSessionIfNeeded() {
-        guard let session else { return }
+        guard let session else {
+            NSLog("[ReptilitaWatchBridge] WCSession unsupported")
+            return
+        }
         if session.delegate !== self {
             session.delegate = self
         }
         if session.activationState == .notActivated {
+            NSLog("[ReptilitaWatchBridge] activating WCSession")
             session.activate()
         }
     }
 
     private func sendSnapshot(_ snapshot: [String: Any]) {
+        NSLog("[ReptilitaWatchBridge] sending todaySnapshot")
         sendPayload([
             "type": "todaySnapshot",
             "snapshot": snapshot
@@ -87,18 +95,27 @@ public class ReptilitaWatchBridgePlugin: CAPPlugin, CAPBridgedPlugin, WCSessionD
     }
 
     private func sendPayload(_ payload: [String: Any]) {
-        guard let session else { return }
+        guard let session else {
+            NSLog("[ReptilitaWatchBridge] cannot send payload; WCSession unsupported")
+            return
+        }
 
         do {
             try session.updateApplicationContext(payload)
+            NSLog("[ReptilitaWatchBridge] updateApplicationContext type=%@", payload["type"] as? String ?? "unknown")
         } catch {
+            NSLog("[ReptilitaWatchBridge] updateApplicationContext failed: %@", error.localizedDescription)
             notifyListeners("watchBridgeStatusChanged", data: statusPayload(error: error.localizedDescription), retainUntilConsumed: true)
         }
 
         if session.isReachable {
+            NSLog("[ReptilitaWatchBridge] sendMessage type=%@", payload["type"] as? String ?? "unknown")
             session.sendMessage(payload, replyHandler: nil) { [weak self] error in
+                NSLog("[ReptilitaWatchBridge] sendMessage failed: %@", error.localizedDescription)
                 self?.notifyListeners("watchBridgeStatusChanged", data: self?.statusPayload(error: error.localizedDescription) ?? [:], retainUntilConsumed: true)
             }
+        } else {
+            NSLog("[ReptilitaWatchBridge] phone session not reachable for immediate message")
         }
     }
 
@@ -155,6 +172,7 @@ public class ReptilitaWatchBridgePlugin: CAPPlugin, CAPBridgedPlugin, WCSessionD
     }
 
     public func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {
+        NSLog("[ReptilitaWatchBridge] activationDidComplete state=%@ error=%@", activationStateName(activationState), error?.localizedDescription ?? "")
         notifyListeners("watchBridgeStatusChanged", data: statusPayload(error: error?.localizedDescription), retainUntilConsumed: true)
         if activationState == .activated, let snapshot = loadSnapshot() {
             sendSnapshot(snapshot)
@@ -178,6 +196,7 @@ public class ReptilitaWatchBridgePlugin: CAPPlugin, CAPBridgedPlugin, WCSessionD
     }
 
     public func sessionReachabilityDidChange(_ session: WCSession) {
+        NSLog("[ReptilitaWatchBridge] reachabilityDidChange reachable=%@", session.isReachable ? "true" : "false")
         notifyListeners("watchBridgeStatusChanged", data: statusPayload(), retainUntilConsumed: true)
         if session.isReachable, let snapshot = loadSnapshot() {
             sendSnapshot(snapshot)
@@ -202,7 +221,11 @@ public class ReptilitaWatchBridgePlugin: CAPPlugin, CAPBridgedPlugin, WCSessionD
 
     private func handleMessage(_ message: [String: Any], replyHandler: (([String: Any]) -> Void)?) {
         let type = message["type"] as? String
+        NSLog("[ReptilitaWatchBridge] received message type=%@", type ?? "unknown")
         if type == "requestTodaySnapshot" {
+            if let snapshot = loadSnapshot() {
+                sendSnapshot(snapshot)
+            }
             notifyListeners("watchSnapshotRequested", data: [:], retainUntilConsumed: true)
             replyHandler?([
                 "ok": true,
@@ -212,6 +235,7 @@ public class ReptilitaWatchBridgePlugin: CAPPlugin, CAPBridgedPlugin, WCSessionD
         }
 
         if type == "completeTask" || type == "quickComplete" {
+            NSLog("[ReptilitaWatchBridge] received quick action")
             notifyListeners("watchTaskAction", data: message, retainUntilConsumed: true)
             replyHandler?([
                 "ok": true,
