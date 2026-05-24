@@ -40,7 +40,7 @@ import { TodayTasksSkeleton } from '@/components/system/SkeletonLoaders';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { lightHaptic, mediumHaptic } from '@/lib/native/haptics';
-import { pushWatchTodaySnapshot } from '@/lib/native/watchTodaySync';
+import { pushWatchTodaySnapshot, sendFakeWatchSnapshot } from '@/lib/native/watchTodaySync';
 import {
   getAllScheduleItems,
   getAllReptiles,
@@ -104,6 +104,7 @@ export default function TodayPage() {
   const [overdueBulkIntent, setOverdueBulkIntent] = useState<OverdueBulkIntent | null>(null);
   const [overdueBulkSaving, setOverdueBulkSaving] = useState(false);
   const [watchSnapshotPushing, setWatchSnapshotPushing] = useState(false);
+  const [fakeWatchSnapshotPushing, setFakeWatchSnapshotPushing] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
@@ -423,6 +424,24 @@ export default function TodayPage() {
       toast.error('Could not push Watch snapshot');
     } finally {
       setWatchSnapshotPushing(false);
+    }
+  };
+
+  const handleSendFakeWatchSnapshot = async () => {
+    setFakeWatchSnapshotPushing(true);
+    try {
+      const snapshot = await sendFakeWatchSnapshot();
+      await lightHaptic();
+      toast.success('Fake Watch snapshot sent', {
+        description: snapshot
+          ? `${snapshot.animalName}: ${snapshot.overdueCount} overdue, ${snapshot.dueTodayCount} due.`
+          : 'Native Watch bridge is only available on iPhone.',
+      });
+    } catch (error) {
+      console.error('Failed to send fake Watch snapshot:', error);
+      toast.error('Could not send fake Watch snapshot');
+    } finally {
+      setFakeWatchSnapshotPushing(false);
     }
   };
 
@@ -784,7 +803,7 @@ export default function TodayPage() {
             </motion.div>
           </div>
 
-          <div className="relative z-10 mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <div className="relative z-10 mt-4 grid grid-cols-2 gap-2 sm:grid-cols-5">
             <Link
               to="/reptiles/new"
               onClick={() => {
@@ -827,6 +846,16 @@ export default function TodayPage() {
             >
               <Send className="h-4 w-4 shrink-0" aria-hidden />
               <span>{watchSnapshotPushing ? 'Pushing…' : 'Push Watch Snapshot'}</span>
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full min-h-[40px] tap-feedback gap-1.5"
+              disabled={fakeWatchSnapshotPushing}
+              onClick={() => void handleSendFakeWatchSnapshot()}
+            >
+              <Send className="h-4 w-4 shrink-0" aria-hidden />
+              <span>{fakeWatchSnapshotPushing ? 'Sending…' : 'Send Fake Watch Snapshot'}</span>
             </Button>
           </div>
 

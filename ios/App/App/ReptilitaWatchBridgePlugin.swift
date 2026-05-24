@@ -31,15 +31,24 @@ public class ReptilitaWatchBridgePlugin: CAPPlugin, CAPBridgedPlugin, WCSessionD
 
     @objc func updateTodaySnapshot(_ call: CAPPluginCall) {
         activateSessionIfNeeded()
+        NSLog("[ReptilitaWatchBridge] updateTodaySnapshot invoked from JS")
 
-        guard let snapshot = call.getObject("snapshot") else {
+        guard let rawSnapshot = call.getObject("snapshot") else {
+            NSLog("[ReptilitaWatchBridge] updateTodaySnapshot missing snapshot object")
             call.reject("Missing Today snapshot")
             return
         }
 
+        guard let snapshot = propertyListCleaned(rawSnapshot) as? [String: Any] else {
+            NSLog("[ReptilitaWatchBridge] updateTodaySnapshot snapshot is not property-list safe")
+            call.reject("Today snapshot is not property-list safe")
+            return
+        }
+
+        logJSON("sanitized snapshot from JS", object: snapshot)
         saveSnapshot(snapshot)
         sendSnapshot(snapshot)
-        NSLog("[ReptilitaWatchBridge] updateTodaySnapshot received from JS")
+        NSLog("[ReptilitaWatchBridge] updateTodaySnapshot completed for %@", snapshotSummary(snapshot))
         call.resolve(statusPayload())
     }
 
@@ -63,7 +72,8 @@ public class ReptilitaWatchBridgePlugin: CAPPlugin, CAPBridgedPlugin, WCSessionD
             "message": call.getString("message") ?? ""
         ]
 
-        if let snapshot = call.getObject("snapshot") {
+        if let rawSnapshot = call.getObject("snapshot"),
+           let snapshot = propertyListCleaned(rawSnapshot) as? [String: Any] {
             saveSnapshot(snapshot)
             payload["snapshot"] = snapshot
         }
@@ -87,7 +97,7 @@ public class ReptilitaWatchBridgePlugin: CAPPlugin, CAPBridgedPlugin, WCSessionD
     }
 
     private func sendSnapshot(_ snapshot: [String: Any]) {
-        NSLog("[ReptilitaWatchBridge] sending todaySnapshot")
+        NSLog("[ReptilitaWatchBridge] sendSnapshot preparing todaySnapshot %@", snapshotSummary(snapshot))
         sendPayload([
             "type": "todaySnapshot",
             "snapshot": snapshot
@@ -99,18 +109,37 @@ public class ReptilitaWatchBridgePlugin: CAPPlugin, CAPBridgedPlugin, WCSessionD
             NSLog("[ReptilitaWatchBridge] cannot send payload; WCSession unsupported")
             return
         }
+        guard let cleanedPayload = propertyListCleaned(payload) as? [String: Any] else {
+            NSLog("[ReptilitaWatchBridge] cannot send payload; not property-list safe")
+            logJSON("invalid payload", object: payload)
+            return
+        }
+
+        let type = cleanedPayload["type"] as? String ?? "unknown"
+        NSLog(
+            "[ReptilitaWatchBridge] sendPayload start type=%@ activation=%@ paired=%@ installed=%@ reachable=%@",
+            type,
+            activationStateName(session.activationState),
+            session.isPaired ? "true" : "false",
+            session.isWatchAppInstalled ? "true" : "false",
+            session.isReachable ? "true" : "false"
+        )
+        logJSON("WCSession payload", object: cleanedPayload)
 
         do {
-            try session.updateApplicationContext(payload)
-            NSLog("[ReptilitaWatchBridge] updateApplicationContext type=%@", payload["type"] as? String ?? "unknown")
+            NSLog("[ReptilitaWatchBridge] updateApplicationContext start type=%@", type)
+            try session.updateApplicationContext(cleanedPayload)
+            NSLog("[ReptilitaWatchBridge] updateApplicationContext success type=%@", type)
         } catch {
             NSLog("[ReptilitaWatchBridge] updateApplicationContext failed: %@", error.localizedDescription)
             notifyListeners("watchBridgeStatusChanged", data: statusPayload(error: error.localizedDescription), retainUntilConsumed: true)
         }
 
         if session.isReachable {
-            NSLog("[ReptilitaWatchBridge] sendMessage type=%@", payload["type"] as? String ?? "unknown")
-            session.sendMessage(payload, replyHandler: nil) { [weak self] error in
+            NSLog("[ReptilitaWatchBridge] sendMessage start type=%@", type)
+            session.sendMessage(cleanedPayload, replyHandler: { reply in
+                NSLog("[ReptilitaWatchBridge] sendMessage reply type=%@ keys=%@", type, reply.keys.joined(separator: ","))
+            }) { [weak self] error in
                 NSLog("[ReptilitaWatchBridge] sendMessage failed: %@", error.localizedDescription)
                 self?.notifyListeners("watchBridgeStatusChanged", data: self?.statusPayload(error: error.localizedDescription) ?? [:], retainUntilConsumed: true)
             }
@@ -134,6 +163,62 @@ public class ReptilitaWatchBridgePlugin: CAPPlugin, CAPBridgedPlugin, WCSessionD
             return nil
         }
         return snapshot
+    }
+
+    private func propertyListCleaned(_ value: Any) -> Any? {
+        if value is NSNull {
+            return nil
+        }
+        if let string = value as? String {
+            return string
+        }
+        if let number = value as? NSNumber {
+            return number
+        }
+        if let data = value as? Data {
+            return data
+        }
+        if let date = value as? Date {
+            return date
+        }
+        if let array = value as? [Any] {
+            return array.compactMap { propertyListCleaned($0) }
+        }
+        if let dictionary = value as? [String: Any] {
+            var cleaned: [String: Any] = [:]
+            for (key, child) in dictionary {
+                if let cleanedChild = propertyListCleaned(child) {
+                    cleaned[key] = cleanedChild
+                }
+            }
+            return cleaned
+        }
+        NSLog("[ReptilitaWatchBridge] dropping unsupported payload value type=%@", String(describing: type(of: value)))
+        return nil
+    }
+
+    private func logJSON(_ label: String, object: Any) {
+        guard JSONSerialization.isValidJSONObject(object) else {
+            NSLog("[ReptilitaWatchBridge] %@ is not valid JSON", label)
+            return
+        }
+        do {
+            let data = try JSONSerialization.data(withJSONObject: object, options: [.sortedKeys])
+            let json = String(data: data, encoding: .utf8) ?? "<utf8 failed>"
+            NSLog("[ReptilitaWatchBridge] %@ jsonBytes=%d json=%@", label, data.count, json)
+        } catch {
+            NSLog("[ReptilitaWatchBridge] %@ JSON serialization failed: %@", label, error.localizedDescription)
+        }
+    }
+
+    private func snapshotSummary(_ snapshot: [String: Any]) -> String {
+        let overdue = snapshot["overdueCount"] as? NSNumber
+        let due = snapshot["dueTodayCount"] as? NSNumber
+        let done = snapshot["completedTodayCount"] as? NSNumber
+        let task = snapshot["nextImportantTask"] as? [String: Any]
+        let taskType = task?["taskType"] as? String ?? "none"
+        let animal = snapshot["animalName"] as? String ?? task?["animalName"] as? String ?? "none"
+        return "overdue=\(overdue?.stringValue ?? "?") due=\(due?.stringValue ?? "?") done=\(done?.stringValue ?? "?") animal=\(animal) task=\(taskType)"
     }
 
     private func statusPayload(error: String? = nil) -> [String: Any] {

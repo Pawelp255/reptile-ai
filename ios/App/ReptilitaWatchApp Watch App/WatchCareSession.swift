@@ -152,6 +152,17 @@ final class WatchCareSession: NSObject, ObservableObject, WCSessionDelegate {
         }
     }
 
+    func session(_ session: WCSession, didReceiveMessage message: [String: Any], replyHandler: @escaping ([String: Any]) -> Void) {
+        logger.info("Watch received message with reply type=\((message["type"] as? String) ?? "unknown", privacy: .public)")
+        DispatchQueue.main.async { [weak self] in
+            self?.readSnapshot(from: message)
+            replyHandler([
+                "ok": true,
+                "snapshotReceived": message["snapshot"] != nil
+            ])
+        }
+    }
+
     func session(_ session: WCSession, didReceiveUserInfo userInfo: [String: Any] = [:]) {
         logger.info("Watch received userInfo type=\((userInfo["type"] as? String) ?? "unknown", privacy: .public)")
         DispatchQueue.main.async { [weak self] in

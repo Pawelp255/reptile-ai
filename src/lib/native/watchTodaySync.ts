@@ -19,6 +19,7 @@ type WatchTodayTask = {
   animalName?: string;
   dueDate: string;
   isOverdue: boolean;
+  title?: string;
 };
 
 export type WatchTodaySnapshot = {
@@ -67,6 +68,44 @@ const SNAPSHOT_REFRESH_MS = 10 * 60 * 1000;
 let started = false;
 let lastSnapshotPushMs = 0;
 let refreshTimer: number | undefined;
+
+type JsonSafeValue = string | number | boolean | JsonSafeValue[] | { [key: string]: JsonSafeValue };
+
+function sanitizeForWatchPayload(value: unknown, path = 'snapshot', seen = new WeakSet<object>()): JsonSafeValue | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return value;
+  if (value instanceof Date) return value.toISOString();
+  if (typeof value === 'function' || typeof value === 'symbol' || typeof value === 'bigint') {
+    throw new Error(`Watch snapshot contains unsupported value at ${path}: ${typeof value}`);
+  }
+  if (Array.isArray(value)) {
+    return value
+      .map((item, index) => sanitizeForWatchPayload(item, `${path}[${index}]`, seen))
+      .filter((item): item is JsonSafeValue => item !== undefined);
+  }
+  if (typeof value === 'object') {
+    if (seen.has(value)) {
+      throw new Error(`Watch snapshot contains circular reference at ${path}`);
+    }
+    seen.add(value);
+    const result: { [key: string]: JsonSafeValue } = {};
+    for (const [key, child] of Object.entries(value)) {
+      const sanitized = sanitizeForWatchPayload(child, `${path}.${key}`, seen);
+      if (sanitized !== undefined) result[key] = sanitized;
+    }
+    seen.delete(value);
+    return result;
+  }
+  throw new Error(`Watch snapshot contains unsupported value at ${path}: ${typeof value}`);
+}
+
+function normalizeWatchSnapshot(snapshot: WatchTodaySnapshot): WatchTodaySnapshot {
+  const sanitized = sanitizeForWatchPayload(snapshot);
+  if (!sanitized || Array.isArray(sanitized) || typeof sanitized !== 'object') {
+    throw new Error('Watch snapshot did not normalize to an object.');
+  }
+  return sanitized as WatchTodaySnapshot;
+}
 
 function taskPriority(task: ScheduleItem): number {
   if (isOverdue(task.nextDueDate)) return 0;
@@ -117,21 +156,74 @@ export async function buildWatchTodaySnapshot(): Promise<WatchTodaySnapshot> {
 }
 
 export async function pushWatchTodaySnapshot(force = false): Promise<WatchTodaySnapshot | undefined> {
+  console.info('[WatchTodaySync] pushWatchTodaySnapshot entered', {
+    force,
+    isNative: Capacitor.isNativePlatform(),
+    platform: Capacitor.getPlatform(),
+    pluginKeys: Object.keys(WatchBridge),
+  });
   if (!Capacitor.isNativePlatform()) return undefined;
 
   const now = Date.now();
-  if (!force && now - lastSnapshotPushMs < 30_000) return undefined;
+  if (!force && now - lastSnapshotPushMs < 30_000) {
+    console.info('[WatchTodaySync] Skipping Today snapshot push; throttle active');
+    return undefined;
+  }
 
   console.info('[WatchTodaySync] Building Today snapshot', { force });
-  const snapshot = await buildWatchTodaySnapshot();
+  const rawSnapshot = await buildWatchTodaySnapshot();
+  console.info('[WatchTodaySync] Built Today snapshot', rawSnapshot);
+  const snapshot = normalizeWatchSnapshot(rawSnapshot);
+  const serializedSnapshot = JSON.stringify(snapshot);
+  console.info('[WatchTodaySync] Serialized Today snapshot', {
+    byteLength: new Blob([serializedSnapshot]).size,
+    json: serializedSnapshot,
+  });
   lastSnapshotPushMs = now;
-  console.info('[WatchTodaySync] Sending Today snapshot', {
+  console.info('[WatchTodaySync] Calling native updateTodaySnapshot', {
     overdueCount: snapshot.overdueCount,
     dueTodayCount: snapshot.dueTodayCount,
     completedTodayCount: snapshot.completedTodayCount,
     nextTaskType: snapshot.nextImportantTask?.taskType,
   });
-  await WatchBridge.updateTodaySnapshot({ snapshot });
+  const status = await WatchBridge.updateTodaySnapshot({ snapshot });
+  console.info('[WatchTodaySync] Native updateTodaySnapshot resolved', status);
+  return snapshot;
+}
+
+export async function sendFakeWatchSnapshot(): Promise<WatchTodaySnapshot | undefined> {
+  console.info('[WatchTodaySync] sendFakeWatchSnapshot entered', {
+    isNative: Capacitor.isNativePlatform(),
+    platform: Capacitor.getPlatform(),
+    pluginKeys: Object.keys(WatchBridge),
+  });
+  if (!Capacitor.isNativePlatform()) return undefined;
+
+  const snapshot = normalizeWatchSnapshot({
+    version: 1,
+    generatedAt: new Date().toISOString(),
+    date: getToday(),
+    overdueCount: 4,
+    dueTodayCount: 6,
+    completedTodayCount: 1,
+    animalName: 'Mr. Mackie',
+    nextImportantTask: {
+      id: 'debug-fake-feed',
+      animalId: 'debug-fake-animal',
+      animalName: 'Mr. Mackie',
+      taskType: 'feed',
+      title: 'Feed today',
+      dueDate: getToday(),
+      isOverdue: false,
+    },
+  });
+  const serializedSnapshot = JSON.stringify(snapshot);
+  console.info('[WatchTodaySync] Sending fake Watch snapshot', {
+    byteLength: new Blob([serializedSnapshot]).size,
+    json: serializedSnapshot,
+  });
+  const status = await WatchBridge.updateTodaySnapshot({ snapshot });
+  console.info('[WatchTodaySync] Fake updateTodaySnapshot resolved', status);
   return snapshot;
 }
 
