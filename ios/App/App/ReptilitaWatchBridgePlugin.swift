@@ -19,9 +19,9 @@ public class ReptilitaWatchBridgePlugin: CAPPlugin, CAPBridgedPlugin, WCSessionD
         WCSession.isSupported() ? WCSession.default : nil
     }
 
-    public override func load() {
+    @objc public override func load() {
         super.load()
-        NSLog("[ReptilitaWatchBridge] load")
+        NSLog("[ReptilitaWatchBridge] load jsName=%@ identifier=%@", jsName, identifier)
         activateSessionIfNeeded()
     }
 
