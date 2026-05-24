@@ -10,6 +10,7 @@ import {
   ListChecks,
   MoreVertical,
   NotebookPen,
+  Send,
   Sparkles,
   UserPlus,
 } from 'lucide-react';
@@ -39,6 +40,7 @@ import { TodayTasksSkeleton } from '@/components/system/SkeletonLoaders';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { lightHaptic, mediumHaptic } from '@/lib/native/haptics';
+import { pushWatchTodaySnapshot } from '@/lib/native/watchTodaySync';
 import {
   getAllScheduleItems,
   getAllReptiles,
@@ -101,6 +103,7 @@ export default function TodayPage() {
   const [overdueDrawerOpen, setOverdueDrawerOpen] = useState(false);
   const [overdueBulkIntent, setOverdueBulkIntent] = useState<OverdueBulkIntent | null>(null);
   const [overdueBulkSaving, setOverdueBulkSaving] = useState(false);
+  const [watchSnapshotPushing, setWatchSnapshotPushing] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
@@ -398,6 +401,28 @@ export default function TodayPage() {
       toast.error('Could not load sample data');
     } finally {
       setLoadingSample(false);
+    }
+  };
+
+  useEffect(() => {
+    void pushWatchTodaySnapshot(true);
+  }, []);
+
+  const handlePushWatchSnapshot = async () => {
+    setWatchSnapshotPushing(true);
+    try {
+      const snapshot = await pushWatchTodaySnapshot(true);
+      await lightHaptic();
+      toast.success('Watch snapshot pushed', {
+        description: snapshot
+          ? `${snapshot.overdueCount} overdue, ${snapshot.dueTodayCount} due today.`
+          : 'Native Watch bridge is only available on iPhone.',
+      });
+    } catch (error) {
+      console.error('Failed to push Watch snapshot:', error);
+      toast.error('Could not push Watch snapshot');
+    } finally {
+      setWatchSnapshotPushing(false);
     }
   };
 
@@ -759,7 +784,7 @@ export default function TodayPage() {
             </motion.div>
           </div>
 
-          <div className="relative z-10 mt-4 grid grid-cols-3 gap-2">
+          <div className="relative z-10 mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
             <Link
               to="/reptiles/new"
               onClick={() => {
@@ -793,6 +818,16 @@ export default function TodayPage() {
                 Open Genetics
               </Button>
             </Link>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full min-h-[40px] tap-feedback gap-1.5"
+              disabled={watchSnapshotPushing}
+              onClick={() => void handlePushWatchSnapshot()}
+            >
+              <Send className="h-4 w-4 shrink-0" aria-hidden />
+              <span>{watchSnapshotPushing ? 'Pushing…' : 'Push Watch Snapshot'}</span>
+            </Button>
           </div>
 
         </motion.div>

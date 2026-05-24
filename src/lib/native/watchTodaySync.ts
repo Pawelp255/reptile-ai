@@ -116,7 +116,7 @@ export async function buildWatchTodaySnapshot(): Promise<WatchTodaySnapshot> {
   };
 }
 
-async function pushTodaySnapshot(force = false): Promise<WatchTodaySnapshot | undefined> {
+export async function pushWatchTodaySnapshot(force = false): Promise<WatchTodaySnapshot | undefined> {
   if (!Capacitor.isNativePlatform()) return undefined;
 
   const now = Date.now();
@@ -209,7 +209,7 @@ async function handleWatchTaskAction(action: WatchTaskAction): Promise<void> {
     message = error instanceof Error ? error.message : 'Action failed.';
   }
 
-  const snapshot = await pushTodaySnapshot(true);
+  const snapshot = await pushWatchTodaySnapshot(true);
   if (pushedTaskId) {
     void pushCareTasksToCloudByIds([pushedTaskId], { notifyOnError: true });
   }
@@ -226,7 +226,7 @@ function scheduleRefresh(): void {
   window.clearInterval(refreshTimer);
   refreshTimer = window.setInterval(() => {
     if (document.visibilityState === 'visible') {
-      void pushTodaySnapshot();
+      void pushWatchTodaySnapshot();
     }
   }, SNAPSHOT_REFRESH_MS);
 }
@@ -247,33 +247,33 @@ export function startWatchTodaySync(): void {
 
   void WatchBridge.addListener('watchSnapshotRequested', () => {
     console.info('[WatchTodaySync] Watch requested Today snapshot');
-    void pushTodaySnapshot(true);
+    void pushWatchTodaySnapshot(true);
   });
 
   void WatchBridge.addListener('watchBridgeStatusChanged', () => {
     console.info('[WatchTodaySync] Bridge status changed');
-    void pushTodaySnapshot();
+    void pushWatchTodaySnapshot();
   });
 
   void WatchBridge.requestTodaySnapshot().then((result) => {
     console.info('[WatchTodaySync] Drained native Watch snapshot request state', result);
   });
-  void pushTodaySnapshot(true);
+  void pushWatchTodaySnapshot(true);
 
   window.addEventListener('focus', () => {
     console.info('[WatchTodaySync] Window focus snapshot refresh');
-    void pushTodaySnapshot();
+    void pushWatchTodaySnapshot();
   });
 
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
       console.info('[WatchTodaySync] App foreground snapshot refresh');
-      void pushTodaySnapshot(true);
+      void pushWatchTodaySnapshot(true);
     }
   });
 
   window.addEventListener(REPTILES_CLOUD_SYNC_EVENT, () => {
     console.info('[WatchTodaySync] Cloud sync event snapshot refresh');
-    void pushTodaySnapshot(true);
+    void pushWatchTodaySnapshot(true);
   });
 }

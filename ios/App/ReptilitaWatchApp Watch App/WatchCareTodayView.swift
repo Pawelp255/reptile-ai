@@ -67,6 +67,14 @@ struct WatchCareTodayView: View {
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
+
+                Section("Debug") {
+                    debugRow("Activation", session.activationStateText)
+                    debugRow("Reachable", session.isReachable ? "true" : "false")
+                    debugRow("Last request", session.lastRequestSentAt ?? "never")
+                    debugRow("Last snapshot", session.lastSnapshotReceivedAt ?? "never")
+                    debugRow("Decode error", session.lastDecodeError ?? "none")
+                }
             }
             .navigationTitle("Today")
             .onAppear {
@@ -88,5 +96,16 @@ struct WatchCareTodayView: View {
 
     private var isActionPending: Bool {
         !session.pendingActionIds.isEmpty
+    }
+
+    private func debugRow(_ title: String, _ value: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            Text(value)
+                .font(.caption2.monospaced())
+                .lineLimit(3)
+        }
     }
 }

@@ -7,6 +7,11 @@ final class WatchCareSession: NSObject, ObservableObject, WCSessionDelegate {
     @Published var snapshot: WatchCareSnapshot?
     @Published var pendingActionIds: Set<String> = []
     @Published var debugStatus = "Connecting..."
+    @Published var activationStateText = "notActivated"
+    @Published var isReachable = false
+    @Published var lastRequestSentAt: String?
+    @Published var lastSnapshotReceivedAt: String?
+    @Published var lastDecodeError: String?
 
     private let snapshotDefaultsKey = "reptilita.watch.todaySnapshot"
     private let isoDateFormatter = ISO8601DateFormatter()
@@ -28,7 +33,11 @@ final class WatchCareSession: NSObject, ObservableObject, WCSessionDelegate {
         WCSession.default.delegate = self
         logger.info("Activating WCSession on watch")
         WCSession.default.activate()
+        updateSessionDebug(WCSession.default)
         readSnapshot(from: WCSession.default.receivedApplicationContext)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            self?.requestSnapshot()
+        }
     }
 
     var lastUpdatedText: String? {
@@ -45,6 +54,7 @@ final class WatchCareSession: NSObject, ObservableObject, WCSessionDelegate {
     func requestSnapshot() {
         logger.info("Watch requesting todaySnapshot")
         debugStatus = "Waiting for phone..."
+        lastRequestSentAt = isoDateFormatter.string(from: Date())
         sendPayload(["type": "requestTodaySnapshot"], expectsSnapshotReply: true)
     }
 
@@ -110,10 +120,21 @@ final class WatchCareSession: NSObject, ObservableObject, WCSessionDelegate {
 
     func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {
         logger.info("Watch activation completed state=\(activationState.rawValue, privacy: .public) error=\(error?.localizedDescription ?? "", privacy: .public)")
-        debugStatus = activationState == .activated ? "Waiting for phone..." : "Connecting..."
-        guard activationState == .activated else { return }
         DispatchQueue.main.async { [weak self] in
+            self?.updateSessionDebug(session)
+            self?.debugStatus = activationState == .activated ? "Waiting for phone..." : "Connecting..."
+            guard activationState == .activated else { return }
             self?.requestSnapshot()
+        }
+    }
+
+    func sessionReachabilityDidChange(_ session: WCSession) {
+        logger.info("Watch reachability changed reachable=\(session.isReachable, privacy: .public)")
+        DispatchQueue.main.async { [weak self] in
+            self?.updateSessionDebug(session)
+            if session.isReachable {
+                self?.requestSnapshot()
+            }
         }
     }
 
@@ -149,11 +170,32 @@ final class WatchCareSession: NSObject, ObservableObject, WCSessionDelegate {
             snapshot = try JSONDecoder().decode(WatchCareSnapshot.self, from: data)
             UserDefaults.standard.set(data, forKey: snapshotDefaultsKey)
             debugStatus = "Snapshot received"
+            lastSnapshotReceivedAt = isoDateFormatter.string(from: Date())
+            lastDecodeError = nil
             logger.info("Decoded todaySnapshot overdue=\(self.snapshot?.overdueCount ?? -1, privacy: .public) due=\(self.snapshot?.dueTodayCount ?? -1, privacy: .public)")
         } catch {
             debugStatus = "Waiting for phone..."
+            lastDecodeError = error.localizedDescription
             logger.error("Failed to decode todaySnapshot: \(error.localizedDescription, privacy: .public)")
             return
+        }
+    }
+
+    private func updateSessionDebug(_ session: WCSession) {
+        activationStateText = activationStateName(session.activationState)
+        isReachable = session.isReachable
+    }
+
+    private func activationStateName(_ state: WCSessionActivationState) -> String {
+        switch state {
+        case .activated:
+            return "activated"
+        case .inactive:
+            return "inactive"
+        case .notActivated:
+            return "notActivated"
+        @unknown default:
+            return "unknown"
         }
     }
 
