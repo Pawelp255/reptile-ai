@@ -12,6 +12,9 @@ final class WatchCareSession: NSObject, ObservableObject, WCSessionDelegate {
     @Published var lastRequestSentAt: String?
     @Published var lastSnapshotReceivedAt: String?
     @Published var lastDecodeError: String?
+    @Published var lastReceiveChannel: String?
+    @Published var lastRawPayloadKeys: String?
+    @Published var lastRawPayloadJSON: String?
 
     private let snapshotDefaultsKey = "reptilita.watch.todaySnapshot"
     private let isoDateFormatter = ISO8601DateFormatter()
@@ -34,7 +37,7 @@ final class WatchCareSession: NSObject, ObservableObject, WCSessionDelegate {
         logger.info("Activating WCSession on watch")
         WCSession.default.activate()
         updateSessionDebug(WCSession.default)
-        readSnapshot(from: WCSession.default.receivedApplicationContext)
+        readSnapshot(from: WCSession.default.receivedApplicationContext, channel: "startupContext")
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
             self?.requestSnapshot()
         }
@@ -97,7 +100,7 @@ final class WatchCareSession: NSObject, ObservableObject, WCSessionDelegate {
                         self?.pendingActionIds.remove(actionId)
                     }
                     if expectsSnapshotReply {
-                        self?.readSnapshot(from: reply)
+                        self?.readSnapshot(from: reply, channel: "messageReply")
                     }
                 }
             }, errorHandler: { [weak self] _ in
@@ -141,21 +144,21 @@ final class WatchCareSession: NSObject, ObservableObject, WCSessionDelegate {
     func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String: Any]) {
         logger.info("Watch received applicationContext keys=\(applicationContext.keys.joined(separator: ","), privacy: .public)")
         DispatchQueue.main.async { [weak self] in
-            self?.readSnapshot(from: applicationContext)
+            self?.readSnapshot(from: applicationContext, channel: "context")
         }
     }
 
     func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
         logger.info("Watch received message type=\((message["type"] as? String) ?? "unknown", privacy: .public)")
         DispatchQueue.main.async { [weak self] in
-            self?.readSnapshot(from: message)
+            self?.readSnapshot(from: message, channel: "message")
         }
     }
 
     func session(_ session: WCSession, didReceiveMessage message: [String: Any], replyHandler: @escaping ([String: Any]) -> Void) {
         logger.info("Watch received message with reply type=\((message["type"] as? String) ?? "unknown", privacy: .public)")
         DispatchQueue.main.async { [weak self] in
-            self?.readSnapshot(from: message)
+            self?.readSnapshot(from: message, channel: "message")
             replyHandler([
                 "ok": true,
                 "snapshotReceived": message["snapshot"] != nil
@@ -166,13 +169,18 @@ final class WatchCareSession: NSObject, ObservableObject, WCSessionDelegate {
     func session(_ session: WCSession, didReceiveUserInfo userInfo: [String: Any] = [:]) {
         logger.info("Watch received userInfo type=\((userInfo["type"] as? String) ?? "unknown", privacy: .public)")
         DispatchQueue.main.async { [weak self] in
-            self?.readSnapshot(from: userInfo)
+            self?.readSnapshot(from: userInfo, channel: "userInfo")
         }
     }
 
-    private func readSnapshot(from payload: [String: Any]) {
-        guard let rawSnapshot = payload["snapshot"] else {
-            logger.info("Payload did not include snapshot; keys=\(payload.keys.joined(separator: ","), privacy: .public)")
+    private func readSnapshot(from payload: [String: Any], channel: String) {
+        lastReceiveChannel = channel
+        lastRawPayloadKeys = payload.keys.sorted().joined(separator: ",")
+        lastRawPayloadJSON = jsonString(payload)
+        logger.info("FULL raw payload received on Watch channel=\(channel, privacy: .public) json=\(self.lastRawPayloadJSON ?? "<json failed>", privacy: .public)")
+
+        guard let rawSnapshot = snapshotObject(from: payload) else {
+            logger.info("Payload did not include recognizable todaySnapshot; keys=\(payload.keys.joined(separator: ","), privacy: .public)")
             return
         }
 
@@ -190,6 +198,30 @@ final class WatchCareSession: NSObject, ObservableObject, WCSessionDelegate {
             logger.error("Failed to decode todaySnapshot: \(error.localizedDescription, privacy: .public)")
             return
         }
+    }
+
+    private func snapshotObject(from payload: [String: Any]) -> Any? {
+        if let snapshot = payload["snapshot"] {
+            return snapshot
+        }
+        if let snapshot = payload["todaySnapshot"] {
+            return snapshot
+        }
+        if payload["overdueCount"] != nil,
+           payload["dueTodayCount"] != nil,
+           payload["completedTodayCount"] != nil {
+            return payload
+        }
+        return nil
+    }
+
+    private func jsonString(_ object: Any) -> String {
+        guard JSONSerialization.isValidJSONObject(object),
+              let data = try? JSONSerialization.data(withJSONObject: object, options: [.sortedKeys]),
+              let json = String(data: data, encoding: .utf8) else {
+            return "<json failed>"
+        }
+        return json
     }
 
     private func updateSessionDebug(_ session: WCSession) {

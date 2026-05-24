@@ -73,6 +73,9 @@ struct WatchCareTodayView: View {
                     debugRow("Reachable", session.isReachable ? "true" : "false")
                     debugRow("Last request", session.lastRequestSentAt ?? "never")
                     debugRow("Last snapshot", session.lastSnapshotReceivedAt ?? "never")
+                    debugRow("Last receive channel", session.lastReceiveChannel ?? "never")
+                    debugRow("Last raw keys", session.lastRawPayloadKeys ?? "none")
+                    debugRow("Last raw JSON", session.lastRawPayloadJSON ?? "none")
                     debugRow("Decode error", session.lastDecodeError ?? "none")
                 }
             }
