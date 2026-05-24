@@ -74,7 +74,6 @@ function backupPhotoToStorageInBackground(reptile: Reptile, opts?: { notifyOnErr
       const updated: Reptile = {
         ...existing,
         photoPath: result.reptile.photoPath,
-        updatedAt: getNow(),
       };
       await db.put('reptiles', updated);
       syncReptileUpsertInBackground(updated);

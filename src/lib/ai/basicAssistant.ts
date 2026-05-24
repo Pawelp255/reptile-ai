@@ -221,6 +221,15 @@ export async function buildBasicAssistantReply(
     return `Basic assistant (local)\n\n${summarizeEvents(recentEvents, nameById)}`;
   }
 
+  if (hasAny(q, ['picture', 'photo', 'images']) && hasAny(q, ['my animal', 'my reptiles', 'my collection'])) {
+    return [
+      'Basic assistant (local)',
+      '',
+      'I can see local profile/photo availability metadata, but I cannot visually inspect local photos yet.',
+      'If you want, I can summarize your animal profiles instead (species, morphs, notes, tasks, and recent journal info).',
+    ].join('\n');
+  }
+
   if (hasAny(q, ['remind', 'tip', 'should i'])) {
     const tips: string[] = [
       'Basic assistant — gentle reminders from your data:',

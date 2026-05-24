@@ -18,7 +18,7 @@ export type AssistantVisionImagePayload = {
 export type AiAssistantEdgeOutcome =
   | { kind: 'success' }
   /** Network / 5xx / unparsed errors — caller may fall back to mock */
-  | { kind: 'recoverable' }
+  | { kind: 'recoverable'; reason?: string; statusCode?: number; errorBody?: string }
   /** Client/validation errors (e.g. image too large) — do not mock over */
   | { kind: 'fatal'; message: string };
 
@@ -85,16 +85,20 @@ export async function streamAiAssistantEdge(
   },
   onChunk: (chunk: string) => void,
 ): Promise<AiAssistantEdgeOutcome> {
-  if (!isSupabaseConfigured || !supabase) return { kind: 'recoverable' };
+  if (!isSupabaseConfigured || !supabase) {
+    return { kind: 'recoverable', reason: 'Supabase is not configured in this build.' };
+  }
 
   const {
     data: { session },
   } = await supabase.auth.getSession();
-  if (!session?.access_token) return { kind: 'recoverable' };
+  if (!session?.access_token) return { kind: 'recoverable', reason: 'No active signed-in session token.' };
 
   const baseUrl = resolveSupabaseUrl().replace(/\/$/, '');
   const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim();
-  if (!baseUrl || !key) return { kind: 'recoverable' };
+  if (!baseUrl || !key) {
+    return { kind: 'recoverable', reason: 'Missing Supabase base URL or publishable key.' };
+  }
 
   try {
     const response = await fetch(`${baseUrl}${FUNCTIONS_PATH}`, {
@@ -124,7 +128,15 @@ export async function streamAiAssistantEdge(
       } catch {
         /* not JSON */
       }
-      console.warn('[ai-assistant] Edge function error', response.status, detail.slice(0, 300));
+      const bodySnippet = detail.slice(0, 800).trim();
+      if ([401, 403, 413, 500].includes(response.status)) {
+        console.error('[ai-assistant] Edge function HTTP error', {
+          status: response.status,
+          body: bodySnippet || '(empty body)',
+        });
+      } else {
+        console.warn('[ai-assistant] Edge function error', response.status, bodySnippet);
+      }
 
       if (response.status === 400 || response.status === 413 || response.status === 422) {
         return {
@@ -132,7 +144,13 @@ export async function streamAiAssistantEdge(
           message: parsedError || `Request was rejected (${response.status}).`,
         };
       }
-      return { kind: 'recoverable' };
+      const reasonDetail = parsedError || bodySnippet || 'No error body.';
+      return {
+        kind: 'recoverable',
+        reason: `Edge request failed with HTTP ${response.status}: ${reasonDetail}`,
+        statusCode: response.status,
+        errorBody: bodySnippet || undefined,
+      };
     }
 
     const ct = response.headers.get('content-type') ?? '';
@@ -153,6 +171,6 @@ export async function streamAiAssistantEdge(
     return { kind: 'success' };
   } catch (e) {
     console.warn('[ai-assistant] Request failed', e);
-    return { kind: 'recoverable' };
+    return { kind: 'recoverable', reason: e instanceof Error ? e.message : 'Network request failed.' };
   }
 }

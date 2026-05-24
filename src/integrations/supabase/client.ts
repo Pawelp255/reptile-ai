@@ -6,10 +6,6 @@ import { resolveSupabaseUrl } from './env';
 const VITE_SUPABASE_URL = resolveSupabaseUrl();
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim();
 
-if (import.meta.env.DEV) {
-  console.log('[supabase] URL:', VITE_SUPABASE_URL);
-}
-
 const missingEnv: string[] = [];
 if (!SUPABASE_PUBLISHABLE_KEY) missingEnv.push('VITE_SUPABASE_PUBLISHABLE_KEY');
 

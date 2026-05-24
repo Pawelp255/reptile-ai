@@ -32,6 +32,7 @@ function buildMockAssistantBody(params: {
   animalName?: string | null;
   appContext?: Record<string, unknown>;
   hadVisionAttachment?: boolean;
+  fallbackReason?: string;
 }): string {
   const topic = params.userMessage.trim().slice(0, 220);
   const header = params.animalName
@@ -39,12 +40,17 @@ function buildMockAssistantBody(params: {
     : `Here is a preview answer while the assistant service reconnects:\n\n`;
 
   let body =
+    `Cloud AI is unavailable. This is a local preview only.\n\n` +
     header +
     `You asked:\n"${topic}${params.userMessage.length > topic.length ? '…' : ''}"\n\n` +
     `— Double-check temps, humidity, and hides against a species-specific care sheet.\n` +
     `— Log feedings, weights, and sheds so trends are easy to spot in Reptilita.\n` +
     `— This reply is simulated offline because the cloud assistant was unavailable.\n\n` +
     `For emergencies, contact a reptile-experienced veterinarian right away.\n`;
+
+  if (params.fallbackReason?.trim()) {
+    body += `\nDetected fallback reason: ${params.fallbackReason.trim()}\n`;
+  }
 
   if (params.contextSummary?.trim()) {
     const extra = params.animalName ? ` Context for ${params.animalName}.` : '';
@@ -91,6 +97,8 @@ export type ProAssistantStreamParams = {
   image?: AssistantVisionImagePayload;
   /** When true (Pro), call Edge Function before mock fallback. */
   preferEdgeApi?: boolean;
+  /** Dev diagnostics when cloud path falls back to local preview. */
+  onFallbackInfo?: (info: { reason?: string; statusCode?: number; errorBody?: string }) => void;
 };
 
 /**
@@ -102,6 +110,7 @@ export async function streamProAssistantReply(
   onDone: () => void,
   onError: (err: Error) => void,
 ): Promise<void> {
+  let fallbackReason: string | undefined;
   if (params.preferEdgeApi) {
     const edged = await streamAiAssistantEdge(
       {
@@ -123,6 +132,12 @@ export async function streamProAssistantReply(
       onError(new Error(edged.message));
       return;
     }
+    fallbackReason = edged.reason;
+    params.onFallbackInfo?.({
+      reason: edged.reason,
+      statusCode: edged.statusCode,
+      errorBody: edged.errorBody,
+    });
     console.warn('[ai-assistant] Using local preview (edge unavailable).');
   }
 
@@ -133,6 +148,7 @@ export async function streamProAssistantReply(
       animalName: params.animalName,
       appContext: params.appContext,
       hadVisionAttachment: Boolean(params.image),
+      fallbackReason,
     });
     await streamTextIncremental(full, onChunk);
     onDone();

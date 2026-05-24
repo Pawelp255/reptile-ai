@@ -29,6 +29,7 @@ export type PublicSharePayload = {
     species: string;
     commonName?: string;
     scientificName?: string;
+    animalGroup?: string;
     animalCategory?: string;
     speciesGroup?: string;
     morph?: string;
@@ -195,6 +196,7 @@ function buildPayload(args: {
       species: reptile.species,
       commonName: cleanText(reptile.commonName),
       scientificName: cleanText(reptile.scientificName),
+      animalGroup: reptile.animalGroup,
       animalCategory: reptile.animalCategory,
       speciesGroup: cleanText(reptile.speciesGroup),
       morph: cleanText(reptile.morph),

@@ -130,7 +130,7 @@ function buildImageCapabilitySummary(
   }
   const parts: string[] = [];
   if (meta.imagesLocalOnly > 0) {
-    parts.push('Images stored locally — AI cannot view them yet.');
+    parts.push('Profile photos are stored on this device. AI can reference that photos exist, but cannot inspect them unless you attach one.');
   }
   if (meta.imageUrlsAvailable > 0) {
     parts.push('Image URLs available — AI can reference URLs only.');

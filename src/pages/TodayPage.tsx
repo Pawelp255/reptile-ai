@@ -4,13 +4,11 @@ import { motion, useReducedMotion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import {
   ArrowUpRight,
-  Bug,
   Check,
   FastForward,
   ListChecks,
   MoreVertical,
   NotebookPen,
-  Send,
   Sparkles,
   UserPlus,
 } from 'lucide-react';
@@ -40,12 +38,7 @@ import { TodayTasksSkeleton } from '@/components/system/SkeletonLoaders';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { lightHaptic, mediumHaptic } from '@/lib/native/haptics';
-import {
-  pushWatchTodaySnapshot,
-  sendFakeWatchSnapshot,
-  sendRealWatchSnapshot,
-  type WatchNativeSendResult,
-} from '@/lib/native/watchTodaySync';
+import { pushWatchTodaySnapshot } from '@/lib/native/watchTodaySync';
 import {
   getAllScheduleItems,
   getAllReptiles,
@@ -108,10 +101,6 @@ export default function TodayPage() {
   const [overdueDrawerOpen, setOverdueDrawerOpen] = useState(false);
   const [overdueBulkIntent, setOverdueBulkIntent] = useState<OverdueBulkIntent | null>(null);
   const [overdueBulkSaving, setOverdueBulkSaving] = useState(false);
-  const [watchSnapshotPushing, setWatchSnapshotPushing] = useState(false);
-  const [fakeWatchSnapshotPushing, setFakeWatchSnapshotPushing] = useState(false);
-  const [lastNativeSendResult, setLastNativeSendResult] = useState<string>('none');
-  const [lastNativeSendError, setLastNativeSendError] = useState<string>('none');
 
   const loadData = useCallback(async () => {
     try {
@@ -415,55 +404,6 @@ export default function TodayPage() {
   useEffect(() => {
     void pushWatchTodaySnapshot(true);
   }, []);
-
-  const summarizeNativeResult = (result: WatchNativeSendResult | undefined) => {
-    if (!result) return 'Native Watch bridge is only available on iPhone.';
-    return JSON.stringify(result, null, 2);
-  };
-
-  const handlePushWatchSnapshot = async () => {
-    setWatchSnapshotPushing(true);
-    setLastNativeSendError('none');
-    try {
-      const result = await sendRealWatchSnapshot();
-      const snapshot = result?.snapshot;
-      setLastNativeSendResult(summarizeNativeResult(result));
-      await lightHaptic();
-      toast.success('Watch snapshot pushed', {
-        description: snapshot
-          ? `${snapshot.overdueCount} overdue, ${snapshot.dueTodayCount} due today.`
-          : 'Native Watch bridge is only available on iPhone.',
-      });
-    } catch (error) {
-      console.error('Failed to push Watch snapshot:', error);
-      setLastNativeSendError(error instanceof Error ? error.message : String(error));
-      toast.error('Could not push Watch snapshot');
-    } finally {
-      setWatchSnapshotPushing(false);
-    }
-  };
-
-  const handleSendFakeWatchSnapshot = async () => {
-    setFakeWatchSnapshotPushing(true);
-    setLastNativeSendError('none');
-    try {
-      const result = await sendFakeWatchSnapshot();
-      const snapshot = result?.snapshot;
-      setLastNativeSendResult(summarizeNativeResult(result));
-      await lightHaptic();
-      toast.success('Fake Watch snapshot sent', {
-        description: snapshot
-          ? `${snapshot.animalName}: ${snapshot.overdueCount} overdue, ${snapshot.dueTodayCount} due.`
-          : 'Native Watch bridge is only available on iPhone.',
-      });
-    } catch (error) {
-      console.error('Failed to send fake Watch snapshot:', error);
-      setLastNativeSendError(error instanceof Error ? error.message : String(error));
-      toast.error('Could not send fake Watch snapshot');
-    } finally {
-      setFakeWatchSnapshotPushing(false);
-    }
-  };
 
   if (loading) {
     return (
@@ -823,7 +763,7 @@ export default function TodayPage() {
             </motion.div>
           </div>
 
-          <div className="relative z-10 mt-4 grid grid-cols-2 gap-2 sm:grid-cols-5">
+          <div className="relative z-10 mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
             <Link
               to="/reptiles/new"
               onClick={() => {
@@ -857,49 +797,6 @@ export default function TodayPage() {
                 Open Genetics
               </Button>
             </Link>
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full min-h-[40px] tap-feedback gap-1.5"
-              disabled={watchSnapshotPushing}
-              onClick={() => void handlePushWatchSnapshot()}
-            >
-              <Send className="h-4 w-4 shrink-0" aria-hidden />
-              <span>{watchSnapshotPushing ? 'Sending…' : 'Send Real Watch Snapshot'}</span>
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full min-h-[40px] tap-feedback gap-1.5"
-              disabled={fakeWatchSnapshotPushing}
-              onClick={() => void handleSendFakeWatchSnapshot()}
-            >
-              <Send className="h-4 w-4 shrink-0" aria-hidden />
-              <span>{fakeWatchSnapshotPushing ? 'Sending…' : 'Send Fake Watch Snapshot'}</span>
-            </Button>
-          </div>
-
-          <div className="relative z-10 mt-3 rounded-lg border border-border/60 bg-card/75 px-3 py-3">
-            <div className="flex items-center gap-2">
-              <Bug className="h-4 w-4 text-muted-foreground" aria-hidden />
-              <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
-                Watch Native Debug
-              </p>
-            </div>
-            <div className="mt-3 grid gap-3 text-xs sm:grid-cols-2">
-              <div className="min-w-0">
-                <p className="font-medium text-foreground">Last native send result</p>
-                <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap break-words rounded-md bg-muted/60 p-2 font-mono text-[10px] leading-relaxed text-muted-foreground">
-                  {lastNativeSendResult}
-                </pre>
-              </div>
-              <div className="min-w-0">
-                <p className="font-medium text-foreground">Last native error</p>
-                <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap break-words rounded-md bg-muted/60 p-2 font-mono text-[10px] leading-relaxed text-muted-foreground">
-                  {lastNativeSendError}
-                </pre>
-              </div>
-            </div>
           </div>
 
         </motion.div>

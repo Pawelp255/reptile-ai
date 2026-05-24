@@ -9,7 +9,10 @@ import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
@@ -22,8 +25,11 @@ import { BREEDING_STATUS_OPTIONS as breedingStatusOptions } from '@/types';
 import type { GeneticGene } from '@/types/genetics';
 import {
   ANIMAL_CATEGORY_OPTIONS,
+  ANIMAL_GROUP_OPTIONS,
+  getAnimalCategoriesForGroup,
   getSpeciesPresetById,
-  getSpeciesPresetsForCategory,
+  getSpeciesPresetGroupsForAnimalGroup,
+  type AnimalGroup,
   type AnimalCategory,
   type HabitatType,
   type HumidityPreference,
@@ -66,6 +72,7 @@ export default function NewReptilePage() {
     species: '',
     commonName: '',
     scientificName: '',
+    animalGroup: 'reptile',
     animalClass: 'reptile',
     animalCategory: 'other-reptile',
     speciesGroup: '',
@@ -91,7 +98,8 @@ export default function NewReptilePage() {
     genes: [],
   });
 
-  const speciesPresets = getSpeciesPresetsForCategory(formData.animalCategory);
+  const animalCategoryOptions = getAnimalCategoriesForGroup(formData.animalGroup);
+  const speciesPresetGroups = getSpeciesPresetGroupsForAnimalGroup(formData.animalGroup);
 
   const handleApplyPreset = (presetId: string) => {
     setSelectedPresetId(presetId);
@@ -106,6 +114,7 @@ export default function NewReptilePage() {
       species: preset.commonName,
       commonName: preset.commonName,
       scientificName: preset.scientificName || '',
+      animalGroup: preset.animalGroup,
       animalCategory: preset.category,
       animalClass: meta?.class ?? prev.animalClass,
       speciesGroup: preset.speciesGroup || '',
@@ -227,6 +236,36 @@ export default function NewReptilePage() {
           </div>
 
           <div>
+            <Label>Animal Group</Label>
+            <Select
+              value={formData.animalGroup}
+              onValueChange={(value: AnimalGroup) => {
+                const nextCategory = getAnimalCategoriesForGroup(value)[0];
+                setSelectedPresetId(CUSTOM_PRESET_VALUE);
+                setFormData((prev) => ({
+                  ...prev,
+                  animalGroup: value,
+                  animalCategory: nextCategory?.value,
+                  animalClass: nextCategory?.class ?? (value === 'amphibian' ? 'amphibian' : value === 'reptile' ? 'reptile' : 'other'),
+                  isAmphibian: value === 'amphibian',
+                  speciesGroup: '',
+                }));
+              }}
+            >
+              <SelectTrigger className="mt-1.5">
+                <SelectValue placeholder="Select group" />
+              </SelectTrigger>
+              <SelectContent>
+                {ANIMAL_GROUP_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
             <Label>Animal Type</Label>
             <Select
               value={formData.animalCategory}
@@ -235,6 +274,7 @@ export default function NewReptilePage() {
                 setSelectedPresetId(CUSTOM_PRESET_VALUE);
                 setFormData((prev) => ({
                   ...prev,
+                  animalGroup: meta?.group ?? prev.animalGroup,
                   animalCategory: value,
                   animalClass: meta?.class ?? prev.animalClass,
                   isAmphibian: meta?.class === 'amphibian',
@@ -246,7 +286,7 @@ export default function NewReptilePage() {
                 <SelectValue placeholder="Select type" />
               </SelectTrigger>
               <SelectContent>
-                {ANIMAL_CATEGORY_OPTIONS.map((option) => (
+                {animalCategoryOptions.map((option) => (
                   <SelectItem key={option.value} value={option.value}>
                     {option.label}
                   </SelectItem>
@@ -266,10 +306,16 @@ export default function NewReptilePage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={CUSTOM_PRESET_VALUE}>Custom / manual entry</SelectItem>
-                {speciesPresets.map((preset) => (
-                  <SelectItem key={preset.id} value={preset.id}>
-                    {preset.commonName}
-                  </SelectItem>
+                {speciesPresetGroups.map((group, index) => (
+                  <SelectGroup key={group.id}>
+                    {index > 0 && <SelectSeparator />}
+                    <SelectLabel>{group.label}</SelectLabel>
+                    {group.presets.map((preset) => (
+                      <SelectItem key={preset.id} value={preset.id}>
+                        {preset.commonName}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
                 ))}
               </SelectContent>
             </Select>

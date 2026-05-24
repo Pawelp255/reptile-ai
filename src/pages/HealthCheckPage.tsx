@@ -14,7 +14,7 @@ export default function HealthCheckPage() {
         <div className="premium-surface rounded-[var(--radius-xl)] p-3 sm:p-4 border border-warning/25">
           <div className="flex items-center gap-2 text-warning">
             <Sparkles className="w-4 h-4 shrink-0" />
-            <span className="text-xs font-semibold uppercase tracking-[0.12em]">Preview / Coming soon</span>
+            <span className="text-xs font-semibold uppercase tracking-[0.12em]">Educational preview</span>
           </div>
           <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
             Not veterinary advice — for planning and notes only.
