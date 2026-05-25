@@ -19,8 +19,6 @@ import {
   Cloud,
   ChevronDown,
   ChevronUp,
-  Bug,
-  Send,
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { PageHeader } from '@/components/PageHeader';
@@ -86,11 +84,6 @@ import { readLastSuccessfulCloudSyncMs } from '@/lib/sync/syncTelemetry';
 import { REPTILITA_SUPPORT_EMAIL, reptilitaMailto } from '@/lib/reptilitaSupport';
 import { downloadOrShareBlob } from '@/lib/native/blobExport';
 import { getLocalDateKey } from '@/lib/date/localDateKey';
-import {
-  sendFakeWatchSnapshot,
-  sendRealWatchSnapshot,
-  type WatchNativeSendResult,
-} from '@/lib/native/watchTodaySync';
 
 type ThemeValue = 'light' | 'dark' | 'system';
 
@@ -99,28 +92,6 @@ const THEME_OPTIONS: { value: ThemeValue; label: string }[] = [
   { value: 'dark', label: 'Dark' },
   { value: 'system', label: 'System' },
 ];
-
-const summarizeWatchDebugChannels = (result: WatchNativeSendResult | undefined): string => {
-  if (!result) return 'message/context/userInfo: not attempted; native bridge unavailable';
-  const channels = result.channels;
-  if (!channels || typeof channels !== 'object') return 'message/context/userInfo: not reported';
-
-  return ['message', 'context', 'userInfo']
-    .map((channelName) => {
-      const channel = (channels as Record<string, unknown>)[channelName];
-      if (!channel || typeof channel !== 'object') return `${channelName}: not attempted`;
-
-      const channelRecord = channel as Record<string, unknown>;
-      const ok = channelRecord.ok === true
-        ? 'success'
-        : channelRecord.ok === false
-          ? 'error'
-          : 'unknown';
-      const detail = channelRecord.error ?? channelRecord.detail ?? '';
-      return `${channelName}: ${ok}${detail ? ` (${String(detail)})` : ''}`;
-    })
-    .join('\n');
-};
 
 export default function SettingsPage() {
   const navigate = useNavigate();
@@ -160,10 +131,6 @@ export default function SettingsPage() {
   const [offline, setOffline] = useState(() =>
     typeof navigator !== 'undefined' ? !navigator.onLine : false,
   );
-  const [watchDebugBusyAction, setWatchDebugBusyAction] = useState<'fake' | 'real' | null>(null);
-  const [watchDebugLastAction, setWatchDebugLastAction] = useState('none');
-  const [watchDebugStatus, setWatchDebugStatus] = useState('none');
-  const [watchDebugChannels, setWatchDebugChannels] = useState('message/context/userInfo: none');
 
   useEffect(() => {
     const loadSettings = async () => {
@@ -337,44 +304,6 @@ export default function SettingsPage() {
     setSignOutOpen(false);
     toast.success('Signed out successfully');
     navigate('/auth');
-  };
-
-  const handleSendWatchDebugSnapshot = async (kind: 'fake' | 'real') => {
-    const label = kind === 'fake' ? 'Send Fake Watch Snapshot' : 'Send Real Watch Snapshot';
-    setWatchDebugBusyAction(kind);
-    setWatchDebugLastAction(label);
-    setWatchDebugStatus('sending');
-    setWatchDebugChannels('message/context/userInfo: sending');
-
-    try {
-      const result = kind === 'fake'
-        ? await sendFakeWatchSnapshot()
-        : await sendRealWatchSnapshot();
-
-      setWatchDebugChannels(summarizeWatchDebugChannels(result));
-      if (!result) {
-        setWatchDebugStatus('error: Native Watch bridge is only available on iPhone.');
-        toast.error('Native Watch bridge unavailable');
-        return;
-      }
-
-      if (result.error) {
-        setWatchDebugStatus(`error: ${result.error}`);
-        toast.error('Watch snapshot failed');
-        return;
-      }
-
-      setWatchDebugStatus('success');
-      toast.success(kind === 'fake' ? 'Fake Watch snapshot sent' : 'Real Watch snapshot sent');
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      console.error(`Failed to run ${label}:`, error);
-      setWatchDebugStatus(`error: ${message}`);
-      setWatchDebugChannels('message/context/userInfo: failed before channel result');
-      toast.error('Watch snapshot failed');
-    } finally {
-      setWatchDebugBusyAction(null);
-    }
   };
 
   const formatLastSync = (ms: number | null): string => {
@@ -799,62 +728,6 @@ export default function SettingsPage() {
                 </div>
               </CollapsibleContent>
             </Collapsible>
-          </div>
-        </section>
-
-        {/* Apple Watch Debug */}
-        <section>
-          <h2 className="section-header mb-2.5">Apple Watch Debug</h2>
-          <div className="premium-surface rounded-[var(--radius-xl)] overflow-hidden border border-border/60">
-            <div className="p-4 sm:p-5 space-y-4">
-              <div className="flex gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                  <Bug className="w-5 h-5" aria-hidden />
-                </div>
-                <div className="min-w-0 flex-1 space-y-3">
-                  <div>
-                    <p className="text-card-title text-foreground">Native Watch snapshot send</p>
-                    <p className="text-secondary text-[13px] leading-snug">
-                      Temporary diagnostics for physical iPhone and Apple Watch builds.
-                    </p>
-                  </div>
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    <Button
-                      type="button"
-                      variant="default"
-                      className="w-full gap-2"
-                      disabled={watchDebugBusyAction !== null}
-                      onClick={() => void handleSendWatchDebugSnapshot('fake')}
-                    >
-                      <Send className="h-4 w-4 shrink-0" aria-hidden />
-                      <span>{watchDebugBusyAction === 'fake' ? 'Sending…' : 'Send Fake Watch Snapshot'}</span>
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="w-full gap-2"
-                      disabled={watchDebugBusyAction !== null}
-                      onClick={() => void handleSendWatchDebugSnapshot('real')}
-                    >
-                      <Send className="h-4 w-4 shrink-0" aria-hidden />
-                      <span>{watchDebugBusyAction === 'real' ? 'Sending…' : 'Send Real Watch Snapshot'}</span>
-                    </Button>
-                  </div>
-                  <div className="rounded-lg border border-border/70 bg-muted/35 p-3 text-[12px] leading-relaxed">
-                    <div className="grid gap-2 sm:grid-cols-[120px_1fr]">
-                      <span className="font-medium text-foreground">Last action</span>
-                      <span className="min-w-0 break-words text-muted-foreground">{watchDebugLastAction}</span>
-                      <span className="font-medium text-foreground">Success/error</span>
-                      <span className="min-w-0 break-words text-muted-foreground">{watchDebugStatus}</span>
-                      <span className="font-medium text-foreground">Channel attempted</span>
-                      <pre className="min-w-0 whitespace-pre-wrap break-words font-mono text-[11px] leading-relaxed text-muted-foreground">
-                        {watchDebugChannels}
-                      </pre>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
           </div>
         </section>
 

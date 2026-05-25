@@ -6,15 +6,9 @@ import WatchConnectivity
 final class WatchCareSession: NSObject, ObservableObject, WCSessionDelegate {
     @Published var snapshot: WatchCareSnapshot?
     @Published var pendingActionIds: Set<String> = []
-    @Published var debugStatus = "Connecting..."
-    @Published var activationStateText = "notActivated"
-    @Published var isReachable = false
-    @Published var lastRequestSentAt: String?
-    @Published var lastSnapshotReceivedAt: String?
-    @Published var lastDecodeError: String?
-    @Published var lastReceiveChannel: String?
-    @Published var lastRawPayloadKeys: String?
-    @Published var lastRawPayloadJSON: String?
+    @Published var statusText = "Connecting..."
+    @Published var isLoading = true
+    @Published var lastSyncedAt: Date?
 
     private let snapshotDefaultsKey = "reptilita.watch.todaySnapshot"
     private let isoDateFormatter = ISO8601DateFormatter()
@@ -25,39 +19,42 @@ final class WatchCareSession: NSObject, ObservableObject, WCSessionDelegate {
 
         snapshot = loadCachedSnapshot()
         if snapshot != nil {
-            debugStatus = "Snapshot received"
+            statusText = "Ready"
+            isLoading = false
         }
 
         guard WCSession.isSupported() else {
-            debugStatus = "Waiting for phone..."
+            statusText = "Open Reptilita on iPhone"
+            isLoading = false
             logger.error("WCSession is not supported on watch")
             return
         }
         WCSession.default.delegate = self
         logger.info("Activating WCSession on watch")
         WCSession.default.activate()
-        updateSessionDebug(WCSession.default)
         readSnapshot(from: WCSession.default.receivedApplicationContext, channel: "startupContext")
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
             self?.requestSnapshot()
         }
     }
 
-    var lastUpdatedText: String? {
-        guard let generatedAt = snapshot?.generatedAt,
-              let date = isoDateFormatter.date(from: generatedAt) else {
-            return nil
+    var lastSyncedText: String? {
+        let syncDate = lastSyncedAt ?? snapshot.flatMap { isoDateFormatter.date(from: $0.generatedAt) }
+        guard let syncDate else { return nil }
+
+        if abs(syncDate.timeIntervalSinceNow) < 60 {
+            return "Last synced just now"
         }
 
         let formatter = RelativeDateTimeFormatter()
-        formatter.unitsStyle = .short
-        return "Last updated \(formatter.localizedString(for: date, relativeTo: Date()))"
+        formatter.unitsStyle = .full
+        return "Last synced \(formatter.localizedString(for: syncDate, relativeTo: Date()))"
     }
 
     func requestSnapshot() {
         logger.info("Watch requesting todaySnapshot")
-        debugStatus = "Waiting for phone..."
-        lastRequestSentAt = isoDateFormatter.string(from: Date())
+        isLoading = snapshot == nil
+        statusText = "Syncing..."
         sendPayload(["type": "requestTodaySnapshot"], expectsSnapshotReply: true)
     }
 
@@ -72,7 +69,7 @@ final class WatchCareSession: NSObject, ObservableObject, WCSessionDelegate {
             "requestedAt": isoDateFormatter.string(from: Date())
         ]
 
-        if let task = snapshot?.nextImportantTask, task.action == action {
+        if let task = snapshot?.nextImportantTask, task.action == action || action == .mist {
             message["taskId"] = task.id
             message["animalId"] = task.animalId
         }
@@ -124,8 +121,7 @@ final class WatchCareSession: NSObject, ObservableObject, WCSessionDelegate {
     func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {
         logger.info("Watch activation completed state=\(activationState.rawValue, privacy: .public) error=\(error?.localizedDescription ?? "", privacy: .public)")
         DispatchQueue.main.async { [weak self] in
-            self?.updateSessionDebug(session)
-            self?.debugStatus = activationState == .activated ? "Waiting for phone..." : "Connecting..."
+            self?.statusText = activationState == .activated ? "Syncing..." : "Connecting..."
             guard activationState == .activated else { return }
             self?.requestSnapshot()
         }
@@ -134,7 +130,6 @@ final class WatchCareSession: NSObject, ObservableObject, WCSessionDelegate {
     func sessionReachabilityDidChange(_ session: WCSession) {
         logger.info("Watch reachability changed reachable=\(session.isReachable, privacy: .public)")
         DispatchQueue.main.async { [weak self] in
-            self?.updateSessionDebug(session)
             if session.isReachable {
                 self?.requestSnapshot()
             }
@@ -174,11 +169,6 @@ final class WatchCareSession: NSObject, ObservableObject, WCSessionDelegate {
     }
 
     private func readSnapshot(from payload: [String: Any], channel: String) {
-        lastReceiveChannel = channel
-        lastRawPayloadKeys = payload.keys.sorted().joined(separator: ",")
-        lastRawPayloadJSON = jsonString(payload)
-        logger.info("FULL raw payload received on Watch channel=\(channel, privacy: .public) json=\(self.lastRawPayloadJSON ?? "<json failed>", privacy: .public)")
-
         guard let rawSnapshot = snapshotObject(from: payload) else {
             logger.info("Payload did not include recognizable todaySnapshot; keys=\(payload.keys.joined(separator: ","), privacy: .public)")
             return
@@ -188,13 +178,13 @@ final class WatchCareSession: NSObject, ObservableObject, WCSessionDelegate {
             let data = try JSONSerialization.data(withJSONObject: rawSnapshot)
             snapshot = try JSONDecoder().decode(WatchCareSnapshot.self, from: data)
             UserDefaults.standard.set(data, forKey: snapshotDefaultsKey)
-            debugStatus = "Snapshot received"
-            lastSnapshotReceivedAt = isoDateFormatter.string(from: Date())
-            lastDecodeError = nil
-            logger.info("Decoded todaySnapshot overdue=\(self.snapshot?.overdueCount ?? -1, privacy: .public) due=\(self.snapshot?.dueTodayCount ?? -1, privacy: .public)")
+            statusText = "Ready"
+            isLoading = false
+            lastSyncedAt = Date()
+            logger.info("Decoded todaySnapshot channel=\(channel, privacy: .public) overdue=\(self.snapshot?.overdueCount ?? -1, privacy: .public) due=\(self.snapshot?.dueTodayCount ?? -1, privacy: .public)")
         } catch {
-            debugStatus = "Waiting for phone..."
-            lastDecodeError = error.localizedDescription
+            statusText = "Open Reptilita on iPhone"
+            isLoading = false
             logger.error("Failed to decode todaySnapshot: \(error.localizedDescription, privacy: .public)")
             return
         }
@@ -213,33 +203,6 @@ final class WatchCareSession: NSObject, ObservableObject, WCSessionDelegate {
             return payload
         }
         return nil
-    }
-
-    private func jsonString(_ object: Any) -> String {
-        guard JSONSerialization.isValidJSONObject(object),
-              let data = try? JSONSerialization.data(withJSONObject: object, options: [.sortedKeys]),
-              let json = String(data: data, encoding: .utf8) else {
-            return "<json failed>"
-        }
-        return json
-    }
-
-    private func updateSessionDebug(_ session: WCSession) {
-        activationStateText = activationStateName(session.activationState)
-        isReachable = session.isReachable
-    }
-
-    private func activationStateName(_ state: WCSessionActivationState) -> String {
-        switch state {
-        case .activated:
-            return "activated"
-        case .inactive:
-            return "inactive"
-        case .notActivated:
-            return "notActivated"
-        @unknown default:
-            return "unknown"
-        }
     }
 
     private func loadCachedSnapshot() -> WatchCareSnapshot? {

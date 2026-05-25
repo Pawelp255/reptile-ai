@@ -37,7 +37,6 @@ export type WatchNativeSendResult = {
   ok?: boolean;
   snapshot?: WatchTodaySnapshot;
   status?: Record<string, unknown>;
-  channels?: Record<string, unknown>;
   error?: string;
   [key: string]: unknown;
 };
@@ -53,7 +52,6 @@ type WatchTaskAction = {
 
 type ReptilitaWatchBridgePlugin = {
   getStatus(): Promise<Record<string, unknown>>;
-  sendFakeSnapshot(): Promise<Record<string, unknown>>;
   updateTodaySnapshot(options: { snapshot: WatchTodaySnapshot }): Promise<Record<string, unknown>>;
   requestTodaySnapshot(): Promise<Record<string, unknown>>;
   acknowledgeAction(options: {
@@ -170,7 +168,6 @@ export async function pushWatchTodaySnapshot(force = false): Promise<WatchTodayS
     force,
     isNative: Capacitor.isNativePlatform(),
     platform: Capacitor.getPlatform(),
-    pluginKeys: Object.keys(WatchBridge),
   });
   if (!Capacitor.isNativePlatform()) return undefined;
 
@@ -182,12 +179,13 @@ export async function pushWatchTodaySnapshot(force = false): Promise<WatchTodayS
 
   console.info('[WatchTodaySync] Building Today snapshot', { force });
   const rawSnapshot = await buildWatchTodaySnapshot();
-  console.info('[WatchTodaySync] Built Today snapshot', rawSnapshot);
   const snapshot = normalizeWatchSnapshot(rawSnapshot);
   const serializedSnapshot = JSON.stringify(snapshot);
   console.info('[WatchTodaySync] Serialized Today snapshot', {
     byteLength: new Blob([serializedSnapshot]).size,
-    json: serializedSnapshot,
+    overdueCount: snapshot.overdueCount,
+    dueTodayCount: snapshot.dueTodayCount,
+    completedTodayCount: snapshot.completedTodayCount,
   });
   lastSnapshotPushMs = now;
   console.info('[WatchTodaySync] Calling native updateTodaySnapshot', {
@@ -205,7 +203,6 @@ export async function sendRealWatchSnapshot(): Promise<WatchNativeSendResult | u
   console.info('[WatchTodaySync] sendRealWatchSnapshot entered', {
     isNative: Capacitor.isNativePlatform(),
     platform: Capacitor.getPlatform(),
-    pluginKeys: Object.keys(WatchBridge),
   });
   if (!Capacitor.isNativePlatform()) return undefined;
 
@@ -214,7 +211,9 @@ export async function sendRealWatchSnapshot(): Promise<WatchNativeSendResult | u
   const serializedSnapshot = JSON.stringify(snapshot);
   console.info('[WatchTodaySync] Sending real Watch snapshot', {
     byteLength: new Blob([serializedSnapshot]).size,
-    json: serializedSnapshot,
+    overdueCount: snapshot.overdueCount,
+    dueTodayCount: snapshot.dueTodayCount,
+    completedTodayCount: snapshot.completedTodayCount,
   });
   const status = await WatchBridge.updateTodaySnapshot({ snapshot });
   console.info('[WatchTodaySync] Real updateTodaySnapshot resolved', status);
@@ -222,36 +221,7 @@ export async function sendRealWatchSnapshot(): Promise<WatchNativeSendResult | u
     ok: true,
     snapshot,
     status,
-    channels: {
-      message: {
-        ok: status.reachable === true,
-        detail: status.reachable === true
-          ? 'attempted by native updateTodaySnapshot'
-          : 'not attempted; WCSession is not reachable',
-      },
-      context: {
-        ok: true,
-        detail: 'attempted by native updateTodaySnapshot',
-      },
-      userInfo: {
-        ok: false,
-        detail: 'not attempted by real snapshot path',
-      },
-    },
   };
-}
-
-export async function sendFakeWatchSnapshot(): Promise<WatchNativeSendResult | undefined> {
-  console.info('[WatchTodaySync] sendFakeWatchSnapshot entered', {
-    isNative: Capacitor.isNativePlatform(),
-    platform: Capacitor.getPlatform(),
-    pluginKeys: Object.keys(WatchBridge),
-  });
-  if (!Capacitor.isNativePlatform()) return undefined;
-
-  const status = await WatchBridge.sendFakeSnapshot();
-  console.info('[WatchTodaySync] Native sendFakeSnapshot resolved', status);
-  return status as WatchNativeSendResult;
 }
 
 function actionToTaskType(action: WatchQuickActionType | undefined): TaskType | undefined {
