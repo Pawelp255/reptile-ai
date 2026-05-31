@@ -9,7 +9,7 @@ Concise notes for building and packaging the app for web, PWA, and native (iOS/A
 | Target        | Command              | Output / Next step                    |
 |---------------|----------------------|----------------------------------------|
 | Web / PWA     | `npm run build`      | `dist/` — deploy to any static host    |
-| Capacitor iOS | `npm run build` then `npx cap sync ios`  | Open Xcode, archive, submit |
+| Capacitor iOS | `npm run build:ios` then `npx cap sync ios` | Open Xcode, archive, submit. Native builds must not include PWA service worker files. |
 | Capacitor Android | `npm run build` then `npx cap sync android` | Open Android Studio, build bundle |
 
 ---
@@ -44,7 +44,8 @@ Concise notes for building and packaging the app for web, PWA, and native (iOS/A
 
 ## Capacitor production build
 
-- **Production:** Do **not** set `CAPACITOR_DEV_SERVE`. Run `npm run build` then `npx cap sync`. The app loads from `webDir` (`dist/`).
+- **Production iOS:** Do **not** set `CAPACITOR_DEV_SERVE`. Run `npm run build:ios` then `npx cap sync ios`. This disables the PWA service worker for WKWebView/App Store archives.
+- **Production web/PWA:** Run `npm run build` and deploy `dist/` to your static host. This build includes the PWA service worker.
 - **Optional dev with remote URL:** Set `CAPACITOR_DEV_SERVE=true` and `CAPACITOR_DEV_SERVE_URL=...` if you need to point at a remote dev server.
 - **App identity:** In `capacitor.config.ts`, `appId` is `com.reptilita.app` and `appName` is `Reptilita`. Change `appId` if you need a different bundle identifier (e.g. for an existing app).
 

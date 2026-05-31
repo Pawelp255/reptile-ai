@@ -1184,11 +1184,6 @@ export default function SettingsPage() {
                 <a href={reptilitaMailto('Reptilita support')}>Email support</a>
               </Button>
             </div>
-            <p className="text-caption">
-              App Store / TestFlight: use Privacy Policy URL{' '}
-              <span className="text-foreground font-mono text-[11px]">https://reptilita.com/privacy</span> once your host
-              serves this SPA route (same origin as the deployed app).
-            </p>
           </div>
         </section>
       </div>

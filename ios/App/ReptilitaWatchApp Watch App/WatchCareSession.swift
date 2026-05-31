@@ -14,6 +14,12 @@ final class WatchCareSession: NSObject, ObservableObject, WCSessionDelegate {
     private let isoDateFormatter = ISO8601DateFormatter()
     private let logger = Logger(subsystem: "com.reptilita.app.watchapp", category: "TodaySync")
 
+    private func debugLog(_ message: String) {
+        #if DEBUG
+        logger.info("\(message, privacy: .public)")
+        #endif
+    }
+
     override init() {
         super.init()
 
@@ -30,7 +36,7 @@ final class WatchCareSession: NSObject, ObservableObject, WCSessionDelegate {
             return
         }
         WCSession.default.delegate = self
-        logger.info("Activating WCSession on watch")
+        debugLog("Activating WCSession on watch")
         WCSession.default.activate()
         readSnapshot(from: WCSession.default.receivedApplicationContext, channel: "startupContext")
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
@@ -52,7 +58,7 @@ final class WatchCareSession: NSObject, ObservableObject, WCSessionDelegate {
     }
 
     func requestSnapshot() {
-        logger.info("Watch requesting todaySnapshot")
+        debugLog("Watch requesting todaySnapshot")
         isLoading = snapshot == nil
         statusText = "Syncing..."
         sendPayload(["type": "requestTodaySnapshot"], expectsSnapshotReply: true)
@@ -74,7 +80,7 @@ final class WatchCareSession: NSObject, ObservableObject, WCSessionDelegate {
             message["animalId"] = task.animalId
         }
 
-        logger.info("Watch sending quickComplete action=\(action.rawValue, privacy: .public)")
+        debugLog("Watch sending quickComplete action=\(action.rawValue)")
         sendPayload(message, actionId: actionId)
     }
 
@@ -90,7 +96,7 @@ final class WatchCareSession: NSObject, ObservableObject, WCSessionDelegate {
         let session = WCSession.default
 
         if session.isReachable {
-            logger.info("sendMessage type=\((message["type"] as? String) ?? "unknown", privacy: .public)")
+            debugLog("sendMessage type=\((message["type"] as? String) ?? "unknown")")
             session.sendMessage(message, replyHandler: { [weak self] reply in
                 DispatchQueue.main.async {
                     if let actionId {
@@ -110,7 +116,7 @@ final class WatchCareSession: NSObject, ObservableObject, WCSessionDelegate {
                 }
             })
         } else {
-            logger.info("WCSession not reachable; transferUserInfo type=\((message["type"] as? String) ?? "unknown", privacy: .public)")
+            debugLog("WCSession not reachable; transferUserInfo type=\((message["type"] as? String) ?? "unknown")")
             session.transferUserInfo(message)
             if let actionId {
                 pendingActionIds.remove(actionId)
@@ -119,7 +125,7 @@ final class WatchCareSession: NSObject, ObservableObject, WCSessionDelegate {
     }
 
     func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {
-        logger.info("Watch activation completed state=\(activationState.rawValue, privacy: .public) error=\(error?.localizedDescription ?? "", privacy: .public)")
+        debugLog("Watch activation completed state=\(activationState.rawValue)")
         DispatchQueue.main.async { [weak self] in
             self?.statusText = activationState == .activated ? "Syncing..." : "Connecting..."
             guard activationState == .activated else { return }
@@ -128,7 +134,7 @@ final class WatchCareSession: NSObject, ObservableObject, WCSessionDelegate {
     }
 
     func sessionReachabilityDidChange(_ session: WCSession) {
-        logger.info("Watch reachability changed reachable=\(session.isReachable, privacy: .public)")
+        debugLog("Watch reachability changed reachable=\(session.isReachable)")
         DispatchQueue.main.async { [weak self] in
             if session.isReachable {
                 self?.requestSnapshot()
@@ -137,21 +143,21 @@ final class WatchCareSession: NSObject, ObservableObject, WCSessionDelegate {
     }
 
     func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String: Any]) {
-        logger.info("Watch received applicationContext keys=\(applicationContext.keys.joined(separator: ","), privacy: .public)")
+        debugLog("Watch received applicationContext")
         DispatchQueue.main.async { [weak self] in
             self?.readSnapshot(from: applicationContext, channel: "context")
         }
     }
 
     func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
-        logger.info("Watch received message type=\((message["type"] as? String) ?? "unknown", privacy: .public)")
+        debugLog("Watch received message type=\((message["type"] as? String) ?? "unknown")")
         DispatchQueue.main.async { [weak self] in
             self?.readSnapshot(from: message, channel: "message")
         }
     }
 
     func session(_ session: WCSession, didReceiveMessage message: [String: Any], replyHandler: @escaping ([String: Any]) -> Void) {
-        logger.info("Watch received message with reply type=\((message["type"] as? String) ?? "unknown", privacy: .public)")
+        debugLog("Watch received message with reply type=\((message["type"] as? String) ?? "unknown")")
         DispatchQueue.main.async { [weak self] in
             self?.readSnapshot(from: message, channel: "message")
             replyHandler([
@@ -162,7 +168,7 @@ final class WatchCareSession: NSObject, ObservableObject, WCSessionDelegate {
     }
 
     func session(_ session: WCSession, didReceiveUserInfo userInfo: [String: Any] = [:]) {
-        logger.info("Watch received userInfo type=\((userInfo["type"] as? String) ?? "unknown", privacy: .public)")
+        debugLog("Watch received userInfo type=\((userInfo["type"] as? String) ?? "unknown")")
         DispatchQueue.main.async { [weak self] in
             self?.readSnapshot(from: userInfo, channel: "userInfo")
         }
@@ -170,7 +176,7 @@ final class WatchCareSession: NSObject, ObservableObject, WCSessionDelegate {
 
     private func readSnapshot(from payload: [String: Any], channel: String) {
         guard let rawSnapshot = snapshotObject(from: payload) else {
-            logger.info("Payload did not include recognizable todaySnapshot; keys=\(payload.keys.joined(separator: ","), privacy: .public)")
+            debugLog("Payload did not include recognizable todaySnapshot")
             return
         }
 
@@ -181,11 +187,11 @@ final class WatchCareSession: NSObject, ObservableObject, WCSessionDelegate {
             statusText = "Ready"
             isLoading = false
             lastSyncedAt = Date()
-            logger.info("Decoded todaySnapshot channel=\(channel, privacy: .public) overdue=\(self.snapshot?.overdueCount ?? -1, privacy: .public) due=\(self.snapshot?.dueTodayCount ?? -1, privacy: .public)")
+            debugLog("Decoded todaySnapshot channel=\(channel)")
         } catch {
             statusText = "Open Reptilita on iPhone"
             isLoading = false
-            logger.error("Failed to decode todaySnapshot: \(error.localizedDescription, privacy: .public)")
+            logger.error("Failed to decode todaySnapshot")
             return
         }
     }
