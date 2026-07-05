@@ -1,0 +1,5 @@
+# Cloudflare Pages — direct deploy of dist/ (optional; git-connected CI also works).
+# Usage: CLOUDFLARE_API_TOKEN=... npm run deploy:web
+name = "reptilita"
+compatibility_date = "2024-01-01"
+pages_build_output_dir = "dist"

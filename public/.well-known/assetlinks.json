@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.reptilita.app",
+      "sha256_cert_fingerprints": [
+        "99:F2:E5:0D:C2:11:C8:52:15:35:4C:82:C6:3D:DC:87:83:68:28:EF:55:6C:5B:AE:5E:5D:4A:3F:7D:7B:98:7E"
+      ]
+    }
+  }
+]

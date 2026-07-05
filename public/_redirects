@@ -1,1 +1,5 @@
-/*    /index.html   200
+# Cloudflare Pages: proxy App Links JSON before SPA fallback.
+# Source file lives at /assetlinks.json (non-dot path) for reliable static deploy.
+/.well-known/assetlinks.json /assetlinks.json 200
+
+/* /index.html 200
