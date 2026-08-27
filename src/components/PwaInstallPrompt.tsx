@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState, useEffect } from "react";
 import { X } from "lucide-react";
 import { Capacitor } from "@capacitor/core";
 
@@ -9,14 +9,22 @@ type DeferredPromptEvent = Event & {
 
 const DISMISS_KEY = "reptilita:pwa-install-dismissed-at";
 const DISMISS_WINDOW_MS = 1000 * 60 * 60 * 24 * 7;
+const OFFSET_VAR = "--pwa-install-offset";
+/** Gap between the banner and page content so headers/CTAs are not flush against it. */
+const OFFSET_GAP_PX = 12;
 
 const isStandalone = () =>
   window.matchMedia?.("(display-mode: standalone)").matches || Boolean((window.navigator as Navigator & { standalone?: boolean }).standalone);
 
 const isiOS = () => /iphone|ipad|ipod/i.test(window.navigator.userAgent);
 
+function clearInstallOffset() {
+  document.documentElement.style.removeProperty(OFFSET_VAR);
+}
+
 export function PwaInstallPrompt() {
   const isNativePlatform = Capacitor.isNativePlatform();
+  const bannerRef = useRef<HTMLElement>(null);
   const [deferredPrompt, setDeferredPrompt] = useState<DeferredPromptEvent | null>(null);
   const [visible, setVisible] = useState(false);
 
@@ -48,6 +56,31 @@ export function PwaInstallPrompt() {
     };
   }, [isNativePlatform, shouldSuppress]);
 
+  const showBanner = !isNativePlatform && visible && !isStandalone();
+
+  useLayoutEffect(() => {
+    if (!showBanner) {
+      clearInstallOffset();
+      return;
+    }
+
+    const el = bannerRef.current;
+    if (!el) return;
+
+    const syncOffset = () => {
+      const height = Math.ceil(el.getBoundingClientRect().height);
+      document.documentElement.style.setProperty(OFFSET_VAR, `${height + OFFSET_GAP_PX}px`);
+    };
+
+    syncOffset();
+    const observer = new ResizeObserver(syncOffset);
+    observer.observe(el);
+    return () => {
+      observer.disconnect();
+      clearInstallOffset();
+    };
+  }, [showBanner, deferredPrompt]);
+
   const dismiss = () => {
     window.localStorage.setItem(DISMISS_KEY, String(Date.now()));
     setVisible(false);
@@ -61,15 +94,18 @@ export function PwaInstallPrompt() {
     setVisible(false);
   };
 
-  if (isNativePlatform || !visible || isStandalone()) {
+  if (!showBanner) {
     return null;
   }
 
   return (
     <section
-      className="fixed bottom-[calc(5.25rem+env(safe-area-inset-bottom))] left-4 right-4 z-50 rounded-xl border border-border/70 bg-background/95 p-3 shadow-[var(--shadow-elevated)] backdrop-blur-sm"
+      ref={bannerRef}
+      className="fixed left-4 right-4 z-40 rounded-xl border border-border/70 bg-background/95 p-3 shadow-[var(--shadow-elevated)] backdrop-blur-sm"
+      style={{ top: "max(0.75rem, env(safe-area-inset-top, 0px))" }}
       role="dialog"
       aria-label="Install Reptilita"
+      data-pwa-install-banner=""
     >
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">

@@ -92,6 +92,7 @@ function AppContent() {
           <Route path="/auth" element={<AuthPage />} />
           <Route path="/auth/callback" element={<AuthCallbackPage />} />
           <Route path="/" element={<Navigate to="/today" replace />} />
+          <Route path="/animals" element={<Navigate to="/reptiles" replace />} />
           <Route path="/today" element={<TodayPage />} />
           <Route path="/reptiles" element={<ReptilesPage />} />
           <Route path="/reptiles/new" element={<NewReptilePage />} />
