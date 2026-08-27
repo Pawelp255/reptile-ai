@@ -50,7 +50,7 @@ describe("PwaInstallPrompt", () => {
     const banner = screen.getByRole("dialog", { name: "Install Reptilita" });
     expect(banner).toHaveAttribute("data-pwa-install-banner");
     expect(banner.className).toContain("fixed");
-    expect(banner.style.top).toContain("safe-area-inset-top");
+    expect(banner.className).toContain("top-[max(0.75rem,env(safe-area-inset-top,0px))]");
     expect(banner.className).not.toMatch(/bottom-/);
     expect(document.documentElement.style.getPropertyValue("--pwa-install-offset")).toBe("100px");
   });

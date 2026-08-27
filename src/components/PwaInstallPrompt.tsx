@@ -101,8 +101,7 @@ export function PwaInstallPrompt() {
   return (
     <section
       ref={bannerRef}
-      className="fixed left-4 right-4 z-40 rounded-xl border border-border/70 bg-background/95 p-3 shadow-[var(--shadow-elevated)] backdrop-blur-sm"
-      style={{ top: "max(0.75rem, env(safe-area-inset-top, 0px))" }}
+      className="fixed left-4 right-4 top-[max(0.75rem,env(safe-area-inset-top,0px))] z-40 rounded-xl border border-border/70 bg-background/95 p-3 shadow-[var(--shadow-elevated)] backdrop-blur-sm"
       role="dialog"
       aria-label="Install Reptilita"
       data-pwa-install-banner=""
