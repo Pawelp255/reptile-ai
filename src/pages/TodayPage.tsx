@@ -853,7 +853,7 @@ export default function TodayPage() {
             <div className="animate-in-fade">
               <div className="premium-surface-elevated rounded-[var(--radius-xl)] p-6 sm:p-8 text-center border border-border/50">
                 <EmptyState
-                  icon={<Bug className="w-16 h-16 opacity-90" />}
+                  icon={<Check className="w-16 h-16 opacity-90" />}
                   title="All caught up"
                   description={
                     filterMode === 'today'
