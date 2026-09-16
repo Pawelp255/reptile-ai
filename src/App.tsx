@@ -4,13 +4,15 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { BottomNav } from "@/components/BottomNav";
 import { PwaInstallPrompt } from "@/components/PwaInstallPrompt";
 import { useCapacitor } from "@/hooks/useCapacitor";
 import { OnboardingModal } from "@/components/OnboardingModal";
+import { SoftRatingPrompt } from "@/components/SoftRatingPrompt";
 import { ErrorBoundary } from "@/components/system/ErrorBoundary";
 import { RouteFallback } from "@/components/RouteFallback";
+import { HomeRoute } from "@/pages/HomeRoute";
 import { supabase } from "@/integrations/supabase/client";
 import { syncCurrentUserReptiles } from "@/lib/reptiles/cloudSync";
 
@@ -43,6 +45,20 @@ const PrivacyPolicyPage = lazy(() => import("./pages/PrivacyPolicyPage"));
 const TermsOfServicePage = lazy(() => import("./pages/TermsOfServicePage"));
 
 const queryClient = new QueryClient();
+
+function AppChrome() {
+  const { pathname } = useLocation();
+  if (pathname === "/") return null;
+
+  return (
+    <>
+      <BottomNav />
+      <PwaInstallPrompt />
+      <OnboardingModal />
+      <SoftRatingPrompt />
+    </>
+  );
+}
 
 function AppContent() {
   useCapacitor();
@@ -91,7 +107,7 @@ function AppContent() {
         <Routes>
           <Route path="/auth" element={<AuthPage />} />
           <Route path="/auth/callback" element={<AuthCallbackPage />} />
-          <Route path="/" element={<Navigate to="/today" replace />} />
+          <Route path="/" element={<HomeRoute />} />
           <Route path="/animals" element={<Navigate to="/reptiles" replace />} />
           <Route path="/today" element={<TodayPage />} />
           <Route path="/reptiles" element={<ReptilesPage />} />
@@ -117,9 +133,7 @@ function AppContent() {
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Suspense>
-      <BottomNav />
-      <PwaInstallPrompt />
-      <OnboardingModal />
+      <AppChrome />
     </div>
   );
 }

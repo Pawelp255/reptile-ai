@@ -3,6 +3,7 @@ import { getDB, getToday, addDays, getNow, isOverdue, isDueToday, isWithinDays }
 import { parseLocalDateKey } from '@/lib/date/localDateKey';
 import type { ScheduleItem, ScheduleMode, TaskType, CareEvent, EventType } from '@/types';
 import { createCareEvent } from './events';
+import { emitCareLogSuccess } from '@/lib/review/careLogEvents';
 
 /** Default repeating care schedules (excludes manual / assistant-added rows). */
 export function isRecurringCareTask(item: ScheduleItem): boolean {
@@ -197,6 +198,10 @@ export async function markTaskDone(
     eventDate: today,
     details: details || getDefaultDetails(item.taskType),
   });
+
+  if (item.taskType === 'check') {
+    emitCareLogSuccess('check');
+  }
 
   return { scheduleItem: updatedItem, careEvent };
 }
