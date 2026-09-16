@@ -16,7 +16,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "render:icons": "node scripts/render-app-icons.mjs"
+    "render:icons": "node scripts/render-app-icons.mjs",
+    "render:og": "node scripts/render-og-image.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.0.2",
