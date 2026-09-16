@@ -12,8 +12,10 @@ export function isInstalledAppExperience(): boolean {
 }
 
 export function isIosRatingSurface(): boolean {
-  if (Capacitor.getPlatform() === "ios") return true;
   if (Capacitor.getPlatform() === "android") return false;
+  if (Capacitor.getPlatform() === "ios") return true;
+  // Local Vite so keepers/dev can preview the prompt; production stays iOS/Mac only.
+  if (import.meta.env.DEV) return true;
   if (typeof navigator === "undefined") return false;
   return /iPhone|iPad|iPod|Macintosh/i.test(navigator.userAgent);
 }
