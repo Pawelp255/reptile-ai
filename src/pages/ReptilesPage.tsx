@@ -35,7 +35,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Plus, Search, Bug } from 'lucide-react';
+import { Plus, Search, PawPrint } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { PageHeader } from '@/components/PageHeader';
 import { lightHaptic, mediumHaptic } from '@/lib/native/haptics';
@@ -407,7 +407,7 @@ export default function ReptilesPage() {
           <div className="animate-in-fade">
             <div className="premium-surface-elevated rounded-[var(--radius-xl)] p-6 sm:p-7 text-center">
               <EmptyState
-                icon={<Bug className="w-16 h-16" />}
+                icon={<PawPrint className="w-16 h-16" />}
                 title="No animals yet"
                 description="Add your first animal to track feeding, health checks, and care schedules."
                 action={

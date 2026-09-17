@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Camera, X, Bug } from 'lucide-react';
+import { Camera, X, PawPrint } from 'lucide-react';
 import { PageHeader } from '@/components/PageHeader';
 import { EmptyState } from '@/components/EmptyState';
 import { Button } from '@/components/ui/button';
@@ -216,7 +216,7 @@ export default function AddEventPage() {
         <PageHeader title={isEditing ? 'Edit Event' : 'Add Event'} />
         <div className="page-content page-content-top">
           <EmptyState
-            icon={<Bug className="w-16 h-16" />}
+            icon={<PawPrint className="w-16 h-16" />}
             title="No animals yet"
             description="Add an animal from My Animals first, then you can log events here."
             action={

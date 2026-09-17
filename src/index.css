@@ -619,6 +619,8 @@
     background-image: var(--app-backdrop-image);
     background-repeat: no-repeat;
     background-size: cover;
+    /* Reserved slot for the PWA install banner so it cannot cover page CTAs. */
+    padding-top: var(--pwa-install-offset, 0px);
   }
 
   .page-container {

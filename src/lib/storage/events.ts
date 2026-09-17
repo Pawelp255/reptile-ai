@@ -2,6 +2,7 @@
 import { getDB, generateId, getNow, getToday } from './db';
 import type { CareEvent, CareEventFormData, EventType } from '@/types';
 import { subtractDaysLocal } from '@/lib/date/localDateKey';
+import { emitCareLogSuccess, isQualifyingReviewEventType } from '@/lib/review/careLogEvents';
 
 function pushCareEventToCloudInBackground(id: string): void {
   void import('@/lib/reptiles/cloudSync')
@@ -42,6 +43,9 @@ export async function createCareEvent(data: CareEventFormData): Promise<CareEven
 
   await db.put('careEvents', event);
   pushCareEventToCloudInBackground(event.id);
+  if (isQualifyingReviewEventType(event.eventType)) {
+    emitCareLogSuccess(event.eventType);
+  }
   return event;
 }
 

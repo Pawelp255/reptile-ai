@@ -48,7 +48,7 @@ export default defineConfig(() => {
       VitePWA({
         injectRegister: "auto",
         registerType: "autoUpdate",
-        includeAssets: ["favicon.svg", "apple-touch-icon.png"],
+        includeAssets: ["favicon.svg", "apple-touch-icon.png", "og-image.png", "sitemap.xml", "robots.txt", "badges/download-on-the-app-store.svg"],
         manifest: {
           name: "Reptilita",
           short_name: "Reptilita",
@@ -88,11 +88,18 @@ export default defineConfig(() => {
         },
         workbox: {
           mode: "development",
-          globPatterns: ["**/*.{js,css,html,ico,png,svg,woff,woff2}"],
+          globPatterns: ["**/*.{js,css,html,ico,png,svg,xml,woff,woff2}"],
           cleanupOutdatedCaches: true,
           clientsClaim: true,
           skipWaiting: true,
-          navigateFallbackDenylist: [/^\/api\//, /^\/auth\//],
+          navigateFallbackDenylist: [
+            /^\/api\//,
+            /^\/auth\//,
+            /^\/sitemap\.xml$/i,
+            /^\/robots\.txt$/i,
+            /^\/og-image\.png$/i,
+            /^\/badges\//,
+          ],
           runtimeCaching: [
             {
               urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,

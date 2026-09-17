@@ -9,7 +9,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 
-const ONBOARDING_KEY = 'reptile-ai-onboarding-complete';
+export const ONBOARDING_STORAGE_KEY = 'reptile-ai-onboarding-complete';
+const ONBOARDING_KEY = ONBOARDING_STORAGE_KEY;
 
 interface Step {
   icon: React.ReactNode;
