@@ -38,7 +38,7 @@ import type { CombinedOutcome, GeneticGene } from '@/types/genetics';
 import { formatGeneState } from '@/types/genetics';
 import { cn } from '@/lib/utils';
 import { ProBadge } from '@/components/plan/ProBadge';
-import { FEATURE_ADVANCED_GENETICS_INSIGHTS_PLACEHOLDER } from '@/lib/plan/mockSubscription';
+import { isAppStoreReviewMode } from '@/lib/plan/appStoreReviewMode';
 import { usePlanStatus } from '@/hooks/usePlanStatus';
 
 interface BasicGeneticsResult {
@@ -446,12 +446,10 @@ export default function GeneticsCalculatorPage() {
   ]);
 
   const subtitle = usingAdvanced
-    ? isPro
-      ? 'Advanced Mendelian predictions (structured genes, multi-locus rollup)'
-      : 'Advanced Mendelian predictions (when structured genes exist)'
-    : isPro
-      ? 'Basic morph / het heuristic — same math, Pro adds context below'
-      : 'Basic morph / het heuristic';
+    ? 'Advanced Mendelian predictions (structured genes, multi-locus rollup)'
+    : isAppStoreReviewMode() || !isPro
+      ? 'Basic morph / het heuristic'
+      : 'Basic morph / het heuristic — same math, Pro adds context below';
 
   const handleExport = () => {
     if (!hasResults || !parentA || !parentB) return;
@@ -689,7 +687,8 @@ export default function GeneticsCalculatorPage() {
       />
 
       <div className="p-4 space-y-5 max-w-2xl mx-auto">
-        {!isLoadingPlan &&
+        {!isAppStoreReviewMode() &&
+          !isLoadingPlan &&
           (isPro ? (
             <div
               role="status"
@@ -706,17 +705,6 @@ export default function GeneticsCalculatorPage() {
                   Same calculator for everyone — extra walkthrough and insight cards reflect this pairing only.
                 </p>
               </div>
-            </div>
-          ) : FEATURE_ADVANCED_GENETICS_INSIGHTS_PLACEHOLDER ? (
-            <div
-              role="note"
-              className="flex items-start gap-2.5 rounded-xl border border-border/80 bg-muted/25 px-3 py-2.5"
-            >
-              <ProBadge className="mt-0.5 shrink-0" />
-              <p className="text-xs leading-snug text-muted-foreground">
-                Pro adds on-page context and breakdowns; this calculator stays fully free. Pedigree-grade tools are on
-                the roadmap.
-              </p>
             </div>
           ) : null)}
 

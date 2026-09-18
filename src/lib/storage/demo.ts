@@ -292,4 +292,10 @@ export async function clearAllData(): Promise<void> {
   for (const o of offspring) {
     await db.delete('offspring', o.id);
   }
+
+  // Clear app settings (notification prefs, review-demo flags, etc.) for a complete wipe.
+  const settingsKeys = await db.getAllKeys('settings');
+  for (const key of settingsKeys) {
+    await db.delete('settings', key);
+  }
 }

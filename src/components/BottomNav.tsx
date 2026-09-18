@@ -18,9 +18,15 @@ const navItems: NavItem[] = [
   { path: '/settings', label: 'Settings', icon: Settings },
 ];
 
+const HIDDEN_NAV_PREFIXES = ['/auth', '/privacy', '/terms', '/public/'];
+
 export function BottomNav() {
   const location = useLocation();
   const reduceMotion = useReducedMotion();
+
+  if (HIDDEN_NAV_PREFIXES.some((prefix) => location.pathname.startsWith(prefix))) {
+    return null;
+  }
 
   const isActive = (path: string) => {
     return location.pathname.startsWith(path);

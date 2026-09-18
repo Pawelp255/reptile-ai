@@ -1,4 +1,4 @@
-# App Review Notes — Reptilita 2.1.0
+# App Review Notes — Reptilita 1.0.1
 
 Copy the **App Review Notes (paste block)** section into App Store Connect → App Review Information → Notes. Put demo credentials in the secure **Sign-in required** fields, not in public listing text.
 
@@ -7,7 +7,7 @@ Copy the **App Review Notes (paste block)** section into App Store Connect → A
 ## App Review Notes (paste block)
 
 ```
-REPTILITA 2.1.0 — REPTILE & AMPHIBIAN CARE ORGANIZER (NOT MEDICAL)
+REPTILITA 1.0.1 — REPTILE & AMPHIBIAN CARE ORGANIZER (NOT MEDICAL)
 
 Reptilita is a local-first husbandry tracker: animal profiles, Today care tasks, schedules, journal/history, exports, and optional cloud sync. It does not diagnose, treat, prescribe, or provide emergency veterinary care. Photo Health and any AI content are informational only.
 

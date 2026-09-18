@@ -1,6 +1,7 @@
 // Single first-run onboarding — mobile-first, premium walkthrough
 import { useState, useEffect } from 'react';
-import { ListChecks, Utensils, Bot, Share2, ChevronRight } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
+import { ListChecks, Utensils, Share2, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -11,6 +12,7 @@ import {
 
 export const ONBOARDING_STORAGE_KEY = 'reptile-ai-onboarding-complete';
 const ONBOARDING_KEY = ONBOARDING_STORAGE_KEY;
+const HIDDEN_ONBOARDING_PREFIXES = ['/auth', '/privacy', '/terms', '/public/'];
 
 interface Step {
   icon: React.ReactNode;
@@ -30,11 +32,6 @@ const STEPS: Step[] = [
     description: 'Record feedings, sheds, and health checks. Track weights and supplements in one place.',
   },
   {
-    icon: <Bot className="w-8 h-8 text-primary" />,
-    title: 'AI assistant',
-    description: 'Free includes core workflows everywhere. Upgrade to Pro for smart, collection-aware replies when subscriptions go live.',
-  },
-  {
     icon: <Share2 className="w-8 h-8 text-primary" />,
     title: 'Share care cards',
     description: 'From any profile, generate a care summary image or link for devices that already have this animal saved.',
@@ -42,8 +39,12 @@ const STEPS: Step[] = [
 ];
 
 export function OnboardingModal() {
+  const location = useLocation();
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState(0);
+  const hideOnRoute = HIDDEN_ONBOARDING_PREFIXES.some((prefix) =>
+    location.pathname.startsWith(prefix),
+  );
 
   useEffect(() => {
     const done = localStorage.getItem(ONBOARDING_KEY);
@@ -65,6 +66,10 @@ export function OnboardingModal() {
 
   const current = STEPS[step];
   const isLast = step === STEPS.length - 1;
+
+  if (hideOnRoute) {
+    return null;
+  }
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) handleClose(); }}>

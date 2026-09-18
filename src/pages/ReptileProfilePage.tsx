@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import { PageHeader } from '@/components/PageHeader';
 import { PageMotion } from '@/components/motion/PageMotion';
 import { ProBadge } from '@/components/plan/ProBadge';
+import { isAiAssistantEnabled } from '@/lib/plan/appStoreReviewMode';
 import { usePlanStatus } from '@/hooks/usePlanStatus';
 import { EventItem } from '@/components/EventItem';
 import { EmptyState } from '@/components/EmptyState';
@@ -820,15 +821,17 @@ export default function ReptileProfilePage() {
                 <FileText className="w-4 h-4 mr-2" />
                 Care summary (PDF)
               </Button>
-              <Link to={`/ai?reptileId=${id}`}>
-                <Button variant="outline" className="w-full min-h-[44px] justify-center gap-2">
-                  <Bot className="w-4 h-4 shrink-0" />
-                  <span className="flex items-center gap-2 flex-wrap justify-center">
-                    Assistant
-                    {!isPro && <ProBadge />}
-                  </span>
-                </Button>
-              </Link>
+              {isAiAssistantEnabled() && (
+                <Link to={`/ai?reptileId=${id}`}>
+                  <Button variant="outline" className="w-full min-h-[44px] justify-center gap-2">
+                    <Bot className="w-4 h-4 shrink-0" />
+                    <span className="flex items-center gap-2 flex-wrap justify-center">
+                      Assistant
+                      {!isPro && <ProBadge />}
+                    </span>
+                  </Button>
+                </Link>
+              )}
             </div>
           </div>
         </TabsContent>

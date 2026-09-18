@@ -40,6 +40,8 @@ import {
   PRO_AI_CHAT_MAX_STORED_MESSAGES,
 } from '@/lib/ai/assistantChatMemory';
 import { usePlanStatus } from '@/hooks/usePlanStatus';
+import { isAiAssistantEnabled } from '@/lib/plan/appStoreReviewMode';
+import { Navigate } from 'react-router-dom';
 import { streamProAssistantReply } from '@/lib/ai/proAssistantStream';
 import { streamBasicAssistantReply } from '@/lib/ai/basicAssistant';
 import { extractActions, stripActionBlocks, type AIAction } from '@/lib/ai/actionParser';
@@ -51,6 +53,10 @@ import { getAllReptiles } from '@/lib/storage/reptiles';
 import type { AIMessage, ScheduleItem } from '@/types';
 
 export default function AIAssistantPage() {
+  if (!isAiAssistantEnabled()) {
+    return <Navigate to="/settings" replace />;
+  }
+
   const [searchParams] = useSearchParams();
   const initialReptileId = searchParams.get('reptileId') || '';
   const { isPro, isLoadingPlan } = usePlanStatus();
@@ -295,28 +301,13 @@ export default function AIAssistantPage() {
         }),
       ]);
 
-      const animalName =
-        selectedReptile && selectedReptile !== '__none__'
-          ? reptileOptions.find((r) => r.id === selectedReptile)?.name ?? null
-          : null;
-
       await streamProAssistantReply(
         {
           userMessage: userLine,
           contextSummary: context.text?.trim(),
-          animalName,
           animals: animalsMinimal,
           appContext: appContext as unknown as Record<string, unknown>,
           conversationHistory: conversationHistoryForEdge,
-          preferEdgeApi: true,
-          onFallbackInfo: (info) => {
-            if (!import.meta.env.DEV) return;
-            console.warn('[ai-assistant] Cloud path fell back to local preview', {
-              reason: info.reason ?? 'Unknown recoverable error',
-              statusCode: info.statusCode ?? null,
-              errorBody: info.errorBody ?? null,
-            });
-          },
         },
         (chunk) => {
           streamingRef.current += chunk;

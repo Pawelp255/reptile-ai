@@ -52,3 +52,9 @@ coverage
 # OS / local junk
 Thumbs.db
 Desktop.ini
+
+# Android signing secrets (never commit)
+android/signing.properties
+android/local.properties
+*.keystore
+*.jks

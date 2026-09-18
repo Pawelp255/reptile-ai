@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase, isSupabaseConfigured } from '@/integrations/supabase/client';
-import { resolveSupabaseUrl } from '@/integrations/supabase/env';
+import { isAppStoreReviewMode } from '@/lib/plan/appStoreReviewMode';
 
 export type PlanSource =
   | 'profile'
-  | 'dev_override'
+  | 'appstore_review'
   | 'unsigned'
   | 'no_supabase'
   | 'profile_missing'
@@ -13,7 +13,6 @@ export type PlanSource =
 
 /**
  * Loads Pro entitlement from `profiles.is_pro` for the signed-in user.
- * `VITE_MOCK_PRO_USER=true` forces Pro UI locally (never reads backend).
  * `PRO_TEST_USER_IDS` is Edge-only — not used here.
  */
 export function usePlanStatus(): {
@@ -61,21 +60,10 @@ export function usePlanStatus(): {
   useEffect(() => {
     let cancelled = false;
 
-    if (import.meta.env.VITE_MOCK_PRO_USER === 'true') {
-      setIsPro(true);
-      setSource('dev_override');
+    if (isAppStoreReviewMode()) {
+      setIsPro(false);
+      setSource('appstore_review');
       setIsLoadingPlan(false);
-      if (import.meta.env.DEV) {
-        console.warn('[usePlanStatus][debug]', {
-          userId: user?.id ?? null,
-          email: user?.email ?? null,
-          profileRow: null,
-          queryError: null,
-          source: 'dev_override' as PlanSource,
-          isPro: true,
-          note: 'VITE_MOCK_PRO_USER forces Pro UI',
-        });
-      }
       return () => {
         cancelled = true;
       };
@@ -85,17 +73,6 @@ export function usePlanStatus(): {
       setIsPro(false);
       setSource('no_supabase');
       setIsLoadingPlan(false);
-      if (import.meta.env.DEV) {
-        console.warn('[usePlanStatus][debug]', {
-          userId: user?.id ?? null,
-          email: user?.email ?? null,
-          profileRow: null,
-          queryError: null,
-          source: 'no_supabase' as PlanSource,
-          isPro: false,
-          note: 'Supabase env not configured in this build',
-        });
-      }
       return () => {
         cancelled = true;
       };
@@ -113,17 +90,6 @@ export function usePlanStatus(): {
       setIsPro(false);
       setSource('unsigned');
       setIsLoadingPlan(false);
-      if (import.meta.env.DEV) {
-        console.warn('[usePlanStatus][debug]', {
-          userId: null,
-          email: null,
-          profileRow: null,
-          queryError: null,
-          source: 'unsigned' as PlanSource,
-          isPro: false,
-          note: 'No signed-in user',
-        });
-      }
       return () => {
         cancelled = true;
       };
@@ -143,7 +109,6 @@ export function usePlanStatus(): {
         let nextPro = false;
 
         if (error) {
-          console.warn('[usePlanStatus] profiles.is_pro query failed', error.message);
           nextSource = 'profile_error';
           nextPro = false;
         } else if (!data) {
@@ -154,25 +119,6 @@ export function usePlanStatus(): {
           nextPro = Boolean(data.is_pro);
         }
 
-        if (import.meta.env.DEV) {
-          console.warn('[usePlanStatus][debug]', {
-            userId: uid,
-            email: user?.email ?? null,
-            profileRow: data ?? null,
-            queryError: error?.message ?? null,
-            fetchEpoch,
-            source: nextSource,
-            isPro: nextPro,
-            supabaseHost: (() => {
-              try {
-                return new URL(resolveSupabaseUrl()).host;
-              } catch {
-                return '(invalid-url)';
-              }
-            })(),
-          });
-        }
-
         setIsPro(nextPro);
         setSource(nextSource);
         setIsLoadingPlan(false);
@@ -181,7 +127,7 @@ export function usePlanStatus(): {
     return () => {
       cancelled = true;
     };
-  }, [user?.id, user?.email, authLoading, fetchEpoch]);
+  }, [user?.id, authLoading, fetchEpoch]);
 
   return { isPro, isLoadingPlan, source };
 }

@@ -1,6 +1,6 @@
-# App Store Copy — Reptilita 2.1.0
+# App Store Copy — Reptilita 1.0.1
 
-Paste-ready fields for App Store Connect. Version **2.1.0** (marketing version); confirm build number in Xcode before upload (project currently uses build **52–53** depending on target).
+Paste-ready fields for App Store Connect. Version **1.0.1** (marketing version); confirm build number in Xcode before upload (project currently uses build **61** depending on target).
 
 ---
 
@@ -95,7 +95,7 @@ reptile,snake,lizard,gecko,amphibian,frog,terrarium,feeding,husbandry,pet journa
 
 ---
 
-## What’s New — Version 2.1.0
+## What’s New — Version 1.0.1
 
 ```
 • Apple Watch companion — Today snapshot with overdue, due, and completed counts
@@ -170,6 +170,6 @@ Full detail: `review-notes.md`.
 
 | Item | Value |
 |------|--------|
-| Marketing version | 2.1.0 (`package.json`, Xcode `MARKETING_VERSION`) |
+| Marketing version | 1.0.1 (`package.json`, Xcode `MARKETING_VERSION`) |
 | Build | Confirm `CURRENT_PROJECT_VERSION` in Xcode (App target vs Watch target may differ) |
 | Bundle ID | `com.reptilita.app` (`capacitor.config.ts`) |

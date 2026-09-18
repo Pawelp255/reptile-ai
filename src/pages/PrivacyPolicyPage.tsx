@@ -1,14 +1,17 @@
 import { Link } from 'react-router-dom';
 import { PageHeader } from '@/components/PageHeader';
 import { PageMotion } from '@/components/motion/PageMotion';
+import { isAppStoreReviewMode } from '@/lib/plan/appStoreReviewMode';
 import { REPTILITA_SUPPORT_EMAIL } from '@/lib/reptilitaSupport';
 
 export default function PrivacyPolicyPage() {
+  const reviewBuild = isAppStoreReviewMode();
+
   return (
     <PageMotion className="page-container">
       <PageHeader
         title="Privacy Policy"
-        subtitle={`Effective May 4, 2026 · Contact: ${REPTILITA_SUPPORT_EMAIL}`}
+        subtitle={`Effective July 21, 2026 · Contact: ${REPTILITA_SUPPORT_EMAIL}`}
         rightContent={
           <Link to="/settings" className="text-sm font-medium text-primary hover:underline">
             Settings
@@ -17,8 +20,9 @@ export default function PrivacyPolicyPage() {
       />
       <div className="page-content page-content-top max-w-prose mx-auto space-y-5 pb-12 text-sm text-muted-foreground leading-relaxed">
         <p className="text-foreground font-medium">
-          Reptilita (&quot;we&quot;, &quot;the app&quot;) helps you care for reptiles and amphibians. This policy describes how we
-          handle information when you use our web app, PWA, and native (Capacitor) builds.
+          Reptilita (&quot;we&quot;, &quot;the app&quot;), developed and operated by LimeKing Development, helps you care
+          for reptiles and amphibians. This policy describes how we handle information when you use our web app, PWA,
+          and native (Capacitor) builds.
         </p>
 
         <section className="space-y-2">
@@ -37,35 +41,46 @@ export default function PrivacyPolicyPage() {
             Cloud sync may store copies of animals and related care schedules you choose to sync, associated with your
             account identifier. We use industry-standard transport encryption (HTTPS) between the app and Supabase.
           </p>
-          <p>
-            Authentication identifiers (such as email) and profile fields you provide are processed to run the service.
-            Pro entitlement may be stored on your profile (for example an &quot;is Pro&quot; flag) to unlock paid-tier
-            features.
-          </p>
+          {!reviewBuild && (
+            <p>
+              Authentication identifiers (such as email) and profile fields you provide are processed to run the service.
+              Pro entitlement may be stored on your profile (for example an &quot;is Pro&quot; flag) to unlock paid-tier
+              features.
+            </p>
+          )}
+          {reviewBuild && (
+            <p>
+              Authentication identifiers (such as email) and profile fields you provide are processed to run the service.
+            </p>
+          )}
         </section>
 
-        <section className="space-y-2">
-          <h2 className="text-base font-semibold text-foreground">AI assistant (Pro) and OpenAI processing</h2>
-          <p>
-            Reptilita Pro can send parts of your question, optional structured context you select from the app (such as
-            animal summaries, tasks, or journal excerpts), and optional conversation history to our Supabase Edge
-            Function, which may call OpenAI or similar model providers to generate a reply. Server-side API credentials are
-            never embedded in the app binary for that path.
-          </p>
-          <p>
-            The free tier may use a simple on-device assistant that does not send your message to cloud AI. Do not paste
-            secrets or passwords into any assistant.
-          </p>
-        </section>
+        {!reviewBuild && (
+          <>
+            <section className="space-y-2">
+              <h2 className="text-base font-semibold text-foreground">AI assistant (Pro) and OpenAI processing</h2>
+              <p>
+                Reptilita Pro can send parts of your question, optional structured context you select from the app (such as
+                animal summaries, tasks, or journal excerpts), and optional conversation history to our Supabase Edge
+                Function, which may call OpenAI or similar model providers to generate a reply. Server-side API credentials are
+                never embedded in the app binary for that path.
+              </p>
+              <p>
+                The free tier may use a simple on-device assistant that does not send your message to cloud AI. Do not paste
+                secrets or passwords into any assistant.
+              </p>
+            </section>
 
-        <section className="space-y-2">
-          <h2 className="text-base font-semibold text-foreground">Photos and vision (Pro)</h2>
-          <p>
-            If you attach a photo for analysis, a compressed image may be sent with your request to the Edge Function and
-            model provider for that session only, to produce guidance. Profile or journal photos otherwise stay local
-            unless you use a separate export or share feature.
-          </p>
-        </section>
+            <section className="space-y-2">
+              <h2 className="text-base font-semibold text-foreground">Photos and vision (Pro)</h2>
+              <p>
+                If you attach a photo for analysis, a compressed image may be sent with your request to the Edge Function and
+                model provider for that session only, to produce guidance. Profile or journal photos otherwise stay local
+                unless you use a separate export or share feature.
+              </p>
+            </section>
+          </>
+        )}
 
         <section className="space-y-2">
           <h2 className="text-base font-semibold text-foreground">Public sharing</h2>
@@ -84,11 +99,25 @@ export default function PrivacyPolicyPage() {
         </section>
 
         <section className="space-y-2">
-          <h2 className="text-base font-semibold text-foreground">Your choices</h2>
+          <h2 className="text-base font-semibold text-foreground">Account and data deletion</h2>
           <p>
-            You can stop cloud processing by signing out, disabling sync where applicable, or not using Pro AI features.
-            Clearing local data in Settings removes on-device records but does not automatically erase cloud copies tied to
-            your account; use the account deletion path described in Settings or email {REPTILITA_SUPPORT_EMAIL}.
+            Delete your account in <strong>Settings → Account → Delete Account</strong>. This removes the account,
+            reptile profiles, care schedules and tasks, journal and care events, uploaded animal photos, profile data,
+            and public share links. Encrypted backup copies and limited security logs may persist for up to 30 days
+            before automatic deletion. If you cannot access the app, email {REPTILITA_SUPPORT_EMAIL} from your account
+            email address. Full instructions are available at{' '}
+            <a
+              href="https://reptilita.com/delete-account"
+              className="font-medium text-primary hover:underline"
+            >
+              reptilita.com/delete-account
+            </a>
+            .
+          </p>
+          <p>
+            You can stop cloud processing by signing out or disabling sync where applicable.
+            {!reviewBuild && ' You can also avoid assistant features if you do not use them.'} Clearing local data in
+            Settings removes on-device records but does not automatically erase cloud copies tied to your account.
           </p>
         </section>
 

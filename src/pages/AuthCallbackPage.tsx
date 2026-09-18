@@ -4,6 +4,7 @@ import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
 import { syncCurrentUserReptiles } from "@/lib/reptiles/cloudSync";
+import { applyAuthSessionFromCurrentUrl } from "@/lib/auth/authDeepLink";
 
 export default function AuthCallbackPage() {
   const navigate = useNavigate();
@@ -20,10 +21,8 @@ export default function AuthCallbackPage() {
 
         setStatus("Finalizing session…");
 
-        // Supabase reads the OAuth PKCE code from the current URL.
-        const { error: exchangeError } = await supabase.auth.exchangeCodeForSession();
-
-        if (exchangeError) {
+        const applied = await applyAuthSessionFromCurrentUrl(supabase);
+        if (!applied.ok) {
           setStatus("Could not finalize sign-in. Checking session…");
         }
 

@@ -3,16 +3,39 @@ import Combine
 import os
 import WatchConnectivity
 
+struct WatchActionResult {
+    let ok: Bool
+    let message: String
+}
+
 final class WatchCareSession: NSObject, ObservableObject, WCSessionDelegate {
     @Published var snapshot: WatchCareSnapshot?
     @Published var pendingActionIds: Set<String> = []
     @Published var statusText = "Connecting..."
     @Published var isLoading = true
     @Published var lastSyncedAt: Date?
+    @Published var actionResult: WatchActionResult?
 
     private let snapshotDefaultsKey = "reptilita.watch.todaySnapshot"
     private let isoDateFormatter = ISO8601DateFormatter()
     private let logger = Logger(subsystem: "com.reptilita.app.watchapp", category: "TodaySync")
+
+    /// Local calendar date as yyyy-MM-dd, matching the iPhone snapshot's `date` field.
+    private static func todayString() -> String {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone.current
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: Date())
+    }
+
+    /// True when the cached snapshot was generated for an earlier calendar day, so its
+    /// overdue/due/done counts can no longer be trusted as "today".
+    var isSnapshotStale: Bool {
+        guard let snapshot else { return false }
+        return snapshot.date < Self.todayString()
+    }
 
     private func debugLog(_ message: String) {
         #if DEBUG
@@ -145,21 +168,21 @@ final class WatchCareSession: NSObject, ObservableObject, WCSessionDelegate {
     func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String: Any]) {
         debugLog("Watch received applicationContext")
         DispatchQueue.main.async { [weak self] in
-            self?.readSnapshot(from: applicationContext, channel: "context")
+            self?.processPayload(applicationContext, channel: "context")
         }
     }
 
     func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
         debugLog("Watch received message type=\((message["type"] as? String) ?? "unknown")")
         DispatchQueue.main.async { [weak self] in
-            self?.readSnapshot(from: message, channel: "message")
+            self?.processPayload(message, channel: "message")
         }
     }
 
     func session(_ session: WCSession, didReceiveMessage message: [String: Any], replyHandler: @escaping ([String: Any]) -> Void) {
         debugLog("Watch received message with reply type=\((message["type"] as? String) ?? "unknown")")
         DispatchQueue.main.async { [weak self] in
-            self?.readSnapshot(from: message, channel: "message")
+            self?.processPayload(message, channel: "message")
             replyHandler([
                 "ok": true,
                 "snapshotReceived": message["snapshot"] != nil
@@ -170,7 +193,49 @@ final class WatchCareSession: NSObject, ObservableObject, WCSessionDelegate {
     func session(_ session: WCSession, didReceiveUserInfo userInfo: [String: Any] = [:]) {
         debugLog("Watch received userInfo type=\((userInfo["type"] as? String) ?? "unknown")")
         DispatchQueue.main.async { [weak self] in
-            self?.readSnapshot(from: userInfo, channel: "userInfo")
+            self?.processPayload(userInfo, channel: "userInfo")
+        }
+    }
+
+    /// Routes an incoming payload by `type` before treating it as a snapshot.
+    private func processPayload(_ payload: [String: Any], channel: String) {
+        if let type = payload["type"] as? String {
+            if type == "clearSnapshot" {
+                clearLocalSnapshot()
+                return
+            }
+            if type == "actionAcknowledged" {
+                handleActionAcknowledged(payload)
+                return
+            }
+        }
+        readSnapshot(from: payload, channel: channel)
+    }
+
+    /// Blanks all cached Watch state after a sign-out / account deletion on the iPhone.
+    private func clearLocalSnapshot() {
+        UserDefaults.standard.removeObject(forKey: snapshotDefaultsKey)
+        snapshot = nil
+        pendingActionIds.removeAll()
+        actionResult = nil
+        isLoading = false
+        lastSyncedAt = nil
+        statusText = "Open Reptilita on iPhone"
+        debugLog("Watch cleared cached snapshot")
+    }
+
+    /// Surfaces the result of a quick action and clears its pending spinner.
+    private func handleActionAcknowledged(_ payload: [String: Any]) {
+        let ok = payload["ok"] as? Bool ?? false
+        let message = (payload["message"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+            ?? (ok ? "Done" : "Action failed")
+        if let actionId = payload["actionId"] as? String {
+            pendingActionIds.remove(actionId)
+        }
+        actionResult = WatchActionResult(ok: ok, message: message)
+        readSnapshot(from: payload, channel: "actionAck")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
+            self?.actionResult = nil
         }
     }
 

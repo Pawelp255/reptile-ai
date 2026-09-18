@@ -3,3 +3,6 @@ project_id = "mkgdgxsrykwmopokvxlx"
 
 [functions.ai-assistant]
 verify_jwt = true
+
+[functions.delete-account]
+verify_jwt = true

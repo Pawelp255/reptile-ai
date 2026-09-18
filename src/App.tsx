@@ -8,6 +8,8 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-route
 import { BottomNav } from "@/components/BottomNav";
 import { PwaInstallPrompt } from "@/components/PwaInstallPrompt";
 import { useCapacitor } from "@/hooks/useCapacitor";
+import { useAndroidBackButton } from "@/hooks/useAndroidBackButton";
+import { useAuthDeepLink } from "@/hooks/useAuthDeepLink";
 import { OnboardingModal } from "@/components/OnboardingModal";
 import { SoftRatingPrompt } from "@/components/SoftRatingPrompt";
 import { ErrorBoundary } from "@/components/system/ErrorBoundary";
@@ -18,6 +20,7 @@ import { syncCurrentUserReptiles } from "@/lib/reptiles/cloudSync";
 
 // Core / frequently used pages — loaded with main bundle
 import AuthPage from "./pages/AuthPage";
+import AuthResetPasswordPage from "./pages/AuthResetPasswordPage";
 import TodayPage from "./pages/TodayPage";
 import ReptilesPage from "./pages/ReptilesPage";
 import NewReptilePage from "./pages/NewReptilePage";
@@ -34,13 +37,17 @@ const CreatePairingPage = lazy(() => import("./pages/CreatePairingPage"));
 const PairingDetailPage = lazy(() => import("./pages/PairingDetailPage"));
 const ClutchDetailPage = lazy(() => import("./pages/ClutchDetailPage"));
 const GeneticsCalculatorPage = lazy(() => import("./pages/GeneticsCalculatorPage"));
-const AIAssistantPage = lazy(() => import("./pages/AIAssistantPage"));
+const REVIEW_BUILD =
+  import.meta.env.VITE_APPSTORE_REVIEW_MODE === "true" ||
+  import.meta.env.VITE_DISABLE_PRO === "true";
+// Keep the unfinished assistant implementation out of store-review bundles,
+// including its code-split chunk. Full web/dev builds may still load it.
+const AIAssistantPage = REVIEW_BUILD ? null : lazy(() => import("./pages/AIAssistantPage"));
 const CareCardPage = lazy(() => import("./pages/CareCardPage"));
 const ProfileSharePage = lazy(() => import("./pages/ProfileSharePage"));
 const PassportPage = lazy(() => import("./pages/PassportPage"));
 const PublicSharePage = lazy(() => import("./pages/PublicSharePage"));
 const GrowthPage = lazy(() => import("./pages/GrowthPage"));
-const HealthCheckPage = lazy(() => import("./pages/HealthCheckPage"));
 const PrivacyPolicyPage = lazy(() => import("./pages/PrivacyPolicyPage"));
 const TermsOfServicePage = lazy(() => import("./pages/TermsOfServicePage"));
 
@@ -62,6 +69,8 @@ function AppChrome() {
 
 function AppContent() {
   useCapacitor();
+  useAndroidBackButton();
+  useAuthDeepLink();
 
   useEffect(() => {
     if (!supabase) return;
@@ -106,6 +115,7 @@ function AppContent() {
       <Suspense fallback={<RouteFallback />}>
         <Routes>
           <Route path="/auth" element={<AuthPage />} />
+          <Route path="/auth/reset-password" element={<AuthResetPasswordPage />} />
           <Route path="/auth/callback" element={<AuthCallbackPage />} />
           <Route path="/" element={<HomeRoute />} />
           <Route path="/animals" element={<Navigate to="/reptiles" replace />} />
@@ -121,13 +131,15 @@ function AppContent() {
           <Route path="/breeding/pairings/:id" element={<PairingDetailPage />} />
           <Route path="/breeding/clutches/:id" element={<ClutchDetailPage />} />
           <Route path="/genetics" element={<GeneticsCalculatorPage />} />
-          <Route path="/ai" element={<AIAssistantPage />} />
+          <Route
+            path="/ai"
+            element={AIAssistantPage ? <AIAssistantPage /> : <Navigate to="/settings" replace />}
+          />
           <Route path="/care-card/:reptileId" element={<CareCardPage />} />
           <Route path="/share-profile/:reptileId" element={<ProfileSharePage />} />
           <Route path="/passport/:reptileId" element={<PassportPage />} />
           <Route path="/public/:shareType/:slug" element={<PublicSharePage />} />
           <Route path="/growth" element={<GrowthPage />} />
-          <Route path="/health-check" element={<HealthCheckPage />} />
           <Route path="/privacy" element={<PrivacyPolicyPage />} />
           <Route path="/terms" element={<TermsOfServicePage />} />
           <Route path="*" element={<NotFound />} />
@@ -140,7 +152,7 @@ function AppContent() {
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <ThemeProvider attribute="class" defaultTheme="system" storageKey="reptile-ai-theme" enableSystem suppressHydrationWarning>
+    <ThemeProvider attribute="class" defaultTheme="system" storageKey="reptile-ai-theme" enableSystem>
       <TooltipProvider>
         <ErrorBoundary>
           <Toaster />

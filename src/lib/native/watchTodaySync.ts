@@ -54,6 +54,7 @@ type ReptilitaWatchBridgePlugin = {
   getStatus(): Promise<Record<string, unknown>>;
   updateTodaySnapshot(options: { snapshot: WatchTodaySnapshot }): Promise<Record<string, unknown>>;
   requestTodaySnapshot(): Promise<Record<string, unknown>>;
+  clearTodaySnapshot(): Promise<Record<string, unknown>>;
   acknowledgeAction(options: {
     ok: boolean;
     actionId?: string;
@@ -239,38 +240,42 @@ function actionToTaskType(action: WatchQuickActionType | undefined): TaskType | 
   return undefined;
 }
 
+/**
+ * Resolve the exact task a Watch quick action targets.
+ *
+ * Safety contract: only ever completes the specific task the Watch displayed
+ * (`taskId` + `animalId` must both be present and match an existing, due/overdue
+ * recurring task of the right type). We never guess a "most overdue" task across
+ * animals — that could complete care for the wrong animal.
+ */
 async function findTaskForAction(action: WatchTaskAction): Promise<ScheduleItem | undefined> {
   const taskType = actionToTaskType(action.action ?? action.taskType);
   if (!taskType) return undefined;
+  if (!action.taskId || !action.animalId) return undefined;
 
   const scheduleItems = await getAllScheduleItems();
-  if (action.taskId) {
-    const exact = scheduleItems.find((task) => task.id === action.taskId && task.taskType === taskType);
-    if (exact) return exact;
-  }
-
-  return scheduleItems
-    .filter((task) => {
-      if (!isStrictRecurringCareTask(task)) return false;
-      if (task.taskType !== taskType) return false;
-      if (action.animalId && task.reptileId !== action.animalId) return false;
-      return isOverdue(task.nextDueDate) || isDueToday(task.nextDueDate);
-    })
-    .sort((a, b) => {
-      const priorityDelta = taskPriority(a) - taskPriority(b);
-      if (priorityDelta !== 0) return priorityDelta;
-      return a.nextDueDate.localeCompare(b.nextDueDate);
-    })[0];
+  const exact = scheduleItems.find(
+    (task) =>
+      task.id === action.taskId &&
+      task.reptileId === action.animalId &&
+      task.taskType === taskType &&
+      isStrictRecurringCareTask(task),
+  );
+  if (!exact) return undefined;
+  if (!(isOverdue(exact.nextDueDate) || isDueToday(exact.nextDueDate))) return undefined;
+  return exact;
 }
 
-async function logMistingFallback(action: WatchTaskAction): Promise<void> {
-  const reptiles = await getAllReptiles();
-  const reptile = action.animalId
-    ? reptiles.find((candidate) => candidate.id === action.animalId)
-    : reptiles[0];
+/** Log a misting note for the explicit animal shown on the Watch. Never falls back to an arbitrary animal. */
+async function logMistingForAnimal(action: WatchTaskAction): Promise<void> {
+  if (!action.animalId) {
+    throw new Error('No animal selected for misting. Open Reptilita on iPhone.');
+  }
 
+  const reptiles = await getAllReptiles();
+  const reptile = reptiles.find((candidate) => candidate.id === action.animalId);
   if (!reptile) {
-    throw new Error('No animal is available for misting.');
+    throw new Error('That animal is no longer available for misting.');
   }
 
   await createCareEvent({
@@ -290,13 +295,13 @@ async function handleWatchTaskAction(action: WatchTaskAction): Promise<void> {
 
   try {
     if (actionType === 'mist') {
-      await logMistingFallback(action);
+      await logMistingForAnimal(action);
       ok = true;
       message = 'Misting logged.';
     } else {
       const task = await findTaskForAction(action);
       if (!task) {
-        throw new Error('No due matching task found.');
+        throw new Error('No matching due task. Open Reptilita on iPhone.');
       }
 
       const result = await markTaskDone(task.id, 'Completed from Apple Watch');
@@ -331,7 +336,7 @@ function scheduleRefresh(): void {
 }
 
 export function startWatchTodaySync(): void {
-  if (started || !Capacitor.isNativePlatform()) return;
+  if (started || Capacitor.getPlatform() !== 'ios') return;
   started = true;
 
   debugWatchSync('Starting Watch Today sync');
@@ -375,4 +380,20 @@ export function startWatchTodaySync(): void {
     debugWatchSync('Cloud sync event snapshot refresh');
     void pushWatchTodaySnapshot(true);
   });
+}
+
+/**
+ * Blank the cached Today snapshot on the paired Watch (and the phone-side cache).
+ * Call on sign-out and account deletion so the Watch never shows a previous
+ * session's care data. No-op off-device.
+ */
+export async function clearWatchTodaySnapshot(): Promise<void> {
+  if (Capacitor.getPlatform() !== 'ios') return;
+  lastSnapshotPushMs = 0;
+  try {
+    await WatchBridge.clearTodaySnapshot();
+    debugWatchSync('Cleared Watch Today snapshot');
+  } catch (error) {
+    debugWatchSync('clearTodaySnapshot failed', { error: String(error) });
+  }
 }

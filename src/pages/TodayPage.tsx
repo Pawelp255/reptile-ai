@@ -509,7 +509,7 @@ export default function TodayPage() {
               </motion.div>
               <motion.div className="rounded-[var(--radius-lg)] border border-border/60 bg-card/60 px-3 py-2.5" {...motionSettings}>
                 <div className="flex items-center justify-between gap-3">
-                  <p className="text-xs text-muted-foreground">Local-first: changes save on this iPhone first, then sync if you choose.</p>
+                  <p className="text-xs text-muted-foreground">Local-first: changes save on this device first, then sync if you choose.</p>
                   <Link to="/settings" className="text-xs inline-flex items-center gap-1 text-primary tap-feedback whitespace-nowrap">
                     Settings
                     <ArrowUpRight className="w-3.5 h-3.5" />

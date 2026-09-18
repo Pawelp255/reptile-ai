@@ -1,4 +1,4 @@
-# Final Submission Checklist — Reptilita 2.1.0
+# Final Submission Checklist — Reptilita 1.0.1
 
 Target submission date: **2026-05-31**. Complete every section on the **same build** uploaded to App Store Connect.
 
@@ -14,13 +14,12 @@ Related files:
 
 ## A. Pre-Build Gates
 
-- [ ] Version **2.1.0** in `package.json` and Xcode **Marketing Version**
+- [ ] Version **1.0.1** in `package.json` and Xcode **Marketing Version**
 - [ ] **Build number** incremented on App and Watch targets (`CURRENT_PROJECT_VERSION`)
 - [ ] Signing: Distribution certificate + App Store provisioning profile for `com.reptilita.app`
 - [ ] Watch App target included in archive scheme
 - [ ] `VITE_SUPABASE_PUBLISHABLE_KEY` set for release build (CI or local env)
 - [ ] `VITE_ENABLE_SAMPLE_DATASETS` **not** set for store build
-- [ ] `VITE_MOCK_PRO_USER` **not** set for store build
 - [ ] Privacy checklist (`privacy-checklist.md`) signed off
 
 ---
@@ -73,7 +72,7 @@ rg -i 'service-worker|workbox' dist || echo 'OK: no SW in dist'
 
 ---
 
-## D. App Store Connect — Version 2.1.0
+## D. App Store Connect — Version 1.0.1
 
 ### Metadata (paste from `app-store-copy.md`)
 
@@ -87,7 +86,7 @@ rg -i 'service-worker|workbox' dist || echo 'OK: no SW in dist'
 - [ ] Privacy Policy URL live (`https://reptilita.com/privacy` — verify)
 - [ ] Marketing URL (optional)
 - [ ] Screenshots: iPhone 6.7" (+ 6.5" if required)
-- [ ] Apple Watch screenshots (recommended for 2.1.0)
+- [ ] Apple Watch screenshots (recommended for 1.0.1)
 - [ ] Primary category: Lifestyle; Secondary: Productivity
 - [ ] Age rating questionnaire completed
 - [ ] Export compliance (no non-exempt encryption)
@@ -100,7 +99,7 @@ rg -i 'service-worker|workbox' dist || echo 'OK: no SW in dist'
 
 ### Build linkage
 
-- [ ] Select uploaded build **2.1.0 (build N)**
+- [ ] Select uploaded build **1.0.1 (61)**
 - [ ] Watch-compatible build recognized
 
 ---
@@ -141,7 +140,7 @@ Full matrix: `docs/app-store/testflight-qa-checklist.md`
 
 ## F. Submit for Review
 
-1. App Store Connect → your app → **2.1.0** version.
+1. App Store Connect → your app → **1.0.1** version.
 2. Confirm all required fields green.
 3. **Add for Review** / **Submit to App Review**.
 4. Answer additional export/content questions if prompted.
@@ -156,7 +155,7 @@ Full matrix: `docs/app-store/testflight-qa-checklist.md`
 ## G. Post-Submit (Do Not Block Submit)
 
 - [ ] Monitor TestFlight crash logs
-- [ ] Prepare 2.1.1 hotfix branch if rejected for metadata only
+- [ ] Prepare next hotfix branch if rejected for metadata only
 - [ ] Respond to App Review within 24h if Watch testing questioned
 
 ---
@@ -167,7 +166,7 @@ Full matrix: `docs/app-store/testflight-qa-checklist.md`
 |------|--------|
 | Release command | `npm run release:ios` |
 | Bundle ID | `com.reptilita.app` |
-| Marketing version | 2.1.0 |
+| Marketing version | 1.0.1 |
 | Demo email | demo.reptilita@gmail.com |
 | Support | support@reptilita.com |
 | Docs pack | `appstore/metadata/*.md` |

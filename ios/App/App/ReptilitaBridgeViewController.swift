@@ -6,9 +6,12 @@ public class ReptilitaBridgeViewController: CAPBridgeViewController {
     public override func capacitorDidLoad() {
         super.capacitorDidLoad()
 
+        #if DEBUG
         NSLog("[ReptilitaBridgeViewController] capacitorDidLoad")
+        #endif
         bridge?.registerPluginInstance(ReptilitaWatchBridgePlugin())
 
+        #if DEBUG
         let pluginNames = [
             "Clipboard",
             "Filesystem",
@@ -25,5 +28,6 @@ public class ReptilitaBridgeViewController: CAPBridgeViewController {
         if !missing.isEmpty {
             NSLog("[ReptilitaBridgeViewController] missing Capacitor plugins=%@", missing.joined(separator: ","))
         }
+        #endif
     }
 }

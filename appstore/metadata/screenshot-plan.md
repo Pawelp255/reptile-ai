@@ -1,4 +1,4 @@
-# Screenshot Plan — Reptilita 2.1.0
+# Screenshot Plan — Reptilita 1.0.1
 
 Premium, calm, husbandry-focused visuals. **No** veterinary diagnosis language, treatment claims, or “push notification” wording. Use real in-app UI; overlays are marketing captions only.
 
@@ -10,7 +10,7 @@ Premium, calm, husbandry-focused visuals. **No** veterinary diagnosis language, 
 |------|----------------|------------|--------|
 | **iPhone 6.7"** | iPhone 15 Pro Max / 14 Pro Max simulator (1290×2796 or 1320×2868) | **Yes** — primary set | Capture 3–10 screens; Apple often shows 6–8 |
 | **iPhone 6.5"** | iPhone 11 Pro Max class (1242×2688) | **Only if** Connect still requires legacy size for your account | Many accounts auto-scale from 6.7"; export 6.5" if validation fails |
-| **Apple Watch** | Series 9 / Ultra 2 simulator (Watch app screenshots) | **Recommended** for 2.1.0 | Highlights companion; pair with iPhone frame in marketing optional |
+| **Apple Watch** | Series 9 / Ultra 2 simulator (Watch app screenshots) | **Recommended** for 1.0.1 | Highlights companion; pair with iPhone frame in marketing optional |
 
 **Build before capture:** `npm run release:ios` → run on device/simulator with seeded demo data or reviewer account.
 
@@ -107,7 +107,7 @@ Also include:
 
 ---
 
-### Screen 6 — Apple Watch companion (hero for 2.1.0)
+### Screen 6 — Apple Watch companion (hero for 1.0.1)
 
 **Composition:** iPhone 6.7" frame showing **Today** (left or background) + Watch screenshot inset, **or** standalone Watch export if Connect accepts Watch-only slot.
 

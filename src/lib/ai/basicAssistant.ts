@@ -8,6 +8,7 @@ import type { CareEvent, Reptile, ScheduleItem, TaskType } from '@/types';
 import { getAllReptiles } from '@/lib/storage/reptiles';
 import { getTasksDueToday, getOverdueTasks, getUpcomingTasks } from '@/lib/storage/schedule';
 import { getRecentEvents } from '@/lib/storage/events';
+import { isAppStoreReviewMode } from '@/lib/plan/appStoreReviewMode';
 
 const TASK_LABEL: Record<TaskType, string> = {
   feed: 'Feeding',
@@ -115,7 +116,7 @@ function navigationAnswer(q: string): string | null {
 }
 
 function helpMessage(): string {
-  return [
+  const lines = [
     'Basic assistant summarizes what’s already in Reptilita on this device — no cloud AI.',
     '',
     'Try asking:',
@@ -124,9 +125,11 @@ function helpMessage(): string {
     '• “What’s overdue?”',
     '• “Recent journal entries”',
     '• “Where is backup?”',
-    '',
-    'Upgrade to Reptilita Pro for the Smart assistant with server-side AI once your account is marked Pro.',
-  ].join('\n');
+  ];
+  if (!isAppStoreReviewMode()) {
+    lines.push('', 'Upgrade to Reptilita Pro for the Smart assistant with server-side AI once your account is marked Pro.');
+  }
+  return lines.join('\n');
 }
 
 function defaultRollup(
@@ -170,7 +173,9 @@ function defaultRollup(
     '',
     'Open Today for due tasks, Journal for logs, Settings for backup/sync.',
     '',
-    'Say “help” for example questions. Reptilita Pro unlocks the Smart AI assistant.',
+    isAppStoreReviewMode()
+      ? 'Say “help” for example questions.'
+      : 'Say “help” for example questions. Reptilita Pro unlocks the Smart AI assistant.',
   );
 
   return parts.join('\n');

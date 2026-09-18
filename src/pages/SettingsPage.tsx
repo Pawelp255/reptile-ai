@@ -8,7 +8,6 @@ import {
   Info,
   Trash2,
   Calculator,
-  Bot,
   Share2,
   Sparkles,
   User,
@@ -67,7 +66,7 @@ import { applyReptilitaBackupMerge, parseBackupFileText } from '@/lib/backup/imp
 import { generateICS } from '@/lib/export/ics';
 import { generatePDFReportBlob } from '@/lib/export/pdf';
 import { ProBadge } from '@/components/plan/ProBadge';
-import { FEATURE_SMART_INSIGHTS_PLACEHOLDER } from '@/lib/plan/mockSubscription';
+import { isAiAssistantEnabled, isProFeaturesEnabled } from '@/lib/plan/appStoreReviewMode';
 import { usePlanStatus } from '@/hooks/usePlanStatus';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase, isSupabaseConfigured } from '@/integrations/supabase/client';
@@ -82,6 +81,10 @@ import {
 } from '@/lib/reptiles/cloudSync';
 import { readLastSuccessfulCloudSyncMs } from '@/lib/sync/syncTelemetry';
 import { REPTILITA_SUPPORT_EMAIL, reptilitaMailto } from '@/lib/reptilitaSupport';
+import { deleteAccountOnServer } from '@/lib/auth/deleteAccount';
+import { clearAccountLocalState } from '@/lib/auth/clearAccountLocalState';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { downloadOrShareBlob } from '@/lib/native/blobExport';
 import { getLocalDateKey } from '@/lib/date/localDateKey';
 
@@ -111,6 +114,9 @@ export default function SettingsPage() {
   const { user, loading: authLoading, signOut } = useAuth();
   const [profile, setProfile] = useState<{ display_name: string | null; avatar_url: string | null } | null>(null);
   const [signOutOpen, setSignOutOpen] = useState(false);
+  const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
+  const [deleteConfirmEmail, setDeleteConfirmEmail] = useState('');
+  const [deletingAccount, setDeletingAccount] = useState(false);
 
   // Expo demo mode
   const [seedingExpo, setSeedingExpo] = useState(false);
@@ -306,6 +312,41 @@ export default function SettingsPage() {
     navigate('/auth');
   };
 
+  const handleDeleteAccount = async () => {
+    if (!user?.email) {
+      toast.error('Account email is unavailable.');
+      return;
+    }
+    const normalizedInput = deleteConfirmEmail.trim().toLowerCase();
+    const normalizedAccount = user.email.trim().toLowerCase();
+    if (normalizedInput !== normalizedAccount) {
+      toast.error('Email does not match your account.');
+      return;
+    }
+
+    setDeletingAccount(true);
+    const userId = user.id;
+    try {
+      const result = await deleteAccountOnServer(user.email);
+      if (result.ok === false) {
+        toast.error(result.message);
+        return;
+      }
+
+      await clearAccountLocalState(userId);
+      await signOut();
+      setDeleteAccountOpen(false);
+      setDeleteConfirmEmail('');
+      toast.success('Your account and cloud data were deleted.');
+      navigate('/auth', { replace: true });
+    } catch (error) {
+      console.error('Account deletion failed:', error);
+      toast.error('Account deletion failed. Please try again.');
+    } finally {
+      setDeletingAccount(false);
+    }
+  };
+
   const formatLastSync = (ms: number | null): string => {
     if (ms === null || !Number.isFinite(ms)) return 'Never synced';
     try {
@@ -332,9 +373,10 @@ export default function SettingsPage() {
       return {
         headline: 'Not connected',
         hint: '',
-        detail:
-          !user || !isSupabaseConfigured || !supabase
-            ? 'Sign in with a configured build to sync.'
+        detail: !isSupabaseConfigured || !supabase
+          ? 'Cloud sync is unavailable in this build.'
+          : !user
+            ? 'Sign in to sync your records.'
             : 'Connect to the internet to sync.',
       } as const;
     }
@@ -484,7 +526,7 @@ export default function SettingsPage() {
       const text = await file.text();
       const parsed = parseBackupFileText(text);
       if (!parsed.ok) {
-        toast.error(parsed.error);
+        toast.error('error' in parsed ? parsed.error : 'Invalid backup file.');
         return;
       }
       setImportReview(parsed.data);
@@ -575,18 +617,27 @@ export default function SettingsPage() {
                     Sign Out
                   </Button>
                 </div>
-                <div className="pt-3 border-t border-border/70 space-y-2">
-                  <p className="text-sm font-medium text-foreground">Delete account and cloud data</p>
-                  <p className="text-secondary text-[13px] leading-snug">
-                    Email{' '}
-                    <a href={reptilitaMailto('Delete my Reptilita account')} className="text-primary font-medium underline">
-                      {REPTILITA_SUPPORT_EMAIL}
-                    </a>{' '}
-                    from the address on this account with the subject line &quot;Delete my Reptilita account&quot;. We verify
-                    ownership, then remove your auth profile and cloud-hosted rows for this app (including synced animals and
-                    schedules). To erase data on this device only, use Clear All Data below — that does not remove cloud
-                    copies by itself.
-                  </p>
+                <div className="pt-3 border-t border-border/70 space-y-3">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Delete account</p>
+                    <p className="text-secondary text-[13px] leading-snug mt-1">
+                      Permanently deletes your Reptilita account, cloud sync data (animals, schedules, journal, shares), and
+                      profile. This cannot be undone. Local-only data on this device can be removed separately with Clear All
+                      Data below.
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-destructive border-destructive/40 hover:bg-destructive/10 hover:text-destructive"
+                    onClick={() => {
+                      setDeleteConfirmEmail('');
+                      setDeleteAccountOpen(true);
+                    }}
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" aria-hidden />
+                    Delete Account
+                  </Button>
                 </div>
               </div>
             ) : (
@@ -791,142 +842,136 @@ export default function SettingsPage() {
           </div>
         </section>
 
-        {/* AI Assistant */}
-        <section id="reptilita-plans-assistant">
-          <h2 className="section-header mb-2.5">AI Assistant</h2>
-          <div className="premium-surface rounded-[var(--radius-xl)] overflow-hidden divide-y divide-border/70 border border-border/60 shadow-[var(--shadow-card)]">
-            <div className="p-4 sm:p-5">
-              <div className="flex gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                  <Bot className="w-5 h-5" aria-hidden />
-                </div>
-                <div className="min-w-0 flex-1 space-y-2">
-                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                    <span className="text-card-title text-foreground">Assistant</span>
-                    {isPro ? (
-                      <span className="text-[11px] font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-400">
-                        Pro
-                      </span>
-                    ) : (
-                      <ProBadge />
+        {isAiAssistantEnabled() && (
+          <section id="reptilita-plans-assistant">
+            <h2 className="section-header mb-2.5">AI Assistant</h2>
+            <div className="premium-surface rounded-[var(--radius-xl)] overflow-hidden divide-y divide-border/70 border border-border/60 shadow-[var(--shadow-card)]">
+              <div className="p-4 sm:p-5">
+                <div className="flex gap-3">
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <span className="text-card-title text-foreground">Assistant</span>
+                      {isPro ? (
+                        <span className="text-[11px] font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-400">
+                          Pro
+                        </span>
+                      ) : (
+                        <ProBadge />
+                      )}
+                    </div>
+                    <p className="text-caption text-muted-foreground">
+                      Current plan:{' '}
+                      <span className="font-medium text-foreground">{isPro ? 'Pro' : 'Free'}</span>
+                    </p>
+                    <p className="text-secondary text-[13px] leading-snug">
+                      {isPro
+                        ? 'Smart AI assistant unlocked — cloud-powered replies when you’re signed in with Pro on your profile.'
+                        : 'Basic assistant summarizes animals, tasks, and journal entries stored on this device — no cloud AI.'}
+                    </p>
+                    {!isPro && (
+                      <p className="text-secondary text-[13px] leading-snug">
+                        Upgrade to unlock smart AI assistant
+                      </p>
                     )}
                   </div>
-                  <p className="text-caption text-muted-foreground">
-                    Current plan:{' '}
-                    <span className="font-medium text-foreground">{isPro ? 'Pro' : 'Free'}</span>
-                  </p>
-                  <p className="text-secondary text-[13px] leading-snug">
-                    {isPro
-                      ? 'Smart AI assistant unlocked — cloud-powered replies when you’re signed in with Pro on your profile.'
-                      : 'Basic assistant summarizes animals, tasks, and journal entries stored on this device — no cloud AI.'}
-                  </p>
-                  {!isPro && (
-                    <p className="text-secondary text-[13px] leading-snug">
-                      Upgrade to unlock smart AI assistant
-                    </p>
-                  )}
-                  {isPro && FEATURE_SMART_INSIGHTS_PLACEHOLDER && (
-                    <p className="text-muted-foreground text-[13px] leading-snug">
-                      Smart summaries for your herd are rolling out progressively on Pro.
-                    </p>
-                  )}
                 </div>
               </div>
+              <Link
+                to="/ai"
+                className="flex items-center justify-between gap-4 min-h-[56px] px-4 sm:px-5 py-3 hover:bg-muted/25 active:bg-muted/35 transition-colors"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <Sparkles className="w-4 h-4 text-primary shrink-0" />
+                  <div>
+                    <span className="text-card-title text-foreground block">Open assistant</span>
+                    <span className="text-secondary text-[13px]">
+                      {isPro ? 'Smart assistant with cloud AI' : 'Local basic assistant chat'}
+                    </span>
+                  </div>
+                </div>
+                <Button variant="ghost" size="sm">
+                  Open
+                </Button>
+              </Link>
             </div>
-            <Link
-              to="/ai"
-              className="flex items-center justify-between gap-4 min-h-[56px] px-4 sm:px-5 py-3 hover:bg-muted/25 active:bg-muted/35 transition-colors"
-            >
-              <div className="flex items-center gap-3 min-w-0">
-                <Sparkles className="w-4 h-4 text-primary shrink-0" />
-                <div>
-                  <span className="text-card-title text-foreground block">Open assistant</span>
-                  <span className="text-secondary text-[13px]">
-                    {isPro ? 'Smart assistant with cloud AI' : 'Local basic assistant chat'}
-                  </span>
-                </div>
-              </div>
-              <Button variant="ghost" size="sm">
-                Open
-              </Button>
-            </Link>
-          </div>
-        </section>
+          </section>
+        )}
 
-        {/* Plans (monetization preview — no storefront yet) */}
-        <section id="reptilita-plans">
-          <h2 className="section-header mb-2.5">What’s included</h2>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="premium-surface rounded-[var(--radius-xl)] border border-border/60 p-4 sm:p-5 space-y-3">
-              <p className="text-card-title text-foreground">Free</p>
-              <ul className="space-y-2 text-[13px] text-secondary leading-snug list-none">
-                <li className="flex gap-2">
-                  <span className="text-foreground shrink-0" aria-hidden>
-                    ·
-                  </span>
-                  <span>Care for plenty of animals (limits may apply later).</span>
-                </li>
-                <li className="flex gap-2">
-                  <span className="text-foreground shrink-0" aria-hidden>
-                    ·
-                  </span>
-                  <span>Full cloud sync when you&apos;re signed in.</span>
-                </li>
-                <li className="flex gap-2">
-                  <span className="text-foreground shrink-0" aria-hidden>
-                    ·
-                  </span>
-                  <span>Backup, export, and import — keep portable copies anytime.</span>
-                </li>
-                <li className="flex gap-2">
-                  <span className="text-foreground shrink-0" aria-hidden>
-                    ·
-                  </span>
-                  <span>Basic assistant experiences without a subscription.</span>
-                </li>
-              </ul>
-            </div>
-            <div className="premium-surface-elevated rounded-[var(--radius-xl)] border border-amber-500/25 bg-amber-500/[0.04] p-4 sm:p-5 space-y-3">
-              <div className="flex items-center gap-2">
-                <p className="text-card-title text-foreground">Reptilita Pro</p>
-                <ProBadge />
-              </div>
-              <ul className="space-y-2 text-[13px] text-secondary leading-snug list-none">
-                <li className="flex gap-2">
-                  <span className="text-foreground shrink-0" aria-hidden>
-                    ·
-                  </span>
-                  <span>Smart AI assistant with deep context from your collection.</span>
-                </li>
-                <li className="space-y-1">
-                  <div className="flex gap-2">
+        {isProFeaturesEnabled() && (
+          <section id="reptilita-plans">
+            <h2 className="section-header mb-2.5">What’s included</h2>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="premium-surface rounded-[var(--radius-xl)] border border-border/60 p-4 sm:p-5 space-y-3">
+                <p className="text-card-title text-foreground">Free</p>
+                <ul className="space-y-2 text-[13px] text-secondary leading-snug list-none">
+                  <li className="flex gap-2">
                     <span className="text-foreground shrink-0" aria-hidden>
                       ·
                     </span>
-                    <div className="min-w-0 space-y-1">
-                      <span className="inline-flex flex-wrap items-center gap-2">
-                        <span>Advanced genetics insights</span>
-                        <ProBadge className="normal-case tracking-normal px-2 py-0.5 text-[10px]" />
+                    <span>Care for plenty of animals (limits may apply later).</span>
+                  </li>
+                  <li className="flex gap-2">
+                    <span className="text-foreground shrink-0" aria-hidden>
+                      ·
+                    </span>
+                    <span>Full cloud sync when you&apos;re signed in.</span>
+                  </li>
+                  <li className="flex gap-2">
+                    <span className="text-foreground shrink-0" aria-hidden>
+                      ·
+                    </span>
+                    <span>Backup, export, and import — keep portable copies anytime.</span>
+                  </li>
+                  <li className="flex gap-2">
+                    <span className="text-foreground shrink-0" aria-hidden>
+                      ·
+                    </span>
+                    <span>Basic assistant experiences without a subscription.</span>
+                  </li>
+                </ul>
+              </div>
+              <div className="premium-surface-elevated rounded-[var(--radius-xl)] border border-amber-500/25 bg-amber-500/[0.04] p-4 sm:p-5 space-y-3">
+                <div className="flex items-center gap-2">
+                  <p className="text-card-title text-foreground">Reptilita Pro</p>
+                  <ProBadge />
+                </div>
+                <ul className="space-y-2 text-[13px] text-secondary leading-snug list-none">
+                  <li className="flex gap-2">
+                    <span className="text-foreground shrink-0" aria-hidden>
+                      ·
+                    </span>
+                    <span>Smart AI assistant with deep context from your collection.</span>
+                  </li>
+                  <li className="space-y-1">
+                    <div className="flex gap-2">
+                      <span className="text-foreground shrink-0" aria-hidden>
+                        ·
                       </span>
-                      <p className="text-muted-foreground text-[12px] leading-snug">
-                        Richer lineage and probability tooling — arriving on Pro.
-                      </p>
+                      <div className="min-w-0 space-y-1">
+                        <span className="inline-flex flex-wrap items-center gap-2">
+                          <span>Advanced genetics insights</span>
+                          <ProBadge className="normal-case tracking-normal px-2 py-0.5 text-[10px]" />
+                        </span>
+                        <p className="text-muted-foreground text-[12px] leading-snug">
+                          Richer lineage and probability tooling — arriving on Pro.
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                </li>
-                <li className="flex gap-2">
-                  <span className="text-foreground shrink-0" aria-hidden>
-                    ·
-                  </span>
-                  <span>Herd-level smart summaries and insights.</span>
-                </li>
-              </ul>
-              <Button variant="secondary" size="sm" disabled className="w-full opacity-80">
-                Pro checkout
-              </Button>
+                  </li>
+                  <li className="flex gap-2">
+                    <span className="text-foreground shrink-0" aria-hidden>
+                      ·
+                    </span>
+                    <span>Herd-level smart summaries and insights.</span>
+                  </li>
+                </ul>
+                <Button variant="secondary" size="sm" disabled className="w-full opacity-80">
+                  Pro checkout
+                </Button>
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
+        )}
 
         {/* Backup (offline JSON snapshot) */}
         <section>
@@ -1018,7 +1063,9 @@ export default function SettingsPage() {
                 <div>
                   <span className="text-card-title text-foreground block">Genetics calculator</span>
                   <span className="text-secondary text-[13px]">
-                    Rough trait-combination estimates · deeper tools on Pro
+                    {isProFeaturesEnabled()
+                      ? 'Rough trait-combination estimates · deeper tools on Pro'
+                      : 'Rough trait-combination estimates for your animals'}
                   </span>
                 </div>
               </div>
@@ -1264,6 +1311,66 @@ export default function SettingsPage() {
             <AlertDialogCancel disabled={clearingData}>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleClearData} disabled={clearingData} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               {clearingData ? 'Clearing...' : 'Clear All Data'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Account Confirmation */}
+      <AlertDialog
+        open={deleteAccountOpen}
+        onOpenChange={(open) => {
+          if (deletingAccount) return;
+          setDeleteAccountOpen(open);
+          if (!open) setDeleteConfirmEmail('');
+        }}
+      >
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete your account?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-4 text-sm text-muted-foreground pt-1">
+                <p>
+                  This permanently removes your account and all cloud data linked to{' '}
+                  <span className="font-medium text-foreground">{user?.email}</span>, including synced animals, care
+                  schedules, journal entries, public shares, and photos stored for sync.
+                </p>
+                <p>
+                  After deletion you will be signed out and local animal data on this device will be cleared. This action
+                  cannot be undone.
+                </p>
+                <div className="space-y-2">
+                  <Label htmlFor="delete-confirm-email" className="text-foreground">
+                    Type your email to confirm
+                  </Label>
+                  <Input
+                    id="delete-confirm-email"
+                    type="email"
+                    autoComplete="off"
+                    placeholder={user?.email ?? 'you@example.com'}
+                    value={deleteConfirmEmail}
+                    onChange={(e) => setDeleteConfirmEmail(e.target.value)}
+                    disabled={deletingAccount}
+                  />
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletingAccount}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                void handleDeleteAccount();
+              }}
+              disabled={
+                deletingAccount ||
+                !user?.email ||
+                deleteConfirmEmail.trim().toLowerCase() !== user.email.trim().toLowerCase()
+              }
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deletingAccount ? 'Deleting…' : 'Delete account permanently'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

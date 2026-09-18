@@ -8,10 +8,19 @@ struct WatchCareTodayView: View {
             ScrollView {
                 VStack(spacing: 10) {
                     if let snapshot = session.snapshot {
+                        if session.isSnapshotStale {
+                            staleBanner
+                        }
+                        if let result = session.actionResult {
+                            actionFeedback(result)
+                        }
                         summary(snapshot)
                         nextTask(snapshot)
                         quickActions
                     } else {
+                        if let result = session.actionResult {
+                            actionFeedback(result)
+                        }
                         emptyState
                     }
                 }
@@ -24,6 +33,35 @@ struct WatchCareTodayView: View {
                 session.requestSnapshot()
             }
         }
+    }
+
+    private var staleBanner: some View {
+        HStack(alignment: .top, spacing: 6) {
+            Image(systemName: "arrow.triangle.2.circlepath")
+                .font(.system(size: 12, weight: .semibold))
+            Text("These counts may be out of date. Open Reptilita on iPhone to refresh today’s care.")
+                .font(.system(size: 11, weight: .medium))
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .foregroundStyle(.orange)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(10)
+        .background(.orange.opacity(0.14), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    private func actionFeedback(_ result: WatchActionResult) -> some View {
+        HStack(alignment: .top, spacing: 6) {
+            Image(systemName: result.ok ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                .font(.system(size: 12, weight: .semibold))
+            Text(result.message)
+                .font(.system(size: 11, weight: .semibold))
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .foregroundStyle(result.ok ? .green : .orange)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(10)
+        .background((result.ok ? Color.green : Color.orange).opacity(0.14), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .transition(.opacity)
     }
 
     private func summary(_ snapshot: WatchCareSnapshot) -> some View {

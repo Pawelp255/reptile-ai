@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Privacy Policy — Reptilita</title>
+  <meta name="description" content="Privacy Policy for the Reptilita reptile and amphibian care app by LimeKing Development." />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <style>
+    :root {
+      --teal: #2a9d8f;
+      --ink: #17211e;
+      --muted: #5b6b66;
+      --bg: #f7faf9;
+      --card: #ffffff;
+      --border: #dde7e4;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      line-height: 1.65;
+    }
+    header {
+      background: linear-gradient(135deg, #0c1512, #143c36);
+      color: #f7faf9;
+      padding: 40px 20px 32px;
+    }
+    .wrap { max-width: 760px; margin: 0 auto; padding: 0 20px; }
+    header .wrap { padding: 0; }
+    header h1 { margin: 0 0 6px; font-size: 1.9rem; letter-spacing: -0.5px; }
+    header p { margin: 0; color: #b9d2cc; font-size: 0.95rem; }
+    main { padding: 32px 0 64px; }
+    section {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 20px 24px;
+      margin: 0 0 16px;
+    }
+    h2 { font-size: 1.1rem; margin: 0 0 8px; color: var(--ink); }
+    p, li { color: var(--muted); font-size: 0.95rem; margin: 0 0 10px; }
+    ul { padding-left: 20px; margin: 0 0 10px; }
+    a { color: var(--teal); }
+    .meta { font-size: 0.85rem; color: var(--muted); }
+    footer { border-top: 1px solid var(--border); padding: 20px; text-align: center; font-size: 0.85rem; color: var(--muted); }
+  </style>
+</head>
+<body>
+<!--email_off-->
+  <header>
+    <div class="wrap">
+      <h1>Reptilita — Privacy Policy</h1>
+      <p>App: Reptilita &middot; Developer: LimeKing Development &middot; Effective: July 21, 2026 &middot; Contact: <a href="mailto:support@reptilita.com" style="color:#8fd4c8">support@reptilita.com</a></p>
+    </div>
+  </header>
+  <main class="wrap">
+    <section>
+      <p style="color:var(--ink); font-weight:500;">
+        Reptilita ("we", "the app"), developed and operated by LimeKing Development, helps you care for reptiles and
+        amphibians. This policy describes how information is handled when you use our web app, PWA, and native
+        (iOS/Android) builds.
+      </p>
+    </section>
+
+    <section>
+      <h2>What you store locally</h2>
+      <p>
+        Animal profiles, journal entries, care schedules, genetics inputs, backups, and similar data are stored primarily
+        on your device (for example in the browser's IndexedDB or equivalent native storage). This local data stays on the
+        device unless you export it, enable cloud sync, or use features that intentionally send data to our servers.
+      </p>
+    </section>
+
+    <section>
+      <h2>Account and cloud sync (Supabase)</h2>
+      <p>
+        Signing in is optional. If you sign in, we use Supabase (hosted database, authentication, and file storage) under
+        project infrastructure we operate. Cloud sync stores copies of animals, care schedules, journal entries, and
+        photos you choose to sync, associated with your account identifier. Authentication identifiers (such as your
+        email address) and profile fields you provide are processed to run the service. All traffic between the app and
+        Supabase uses industry-standard transport encryption (HTTPS/TLS).
+      </p>
+    </section>
+
+    <section>
+      <h2>Photos</h2>
+      <p>
+        Photos are selected through your device's system photo picker only when you choose to add them. The Android app
+        requests no camera or media-library permission. Synced photos are stored in a private storage bucket linked to
+        your account; they are not public and are not shared with third parties.
+      </p>
+    </section>
+
+    <section>
+      <h2>Optional assistant features</h2>
+      <p>
+        Some builds of Reptilita include an optional care-assistant feature. Where an assistant is available and you
+        choose to use it, parts of your question and optional context you select may be processed by our server-side
+        functions, which may call a third-party model provider to generate a reply for that session only. Assistant
+        features are not included in every build, are never enabled without your action, and are not required to use the
+        app. Do not paste secrets or passwords into any assistant.
+      </p>
+    </section>
+
+    <section>
+      <h2>Public sharing</h2>
+      <p>
+        Features that create a public link (for example a shareable care card) transmit only the data you explicitly
+        publish. Revoking a link or not creating one limits further exposure.
+      </p>
+    </section>
+
+    <section>
+      <h2>Analytics and logging</h2>
+      <p>
+        The app contains no advertising and no third-party analytics or tracking SDKs. We may keep limited technical
+        server logs (for example errors or sync status) needed to operate and secure the service. We do not sell your
+        personal information and do not share it with third parties for advertising.
+      </p>
+    </section>
+
+    <section>
+      <h2>Account and data deletion</h2>
+      <p>
+        You can permanently delete your account and all synced data from inside the app:
+        <strong>Settings &rarr; Account &rarr; Delete Account</strong>. Full details, including what is deleted and how
+        long residual copies may persist, are on our dedicated page:
+        <a href="/delete-account">reptilita.com/delete-account</a>.
+      </p>
+      <p>
+        If you cannot access the app, email <a href="mailto:support@reptilita.com">support@reptilita.com</a> from your
+        account email address and we will process the deletion for you.
+      </p>
+    </section>
+
+    <section>
+      <h2>Your choices</h2>
+      <p>
+        You can use the app entirely offline without an account. You can stop cloud processing by signing out or not
+        enabling sync. Clearing local data in Settings removes on-device records but does not automatically erase cloud
+        copies tied to your account; use the deletion path above for that.
+      </p>
+    </section>
+
+    <section>
+      <h2>Changes</h2>
+      <p>
+        We may update this policy as the product evolves. Material changes will be reflected by updating this page and
+        the effective date above.
+      </p>
+      <p class="meta">
+        This summary is for transparency and is not legal advice. For jurisdictional rights (access, correction,
+        erasure), contact <a href="mailto:support@reptilita.com">support@reptilita.com</a>.
+      </p>
+    </section>
+  </main>
+  <footer>
+    Reptilita &middot; LimeKing Development &middot; <a href="/delete-account">Account deletion</a> &middot; <a href="mailto:support@reptilita.com">support@reptilita.com</a>
+  </footer>
+<!--/email_off-->
+</body>
+</html>

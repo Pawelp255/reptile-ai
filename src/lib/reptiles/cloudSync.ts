@@ -209,7 +209,7 @@ export async function upsertCloudReptile(userId: string, reptile: Reptile): Prom
 
   const record = toCloudRecord(userId, reptileForRecord, effectivePhotoPath);
   const { created_at: _preserveCreatedAt, ...recordWithoutCreatedAt } = record;
-  const updatePayload: TablesUpdate<"reptiles"> = existingRow ? recordWithoutCreatedAt : record;
+  const updatePayload: TablesInsert<"reptiles"> = existingRow ? recordWithoutCreatedAt : record;
 
   const { error } = await supabase
     .from("reptiles")
@@ -228,6 +228,37 @@ export async function deleteCloudReptile(userId: string, reptileId: string): Pro
     .eq("id", reptileId);
 
   if (error) throw error;
+}
+
+async function deleteCloudCareTasksForReptile(userId: string, reptileId: string): Promise<void> {
+  if (!supabase) return;
+  const { error } = await supabase
+    .from("reptile_care_tasks")
+    .delete()
+    .eq("user_id", userId)
+    .eq("reptile_id", reptileId);
+  if (error) throw error;
+}
+
+async function deleteCloudCareEventsForReptile(userId: string, reptileId: string): Promise<void> {
+  if (!supabase) return;
+  const { error } = await supabase
+    .from("reptile_care_events")
+    .delete()
+    .eq("user_id", userId)
+    .eq("reptile_id", reptileId);
+  if (error) throw error;
+}
+
+/**
+ * Delete a reptile and ALL of its cloud children (care tasks + journal events).
+ * Children are removed first so a partial failure never leaves a reptile row
+ * without its dependents, and the operation is idempotent on retry.
+ */
+async function deleteCloudReptileCascade(userId: string, reptileId: string): Promise<void> {
+  await deleteCloudCareTasksForReptile(userId, reptileId);
+  await deleteCloudCareEventsForReptile(userId, reptileId);
+  await deleteCloudReptile(userId, reptileId);
 }
 
 export async function hydrateLocalFromCloud(userId: string): Promise<void> {
@@ -407,7 +438,7 @@ async function upsertCloudCareTask(userId: string, schedule: ScheduleItem): Prom
   }
 
   const record = toCloudCareTaskRecord(userId, schedule);
-  const updatePayload: TablesUpdate<"reptile_care_tasks"> = record;
+  const updatePayload: TablesInsert<"reptile_care_tasks"> = record;
 
   const { error } = await supabase
     .from("reptile_care_tasks")
@@ -564,7 +595,7 @@ async function upsertCloudCareEvent(userId: string, event: CareEvent): Promise<v
 
   const record = toCloudCareEventRecord(userId, event);
   const { created_at: _preserveCreatedAt, ...recordWithoutCreatedAt } = record;
-  const updatePayload: TablesUpdate<"reptile_care_events"> = existingRow ? recordWithoutCreatedAt : record;
+  const updatePayload: TablesInsert<"reptile_care_events"> = existingRow ? recordWithoutCreatedAt : record;
 
   const { error } = await supabase
     .from("reptile_care_events")
@@ -590,7 +621,7 @@ async function flushPendingCloudDeletes(userId: string): Promise<void> {
   const remainingReptileIds: string[] = [];
   for (const reptileId of pendingReptileIds) {
     try {
-      await deleteCloudReptile(userId, reptileId);
+      await deleteCloudReptileCascade(userId, reptileId);
     } catch {
       remainingReptileIds.push(reptileId);
     }
@@ -613,10 +644,14 @@ export async function hydrateLocalCareEventsFromCloud(userId: string): Promise<v
   const db = await getDB();
   const cloudEvents = await fetchCloudCareEvents(userId);
   const pendingDeleteIds = new Set(readPendingCareEventDeleteIds(userId));
+  // Only hydrate events whose reptile still exists locally — mirrors the care-task
+  // hydrate and prevents orphaned journal rows (deleted animals) from resurrecting.
+  const reptileIds = new Set((await db.getAll("reptiles")).map((r) => r.id));
   await ensureCareEventsHaveTimestamps();
 
   for (const cloud of cloudEvents) {
     if (pendingDeleteIds.has(cloud.id)) continue;
+    if (!reptileIds.has(cloud.reptileId)) continue;
 
     const local = await db.get("careEvents", cloud.id);
     if (!local) {
@@ -854,8 +889,9 @@ export async function deleteCurrentUserCloudReptile(reptileId: string): Promise<
   const userId = await getCurrentUserId();
   if (!userId) return;
   try {
-    await deleteCloudReptile(userId, reptileId);
+    await deleteCloudReptileCascade(userId, reptileId);
   } catch (error) {
+    // Queue the reptile id; flushPendingCloudDeletes retries the full cascade.
     queuePendingReptileDelete(userId, reptileId);
     throw error;
   }

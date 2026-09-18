@@ -33,6 +33,12 @@ export function useAuth() {
   const signOut = async () => {
     if (!supabase) return;
     await supabase.auth.signOut();
+    try {
+      const { clearWatchTodaySnapshot } = await import('@/lib/native/watchTodaySync');
+      await clearWatchTodaySnapshot();
+    } catch {
+      /* Watch bridge unavailable (web / no paired Watch) */
+    }
   };
 
   return { user, session, loading, signOut };

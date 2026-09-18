@@ -2,7 +2,10 @@
 /// <reference types="vite-plugin-pwa/client" />
 
 interface ImportMetaEnv {
-  readonly VITE_MOCK_PRO_USER?: string;
+  /** App Store review build: hide Pro, billing, and paid AI UI. */
+  readonly VITE_APPSTORE_REVIEW_MODE?: string;
+  /** Alias for review mode — same behavior as VITE_APPSTORE_REVIEW_MODE. */
+  readonly VITE_DISABLE_PRO?: string;
 }
 
 declare const __APP_VERSION__: string;

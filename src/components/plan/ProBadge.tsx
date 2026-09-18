@@ -1,10 +1,13 @@
 import { cn } from '@/lib/utils';
+import { isAppStoreReviewMode } from '@/lib/plan/appStoreReviewMode';
 
 type ProBadgeProps = {
   className?: string;
 };
 
 export function ProBadge({ className }: ProBadgeProps) {
+  if (isAppStoreReviewMode()) return null;
+
   return (
     <span
       className={cn(

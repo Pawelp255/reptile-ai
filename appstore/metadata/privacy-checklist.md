@@ -1,4 +1,4 @@
-# Privacy Checklist — Reptilita 2.1.0 (Pre-Submission Audit)
+# Privacy Checklist — Reptilita 1.0.1 (Pre-Submission Audit)
 
 Audit date: **2026-05-31**. Confirm against the **exact production archive** uploaded to App Store Connect. Legal review recommended before final privacy label submission.
 
@@ -58,7 +58,6 @@ Align **Privacy Nutrition Labels** and **App Privacy** questionnaire with `docs/
 | Item | Audit |
 |------|-------|
 | Sample datasets (`VITE_ENABLE_SAMPLE_DATASETS`) | [ ] Disabled in App Store archive (production = off unless env explicitly set at build) |
-| `VITE_MOCK_PRO_USER` | [ ] Not set for release archive |
 | Watch debug controls | [ ] Moved to Settings; confirm hidden or dev-gated in production |
 | Capacitor debug | [ ] `CAPACITOR_DEBUG` from xcconfig — Release should not enable web debug |
 | Reviewer demo seed UI | [ ] No visible “reviewer mode”; seed is email-gated only |

@@ -10,6 +10,7 @@ public class ReptilitaWatchBridgePlugin: CAPPlugin, CAPBridgedPlugin, WCSessionD
         CAPPluginMethod(name: "getStatus", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "updateTodaySnapshot", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "requestTodaySnapshot", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "clearTodaySnapshot", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "acknowledgeAction", returnType: CAPPluginReturnPromise)
     ]
 
@@ -54,6 +55,14 @@ public class ReptilitaWatchBridgePlugin: CAPPlugin, CAPBridgedPlugin, WCSessionD
         saveSnapshot(snapshot)
         sendSnapshot(snapshot)
         debugLog("[ReptilitaWatchBridge] updateTodaySnapshot completed")
+        call.resolve(statusPayload())
+    }
+
+    @objc func clearTodaySnapshot(_ call: CAPPluginCall) {
+        activateSessionIfNeeded()
+        debugLog("[ReptilitaWatchBridge] clearTodaySnapshot called from JS")
+        UserDefaults.standard.removeObject(forKey: snapshotDefaultsKey)
+        sendPayload(["type": "clearSnapshot"])
         call.resolve(statusPayload())
     }
 
